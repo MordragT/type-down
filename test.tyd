@@ -1,0 +1,194 @@
+// Run with cargo run ./test.tyd
+= Heading
+
+Everything is evaluated to their raw functions.
+These functions can also be called instead but the syntactic sugar is prefered. So for the link or image use the shorter syntax instead of the function call if possible
+
+== Emphasis
+
+This is *bold* and this is _italic_
+This is strikethrough ~asdasd~
+
+== Links
+
+These are links:
+
+- #link("mailto:contact@example.com")[Mail]
+- http://example.com
+- ("http://example.com")[Link]
+
+```
+<protocol>:<content>
+```
+
+== Images
+
+#image("example.png")[Alternative text]
+
+!("example.png", width: 32px)[Alternative text]
+
+== Labels
+
+Text can be labelled <label>
+And labels can be referenced @label
+
+== Blockqoute
+
+> This is a block quote
+>> Nested
+
+== Lists
+
+Lists can be numbered and unnumbered:
+
+- some
+- bullet
+- list
+    - with
+    - indentation
+
++ some
++ numbered
++ list
+    + with
+    + indentation
+
+== Tables
+
+| *Some column* | *Other column* |
+|
+    - some
+    - item
+                |      blah      |
+
+== Terms
+
+/ Term: description
+
+== Math
+
+Math mode is similar to typst
+
+$ x = y ^ 10 / 200 * 20 $
+
+== Raw
+
+Raw text can be `inlined`, but code blocks:
+
+```rust
+fn main() {}
+```
+
+are also possible
+
+== Various
+
+- Line break: \
+- Escape: tweet `\#ad`
+- Comment: `// some comment`
+- Symbols: `~Epsilon // vielleicht eher :Episilon: ?`
+- Quoutes:
+    - "double"
+    - 'single'
+
+/*
+    - commented
+    - out
+    - list
+*/
+
+== Code
+
+- extensions use the `#function(arguments)[inner content]` syntax
+    - must evaluate to content
+    - allows for graceful handling if implementation does not support extension
+- besides functions there exist some more code expressions:
+
+=== Binding
+
+```tyd
+#let author = "Max Mustermann"
+This text was written by #author
+```
+
+Return values of functions can also be binded
+
+```tyd
+#let some_image = image("example.com")[alt]
+
+Now show the image multiple times
+
+#some_image
+
+#some_image
+```
+
+=== Content Block
+
+```tyd
+#[Some *very* important content]
+```
+
+=== Code block
+
+```tyd
+#{
+    let author = "Max Mustermann"
+    let birth_date = "1.1.1960"
+    let age = 63
+    let info = [Max Mustermann is an _excellent_ author]
+    let dict = (
+        author: "Max Mustermann",
+        birth_date: "1.1.1960",
+        age: 63,
+    )
+}
+```
+
+=== Include
+
+Includes other files and evaluates them at the position of the file
+
+```tyd
+#include("other.td")
+```
+
+=== Imports
+
+Imports let bindings and macros of other files and creates dictionary of it
+
+```tyd
+#let other = import("other.td")
+
+#other.description
+```
+
+dict desturcturing
+
+```tyd
+#let (name, description) = import("other.td")
+```
+
+=== Control structures
+
+```tyd
+#if x == y { } else if x > y { } else { }
+
+#for x in (1, 2, 3).reverse() { }
+
+#for (key, value) in dict { }
+```
+
+Macros are less powerful then typst functions as they cannot be called recursively
+
+```tyd
+#macro template(name, age) = [
+    Hello #name you are #age years old.
+]
+```
+
+== Use Cases
+
+- slide deck
+- notion, obsidian, logseq
+- no html :D
