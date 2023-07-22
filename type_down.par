@@ -81,7 +81,7 @@ RawMode
     ;
 
 Language
-    : <Raw>/.+/
+    : <Raw>"[a-zA-Z]+"
     ;
 
 RawText
@@ -143,10 +143,12 @@ KwIn: <Code>'in'
 KwIf: <Code>'if'
     ;
 
-KwElse: <Code>'else'
+KwElse
+    : <Code>'else'
     ;
 
-KwLet: <Code>'let'
+KwLet
+    : <Code>'let'
     ;
 
 Ident
@@ -165,11 +167,11 @@ Real: <Code>/[0-9][0-9]*\.[0-9]*(ED[+-]?[0-9][0-9]*)?/
     ;
 
 StmtList
-    : CurlyLeft NewLine { Stmt NewLine }
+    : CurlyLeft { Stmt }
     ;
 
 CodeList
-    : StmtList [ Expr NewLine ] CurlyRight
+    : StmtList [ Expr ] CurlyRight
     ;
 
 Stmt: Let
@@ -187,28 +189,43 @@ Expr: Call
     ;
 
 ExprList
-    : StmtList Expr NewLine CurlyRight
+    : StmtList Expr CurlyRight
     ;
 
 Collection
-    : BracketLeft (KeyValueList | ValueList) BracketRight;
-    
-KeyValue:
-    Ident Colon Value
+    : BracketLeft ( KeyValueList | ValueList ) BracketRight
     ;
 
-KeyValueList:
- KeyValue { Comma KeyValue };
-
-Value: Ident | Collection | String | Integer | Real | Call;
-
-ValueList: Value {Comma Value};
-
-Makro: KwMakro Ident BracketLeft [ Args ] BracketRight Assign
-      ( Expr | ExprList )
+KeyValue
+    : Ident Colon Value
     ;
 
-For : KwFor Ident KwIn (Ident | Collection | String | Call) ExprList
+KeyValueList
+    : KeyValue { Comma KeyValue }
+    ;
+
+Value
+    : Ident
+    | Collection
+    | String
+    | Integer
+    | Real
+    | Call
+    ;
+
+ValueList
+    : Value { Comma Value }
+    ;
+
+IdentList
+    : Ident { Comma Ident }
+    ;
+
+Makro
+    : KwMakro Ident BracketLeft [ IdentList ] BracketRight Assign ( Expr | ExprList )
+    ;
+
+For : KwFor Ident KwIn ( Ident | Collection | String | Call ) ExprList
     ;
 
 IfElse
@@ -219,18 +236,30 @@ Let : KwLet Ident Assign ( Expr | ExprList )
     ;
 
 ContentMode
-    : SquareLeft ((NewLine ContentBlock) | ContentLine) //%push(INITIAL) [ (TextLine | (NewLine Block)) ] %pop() SquareRight
+    : SquareLeft %push(INITIAL) Block %pop() SquareRight
     ;
 
-ContentLine
-    : %push(INITIAL) [TextLine] %pop SquareRight;
-
-ContentBlock
-    : %push(INITIAL) []
-
-Call: Ident BracketLeft [ KeyValueList ] BracketRight [ ContentMode ]
+Call: Ident BracketLeft [ KeyValueList ] BracketRight //[ ContentMode ]
     ;
 
-Todo
-    : <Code>/.+/
+Todo: <Code>/\w+/
+    ;
+
+// MarkUp ------------------------------------------------------
+Sigil
+    : <Math>'$'
+    ;
+
+// Symbol
+//     : <Math>'epsilon'
+//     | <Math>'Epsilon'
+//     | <Math>'x'
+//     | <Math>'y'
+//     ;
+// MathOp
+//     : <Math>'+'
+//     | <Math>'-'
+//     ;
+MathMode
+    : Sigil %push(Math) /\w+/ %pop() Sigil [ NewBlock ]
     ;
