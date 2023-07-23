@@ -16,8 +16,12 @@ html-builder = "0.5.1"
 parol = "0.22.1"
 parol_runtime = { version = "0.17.1", features = ["auto_generation"] }
 
+[profile.dev]
+opt-level = 3
+
 # For faster builds.
 [profile.dev.build-override]
 opt-level = 3
+
 [profile.release.build-override]
 opt-level = 3

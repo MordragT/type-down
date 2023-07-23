@@ -81,6 +81,7 @@
                 clippy
                 rustfmt
               ])
+              cargo-flamegraph
               packages.parol
               #packages.parol-ls
               pkg-config

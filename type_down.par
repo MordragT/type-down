@@ -37,7 +37,7 @@ Markup
     ;
 
 Heading
-    : HeadingSign TextLine NewBlock
+    : HeadingSign TextLine [ NewBlock ]
     ;
 
 HeadingSign
@@ -45,10 +45,10 @@ HeadingSign
     ;
 
 Paragraph
-    : TextLine [ NewBlock | ( NewLine Paragraph ) ]
+    : TextLine [ NewBlock | Paragraph ]
     ;
 
-List: ListSign TextLine [ NewBlock | ( NewLine List ) ]
+List: ListSign TextLine [ NewBlock | List ]
     ;
 
 ListSign
@@ -56,7 +56,7 @@ ListSign
     ;
 
 OrderedList
-    : OrderedListSign TextLine [ NewBlock | ( NewLine OrderedList ) ]
+    : OrderedListSign TextLine [ NewBlock | OrderedList ]
     ;
 
 OrderedListSign
@@ -64,11 +64,11 @@ OrderedListSign
     ;
 
 TextLine
-    : <INITIAL>/.+/
+    : <INITIAL>/.+/ NewLine
     ;
 
 NewBlock
-    : <INITIAL>/\n\n+/ Block
+    : <INITIAL>/\n+/ Block
     ;
 
 NewLine
@@ -125,6 +125,9 @@ Colon
     : <Code>':'
     ;
 
+Dot : <Code>'.'
+    ;
+
 Assign
     : <Code>'='
     ;
@@ -152,18 +155,27 @@ KwLet
     ;
 
 Ident
-    : <Code>"[a-zA-Z_]\w*"
+    : <Code>/[a-zA-Z_]\w*/
     ;
 
 String
     : <Code>/\u{0022}[^\u{0022}]*\u{0022}|'[^']*'/
     ;
 
-Integer
-    : <Code>/[0-9][0-9]*|[0-9][0-9A-F]*H/
+Digit
+    : <Code>/[0-9]/
     ;
 
-Real: <Code>/[0-9][0-9]*\.[0-9]*(ED[+-]?[0-9][0-9]*)?/
+Digits
+    : <Code>/[0-9]+/
+    ;
+
+Number
+    : Digits [ Fraction ]
+    ;
+
+Fraction
+    : Dot Digits
     ;
 
 StmtList
@@ -178,20 +190,19 @@ Stmt: Let
     | Makro
     ;
 
-Expr: Call
-    | ContentMode
+Expr: ContentMode
+    | Access
     | IfElse
     | For
-    | Ident
     | String
-    | Integer
-    | Real
+    | Number
     ;
 
 ExprList
     : StmtList Expr CurlyRight
     ;
 
+// TODO make ll1
 Collection
     : BracketLeft ( KeyValueList | ValueList ) BracketRight
     ;
@@ -205,12 +216,17 @@ KeyValueList
     ;
 
 Value
-    : Ident
+    : Access
     | Collection
     | String
-    | Integer
-    | Real
-    | Call
+    | Number
+    ;
+
+Iterable
+    : Access
+    | Collection
+    | String
+    | Digits
     ;
 
 ValueList
@@ -225,9 +241,10 @@ Makro
     : KwMakro Ident BracketLeft [ IdentList ] BracketRight Assign ( Expr | ExprList )
     ;
 
-For : KwFor Ident KwIn ( Ident | Collection | String | Call ) ExprList
+For : KwFor Ident KwIn Iterable ExprList
     ;
 
+// TODO maybe not ExprList but StmtList ?
 IfElse
     : KwIf Todo ExprList KwElse ( ExprList | IfElse )
     ;
@@ -239,7 +256,11 @@ ContentMode
     : SquareLeft %push(INITIAL) Block %pop() SquareRight
     ;
 
-Call: Ident BracketLeft [ KeyValueList ] BracketRight //[ ContentMode ]
+Access
+    : Ident [ Call ]
+    ;
+
+Call: BracketLeft [ KeyValueList ] BracketRight //[ ContentMode ]
     ;
 
 Todo: <Code>/\w+/
