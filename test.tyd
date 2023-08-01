@@ -55,7 +55,9 @@ Lists can be numbered and unnumbered:
 
 == Tables
 
-| *Some column* | *Other column* | *test* okok
+| test | test |
+
+| *Some column* | *Other column* |
 |
     - some
     - item

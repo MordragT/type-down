@@ -76,7 +76,7 @@ OrderedList
     ;
 
 Table
-    : PipeToken Elements PipeToken { Elements PipeToken } NewLine [ NewBlock | Table ]
+    : PipeToken { Elements PipeToken } NewLine [ NewBlock | Table ]
     ;
 
 BlockquoteSign
@@ -835,7 +835,7 @@ NewLine
     ;
 
 TextToken
-    : <INITIAL>/.+/
+    : <INITIAL>/[A-Za-z0-9\.\&\=\+\-\(\)]+/
     ;
 
 SingleQuoteToken
