@@ -13,7 +13,7 @@ This is strikethrough ~asdasd~
 
 These are links:
 
-- #link("mailto:contact@example.com")[Mail]
+// TODO - #link("mailto:contact@example.com")[Mail]
 - http://example.com
 - ("http://example.com")[Link]
 
@@ -25,7 +25,7 @@ These are links:
 
 #image("example.png")[Alternative text]
 
-!("example.png", width: 32px)[Alternative text]
+// TODO !("example.png", width: 32px)[Alternative text]
 
 == Labels
 
@@ -55,7 +55,7 @@ Lists can be numbered and unnumbered:
 
 == Tables
 
-| *Some column* | *Other column* |
+| *Some column* | *Other column* | *test* okok
 |
     - some
     - item

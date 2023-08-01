@@ -5,6 +5,10 @@
 %block_comment "/\*/" "\*/"
 %auto_newline_off
 
+%scanner String {
+    %auto_newline_off
+    %auto_ws_off
+}
 %scanner Code {
     %line_comment "//"
     %block_comment "/\*/" "\*/"
@@ -18,118 +22,307 @@
 
 // scanner for the different modes: raw, markup, math, code
 TypeDown
-    : { NewLine } Block
+    : { NewLine^ } Block
     ;
 
 Block
-    : Markup
-    | RawMode
-    | CodeMode
-    | MathMode
+    : RawBlock
+    | MarkBlock
+    | CodeBlock
+    | MathBlock
+    ;
+
+NewBlock
+    : NewLine^ { NewLine^ } Block
+    ;
+
+String
+    : DoubleQuoteToken^ %push(String) StringContent %pop() DoubleQuoteToken^
+    ;
+
+StringContent
+    : <String>/[^"]*/
     ;
 
 // MarkUp ------------------------------------------------------
-Markup
+MarkBlock
     : Heading
     | Paragraph
     | List
     | OrderedList
-    ;
-
-Heading
-    : HeadingSign TextLine [ NewBlock ]
+    | Table
+    | Blockquote
+    | Term
     ;
 
 HeadingSign
-    : <INITIAL>/=+/
+    : EquToken { EquToken }
+    ;
+
+Heading
+    : HeadingSign Line [ NewBlock ]
     ;
 
 Paragraph
-    : TextLine [ NewBlock | Paragraph ]
+    : Line [ NewBlock | Paragraph ]
     ;
 
-List: ListSign TextLine [ NewBlock | List ]
-    ;
-
-ListSign
-    : <INITIAL>'-'
+// TODO list indentation
+List: MinusToken^ Line [ NewBlock | List ]
     ;
 
 OrderedList
-    : OrderedListSign TextLine [ NewBlock | OrderedList ]
+    : PlusToken^ Line [ NewBlock | OrderedList ]
     ;
 
-OrderedListSign
-    : <INITIAL>'+'
+Table
+    : PipeToken Elements PipeToken { Elements PipeToken } NewLine [ NewBlock | Table ]
     ;
 
-TextLine
-    : <INITIAL>/.+/ NewLine
+BlockquoteSign
+    : <INITIAL>/>+/
     ;
 
-NewBlock
-    : <INITIAL>/\n+/ Block
+Blockquote
+    : BlockquoteSign Line [ NewBlock | Blockquote ]
     ;
 
-NewLine
-    : <INITIAL>/\n/
+Term: SlashToken Line [ NewBlock | Term ]
+    ;
+
+// ImageSign
+//     : <INITIAL>'!'
+//     ;
+// Image
+//     : ImageSign %push(Code) Call %pop(Code)
+//     ;
+Line: Elements NewLine^
+    ;
+
+Elements
+    : Element { Element }
+    ;
+
+// TODO inline math
+Element
+    : Format
+    | Label
+    | Reference
+    ;
+
+Label
+    : LeftAngleToken %push(Code) IdentifierToken %pop() RightAngleToken
+    ;
+
+Reference
+    : AtToken %push(Code) IdentifierToken %pop()
+    ;
+
+Emoji
+    : ColonToken %push(Code) IdentifierToken { DotToken IdentifierToken } %pop() ColonToken
+    ;
+
+Format
+    : DoubleQuote
+    | SeventhFormat
+    ;
+
+FirstFormat
+    : TextToken
+    | Emoji
+    ;
+
+SecondFormat
+    : FirstFormat
+    | Monospace
+    ;
+
+ThirdFormat
+    : SecondFormat
+    | Italic
+    ;
+
+FourthFormat
+    : ThirdFormat
+    | Bold
+    ;
+
+FifthFormat
+    : FourthFormat
+    | Strikethrough
+    ;
+
+SixthFormat
+    : FifthFormat
+    | Subscript
+    | Supscript
+    ;
+
+SeventhFormat
+    : SixthFormat
+    | SingleQuote
+    ;
+
+DoubleQuote
+    : DoubleQuoteToken { SeventhFormat } DoubleQuoteToken
+    ;
+
+SingleQuote
+    : SingleQuoteToken { SixthFormat } SingleQuoteToken
+    ;
+
+Subscript
+    : UnderscoreDoubleToken { FifthFormat } UnderscoreDoubleToken
+    ;
+
+Supscript
+    : CaretToken { FifthFormat } CaretToken
+    ;
+
+Strikethrough
+    : TildeToken { FourthFormat } TildeToken
+    ;
+
+Bold: AsteriskToken { ThirdFormat } AsteriskToken
+    ;
+
+Italic
+    : UnderscoreToken { SecondFormat } UnderscoreToken
+    ;
+
+Monospace
+    : BacktickToken { FirstFormat } BacktickToken
     ;
 
 // Raw ------------------------------------------------------
-RawMode
-    : '```' %push(Raw) [ Language ] RawText %pop() '```' [ NewBlock ]
-    ;
-
-Language
-    : <Raw>"[a-zA-Z]+"
+RawBlock
+    : BacktickTripleToken^ [ TextToken ] NewLine^ %push(Raw) RawText %pop() BacktickTripleToken^
+      NewLine^ [ NewBlock ]
     ;
 
 RawText
-    : <Raw>/(.|\n)*/
+    : <Raw>/([^`]|\n)+/
     ;
 
 // Code ------------------------------------------------------
-CodeMode
-    : <INITIAL>'#' %push(Code) ( Stmt | Expr | CodeList ) %pop() [ NewBlock ]
+CodeBlock
+    : HashToken %push(Code) ( Stmt | Expr | CodeList ) %pop() [ NewBlock ]
     ;
 
-CurlyLeft
-    : <Code>'{'
+CodeList
+    : StmtList [ Expr ] RightBraceToken
     ;
 
-CurlyRight
-    : <Code>'}'
+StmtList
+    : LeftBraceToken { Stmt }
     ;
 
-BracketLeft
-    : <Code>'('
+Stmt: Let
+    | Makro
     ;
 
-BracketRight
-    : <Code>')'
+Let : KwLet IdentifierToken EquToken ( Expr | ExprList ) NewLine
     ;
 
-SquareLeft
-    : <Code>'['
+IdentList
+    : IdentifierToken { CommaToken IdentifierToken }
     ;
 
-SquareRight
-    : <Code>']'
+Makro
+    : KwMakro IdentifierToken LeftParenToken [ IdentList ] RightParenToken EquToken
+      ( Expr | ExprList ) NewLine
     ;
 
-Comma
-    : <Code>','
+ExprList
+    : StmtList Expr RightBraceToken
     ;
 
-Colon
-    : <Code>':'
+Expr: ContentMode
+    | IfElse
+    | For
+    | Disjunction
     ;
 
-Dot : <Code>'.'
+ContentMode
+    : LeftBracketToken %push(INITIAL) Block %pop() RightBracketToken
     ;
 
-Assign
-    : <Code>'='
+// TODO maybe not ExprList but StmtList ?
+IfElse
+    : KwIf Disjunction ( ExprList | ContentMode ) KwElse ( ExprList | ContentMode | IfElse )
+    ;
+
+// Collection implemented as function call
+// as functions have named and unnamed function parameters
+// dict function only takes named function calls
+// and array function only takes unnammed function calls of the same type
+Iterable
+    : Access
+    | String
+    | DigitsToken
+    ;
+
+For : KwFor IdentifierToken KwIn Iterable ( ExprList | ContentMode )
+    ;
+
+Disjunction
+    : Conjunction { PipeDoubleToken Conjunction }
+    ;
+
+Conjunction
+    : Negation { AmperDoubleToken Negation }
+    ;
+
+Negation
+    : [ ExclamToken ] Relation
+    ;
+
+Relation
+    : Summation
+      [ ( EquDoubleToken | ExclamEquToken | LeftAngleToken | LeftAngleEquToken | RightAngleToken | RightAngleEquToken ) Summation ]
+    ;
+
+Summation
+    : Multiplication { ( PlusToken | MinusToken ) Multiplication }
+    ;
+
+Multiplication
+    : Factor { ( SlashToken | AsteriskToken | PercentToken ) Factor }
+    ;
+
+// la minustoken in summation
+Factor //: [ MinusToken ] Primary
+
+    : Primary
+    ;
+
+Primary
+    : ( LeftParenToken Disjunction RightParenToken )
+    | Value
+    ;
+
+Value
+    : Access
+    | String
+    | Number
+    | Bool
+    ;
+
+Arg : IdentifierToken [ ( ColonToken Value ) | Call ]
+    | String
+    | Number
+    | Bool
+    ;
+
+Args: Arg { CommaToken Arg }
+    ;
+
+Access
+    : IdentifierToken [ Call ]
+    ;
+
+Call: LeftParenToken [ Args ]
+      ( RightParenToken | RightParenLeftBracketToken %push(INITIAL) Block %pop() RightBracketToken )
     ;
 
 KwMakro
@@ -154,133 +347,501 @@ KwLet
     : <Code>'let'
     ;
 
-Ident
-    : <Code>/[a-zA-Z_]\w*/
+KwTrue
+    : <Code>'true'
     ;
 
-String
-    : <Code>/\u{0022}[^\u{0022}]*\u{0022}|'[^']*'/
+KwFalse
+    : <Code>'false'
     ;
 
-Digit
-    : <Code>/[0-9]/
-    ;
-
-Digits
-    : <Code>/[0-9]+/
+Bool: KwTrue
+    | KwFalse
     ;
 
 Number
-    : Digits [ Fraction ]
+    : DigitsToken [ DotToken DigitsToken ]
     ;
 
-Fraction
-    : Dot Digits
+// Math ------------------------------------------------------
+MathBlock
+    : SigilToken %push(Math) Formular %pop() SigilToken [ NewBlock ]
     ;
 
-StmtList
-    : CurlyLeft { Stmt }
+Formular
+    : Symbol
     ;
 
-CodeList
-    : StmtList [ Expr ] CurlyRight
+// TODO Numbers, integral, infinity, nothing(empty set)
+Symbol
+    : Greek
+    | Variable
+    | DoubleStruck
+    | Operation //| StringToken
     ;
 
-Stmt: Let
-    | Makro
+Alpha
+    : <Math>'Alpha'
+    | <Math>'alpha'
     ;
 
-Expr: ContentMode
-    | Access
-    | IfElse
-    | For
-    | String
-    | Number
+Beta: <Math>'Beta'
+    | <Math>'beta'
     ;
 
-ExprList
-    : StmtList Expr CurlyRight
+Gamma
+    : <Math>'Gamma'
+    | <Math>'gamma'
     ;
 
-// TODO make ll1
-Collection
-    : BracketLeft ( KeyValueList | ValueList ) BracketRight
+Delta
+    : <Math>'Delta'
+    | <Math>'delta'
     ;
 
-KeyValue
-    : Ident Colon Value
+Epsilon
+    : <Math>'Epsilon'
+    | <Math>'epsilon'
     ;
 
-KeyValueList
-    : KeyValue { Comma KeyValue }
+Zeta: <Math>'Zeta'
+    | <Math>'zeta'
     ;
 
-Value
-    : Access
-    | Collection
-    | String
-    | Number
+Eta : <Math>'Eta'
+    | <Math>'eta'
     ;
 
-Iterable
-    : Access
-    | Collection
-    | String
-    | Digits
+Theta
+    : <Math>'Theta'
+    | <Math>'theta'
     ;
 
-ValueList
-    : Value { Comma Value }
+Iota: <Math>'Iota'
+    | <Math>'iota'
     ;
 
-IdentList
-    : Ident { Comma Ident }
+Kappa
+    : <Math>'Kappa'
+    | <Math>'kappa'
     ;
 
-Makro
-    : KwMakro Ident BracketLeft [ IdentList ] BracketRight Assign ( Expr | ExprList )
+Lambda
+    : <Math>'Lambda'
+    | <Math>'lambda'
     ;
 
-For : KwFor Ident KwIn Iterable ExprList
+Mu  : <Math>'Mu'
+    | <Math>'mu'
     ;
 
-// TODO maybe not ExprList but StmtList ?
-IfElse
-    : KwIf Todo ExprList KwElse ( ExprList | IfElse )
+Nu  : <Math>'Nu'
+    | <Math>'nu'
     ;
 
-Let : KwLet Ident Assign ( Expr | ExprList )
+Xi  : <Math>'Xi'
+    | <Math>'xi'
     ;
 
-ContentMode
-    : SquareLeft %push(INITIAL) Block %pop() SquareRight
+Omicron
+    : <Math>'Omicron'
+    | <Math>'omicron'
     ;
 
-Access
-    : Ident [ Call ]
+Pi  : <Math>'Pi'
+    | <Math>'pi'
+    | <Math>'product'
     ;
 
-Call: BracketLeft [ KeyValueList ] BracketRight //[ ContentMode ]
+Rho : <Math>'Rho'
+    | <Math>'rho'
     ;
 
-Todo: <Code>/\w+/
+Sigma
+    : <Math>'Sigma'
+    | <Math>'sigma'
+    | <Math>'sum'
     ;
 
-// MarkUp ------------------------------------------------------
-Sigil
-    : <Math>'$'
+Tau : <Math>'Tau'
+    | <Math>'tau'
     ;
 
-// Symbol
-//     : <Math>'epsilon'
-//     | <Math>'Epsilon'
-//     | <Math>'x'
-//     | <Math>'y'
+Upsilon
+    : <Math>'Upsilon'
+    | <Math>'upsilon'
+    ;
+
+Phi : <Math>'Phi'
+    | <Math>'phi'
+    ;
+
+Chi : <Math>'Chi'
+    | <Math>'chi'
+    ;
+
+Psi : <Math>'Psi'
+    | <Math>'psi'
+    ;
+
+Omega
+    : <Math>'Omega'
+    | <Math>'omega'
+    ;
+
+Greek
+    : Alpha
+    | Beta
+    | Gamma
+    | Delta
+    | Epsilon
+    | Zeta
+    | Eta
+    | Theta
+    | Iota
+    | Kappa
+    | Lambda
+    | Mu
+    | Nu
+    | Xi
+    | Omicron
+    | Pi
+    | Rho
+    | Sigma
+    | Tau
+    | Upsilon
+    | Phi
+    | Chi
+    | Psi
+    | Omega
+    ;
+
+DoubleStruck
+    : <Math>'AA'
+    | <Math>'BB'
+    | <Math>'CC'
+    | <Math>'DD'
+    | <Math>'EE'
+    | <Math>'FF'
+    | <Math>'GG'
+    | <Math>'HH'
+    | <Math>'II'
+    | <Math>'JJ'
+    | <Math>'KK'
+    | <Math>'LL'
+    | <Math>'MM'
+    | <Math>'NN'
+    | <Math>'OO'
+    | <Math>'PP'
+    | <Math>'QQ'
+    | <Math>'RR'
+    | <Math>'SS'
+    | <Math>'TT'
+    | <Math>'UU'
+    | <Math>'VV'
+    | <Math>'WW'
+    | <Math>'XX'
+    | <Math>'YY'
+    | <Math>'ZZ'
+    ;
+
+Not : <Math>'not'
+    ;
+
+And : <Math>'and'
+    ;
+
+Or  : <Math>'or'
+    ;
+
+ForAll
+    : <Math>'forall'
+    ;
+
+Exists
+    : <Math>'exists'
+    ;
+
+Left: <Math>'left'
+    ;
+
+Right
+    : <Math>'right'
+    ;
+
+Top : <Math>'top'
+    ;
+
+Bot : <Math>'bot'
+    ;
+
+Tack: <Math>'tack' [ DotToken ( Left | Right | Top | Bot ) ]
+    ;
+
+Logical
+    : And
+    | Or
+    | Not
+    | ForAll
+    | Exists
+    | Tack
+    ;
+
+Equal
+    : <Math>'eq' [ DotToken Not ]
+    ;
+
+Identical
+    : <Math>'ident' [ DotToken Not ]
+    ;
+
+Approx
+    : <Math>'approx' [ DotToken Not ]
+    ;
+
+Prop: <Math>'prop'
+    ;
+
+Less: <Math>'le' [ DotToken Equal ]
+    ;
+
+Greater
+    : <Math>'ge' [ DotToken Equal ]
+    ;
+
+In  : <Math>'in' [ DotToken Not ]
+    ;
+
+Subset
+    : <Math>'subset' [ DotToken ( Not | Equal ) ]
+    ;
+
+Supset
+    : <Math>'supset' [ DotToken ( Not | Equal ) ]
+    ;
+
+Relation
+    : Equal
+    | Identical
+    | Approx
+    | Prop
+    | Less
+    | Greater
+    | In
+    | Subset
+    | Supset
+    ;
+
+Variable
+    : <Math>/[a-zA-Z]/
+    ;
+
+Attach
+    : UnderscoreToken
+    | CaretToken
+    ;
+
+Plus: <Math>'plus'
+    | PlusToken
+    ;
+
+Minus
+    : <Math>'minus'
+    | MinusToken
+    ;
+
+Frac: <Math>'frac'
+    | SlashToken
+    ;
+
+Times
+    : <Math>'times'
+    | AsteriskToken
+    ;
+
+Operation
+    : Logical
+    | Relation
+    | Attach
+    | Plus
+    | Minus
+    | Frac
+    | Times
+    ;
+
+// Group
+//     : BracketLeft Formular BracketRight
 //     ;
-// MathOp
-//     : <Math>'+'
-//     | <Math>'-'
+// Tokens ------------------------------------------------------
+EquDoubleToken
+    : <Code>'=='
+    ;
+
+EquToken
+    : <INITIAL, Code>'='
+    ;
+
+PlusToken
+    : <INITIAL, Code, Math>'+'
+    ;
+
+MinusToken
+    : <INITIAL, Code, Math>'-'
+    ;
+
+SlashToken
+    : <INITIAL, Code, Math>'/'
+    ;
+
+AsteriskToken
+    : <INITIAL, Code, Math>'*'
+    ;
+
+PercentToken
+    : <Code>'%'
+    ;
+
+PipeDoubleToken
+    : <Code>'||'
+    ;
+
+PipeToken
+    : <INITIAL>'|'
+    ;
+
+UnderscoreDoubleToken
+    : <INITIAL>'__'
+    ;
+
+UnderscoreToken
+    : <INITIAL, Math>'_'
+    ;
+
+CaretToken
+    : <INITIAL, Math>'^'
+    ;
+
+BacktickTripleToken
+    : <INITIAL>'```'
+    ;
+
+BacktickToken
+    : <INITIAL>'`'
+    ;
+
+TildeToken
+    : <INITIAL>'~'
+    ;
+
+HashToken
+    : <INITIAL>'#'
+    ;
+
+SigilToken
+    : <INITIAL>'$'
+    ;
+
+AtToken
+    : <INITIAL>'@'
+    ;
+
+CommaToken
+    : <Code>','
+    ;
+
+// SemiColonToken
+//     : ';'
 //     ;
-MathMode
-    : Sigil %push(Math) /\w+/ %pop() Sigil [ NewBlock ]
+DotToken
+    : <Code, Math>'.'
+    ;
+
+ColonToken
+    : <INITIAL, Code>':'
+    ;
+
+LeftParenToken
+    : <Code, Math>'('
+    ;
+
+RightParenLeftBracketToken
+    : <Code>')['
+    ;
+
+RightParenToken
+    : <Code, Math>')'
+    ;
+
+LeftBraceToken
+    : <Code>'{'
+    ;
+
+RightBraceToken
+    : <Code>'}'
+    ;
+
+LeftBracketToken
+    : <Code>'['
+    ;
+
+RightBracketToken
+    : <Code>']'
+    ;
+
+LeftAngleEquToken
+    : <Code>'<='
+    ;
+
+LeftAngleToken
+    : <INITIAL>'<'
+    ;
+
+RightAngleEquToken
+    : <Code>'>='
+    ;
+
+RightAngleToken
+    : <INITIAL>'>'
+    ;
+
+ExclamEquToken
+    : <Code>'!='
+    ;
+
+ExclamToken
+    : <Code>'!'
+    ;
+
+AmperDoubleToken
+    : <Code>'&&'
+    ;
+
+DigitsToken
+    : <Code>/[0-9]+/
+    ;
+
+IdentifierToken
+    : <Code>/[a-zA-Z_][0-9a-zA-Z_]*/
+    ;
+
+// EmojiIdentifierToken
+//     : <INITIAL>/[a-zA-Z_][0-9a-zA-Z_\.]*/
+//     ;
+// WhiteSpace
+//     : <INITIAL>/[ \t]+/
+//     ;
+NewLine
+    : <INITIAL, Code>/\n/
+    ;
+
+TextToken
+    : <INITIAL>/.+/
+    ;
+
+SingleQuoteToken
+    : <INITIAL>/\'/
+    ;
+
+DoubleQuoteToken
+    : <INITIAL, Code>/\"/
     ;
