@@ -5,11 +5,17 @@
 %block_comment "/\*/" "\*/"
 %auto_newline_off
 
+%scanner Element {
+    %block_comment "/\*/" "\*/"
+    %auto_newline_off
+    %auto_ws_off
+}
 %scanner String {
     %auto_newline_off
     %auto_ws_off
 }
 %scanner Code {
+    %auto_newline_off
     %line_comment "//"
     %block_comment "/\*/" "\*/"
 }
@@ -76,7 +82,7 @@ OrderedList
     ;
 
 Table
-    : PipeToken { Elements PipeToken } NewLine [ NewBlock | Table ]
+    : PipeToken^ { Elements PipeToken^ } NewLine^ [ NewBlock | Table ]
     ;
 
 BlockquoteSign
@@ -100,7 +106,7 @@ Line: Elements NewLine^
     ;
 
 Elements
-    : Element { Element }
+    : %push(Element) [ WhiteSpace^ ] Element { WhiteSpace^ Element } %pop()
     ;
 
 // TODO inline math
@@ -111,87 +117,118 @@ Element
     ;
 
 Label
-    : LeftAngleToken %push(Code) IdentifierToken %pop() RightAngleToken
+    : LeftAngleToken^ %push(Code) IdentifierToken %pop() RightAngleToken^
     ;
 
 Reference
-    : AtToken %push(Code) IdentifierToken %pop()
+    : AtToken^ %push(Code) IdentifierToken %pop()
     ;
 
 Emoji
-    : ColonToken %push(Code) IdentifierToken { DotToken IdentifierToken } %pop() ColonToken
+    : ColonDoubleToken^ %push(Code) IdentifierToken { DotToken IdentifierToken } %pop()
+      ColonDoubleToken^
     ;
 
 Format
-    : DoubleQuote
-    | SeventhFormat
-    ;
-
-FirstFormat
     : TextToken
     | Emoji
-    ;
-
-SecondFormat
-    : FirstFormat
     | Monospace
-    ;
-
-ThirdFormat
-    : SecondFormat
     | Italic
-    ;
-
-FourthFormat
-    : ThirdFormat
     | Bold
-    ;
-
-FifthFormat
-    : FourthFormat
     | Strikethrough
+    | Subscript
+    | Supscript
+    | SingleQuote
+    | DoubleQuote
     ;
 
-SixthFormat
-    : FifthFormat
+Format01
+    : TextToken
+    | Emoji
+    | Monospace
+    | Italic
+    | Bold
+    | Strikethrough
+    | Subscript
+    | Supscript
+    | SingleQuote
+    ;
+
+Format02
+    : TextToken
+    | Emoji
+    | Monospace
+    | Italic
+    | Bold
+    | Strikethrough
     | Subscript
     | Supscript
     ;
 
-SeventhFormat
-    : SixthFormat
-    | SingleQuote
+Format03
+    : TextToken
+    | Emoji
+    | Monospace
+    | Italic
+    | Bold
+    | Strikethrough
+    ;
+
+Format04
+    : TextToken
+    | Emoji
+    | Monospace
+    | Italic
+    | Bold
+    ;
+
+Format05
+    : TextToken
+    | Emoji
+    | Monospace
+    | Italic
+    ;
+
+Format06
+    : TextToken
+    | Emoji
+    | Monospace
+    ;
+
+Format07
+    : TextToken
+    | Emoji
     ;
 
 DoubleQuote
-    : DoubleQuoteToken { SeventhFormat } DoubleQuoteToken
+    : DoubleQuoteToken^ { Format01 } DoubleQuoteToken^
     ;
 
 SingleQuote
-    : SingleQuoteToken { SixthFormat } SingleQuoteToken
+    : SingleQuoteToken^ { Format02 } SingleQuoteToken^
     ;
 
 Subscript
-    : UnderscoreDoubleToken { FifthFormat } UnderscoreDoubleToken
+    : UnderscoreDoubleToken^ { Format03 } UnderscoreDoubleToken^
     ;
 
 Supscript
-    : CaretToken { FifthFormat } CaretToken
+    : CaretToken^ { Format03 } CaretToken^
     ;
 
 Strikethrough
-    : TildeToken { FourthFormat } TildeToken
+    : TildeToken^ { Format04 } TildeToken^
     ;
 
-Bold: AsteriskToken { ThirdFormat } AsteriskToken
+Bold: AsteriskToken^ { Format05 } AsteriskToken^
     ;
 
 Italic
-    : UnderscoreToken { SecondFormat } UnderscoreToken
+    : UnderscoreToken^ { Format06 } UnderscoreToken^
     ;
 
 Monospace
-    : BacktickToken { FirstFormat } BacktickToken
+    : BacktickToken^ { Format07 } BacktickToken^
     ;
 
 // Raw ------------------------------------------------------
@@ -204,52 +241,55 @@ RawText
     : <Raw>/([^`]|\n)+/
     ;
 
+// TODO add newlines everywhere
 // Code ------------------------------------------------------
 CodeBlock
-    : HashToken %push(Code) ( Stmt | Expr | CodeList ) %pop() [ NewBlock ]
+    : HashToken^ %push(Code) Expr NewLine^ %pop() [ NewBlock ]
     ;
 
-CodeList
-    : StmtList [ Expr ] RightBraceToken
-    ;
-
-StmtList
-    : LeftBraceToken { Stmt }
-    ;
-
-Stmt: Let
+Expr: Let
     | Makro
+    | ControlExpr
+    | ValueExpr
+    | ListExpr
     ;
 
-Let : KwLet IdentifierToken EquToken ( Expr | ExprList ) NewLine
+ListExpr
+    : LeftBraceToken^ NewLine^ Expr NewLine^ { Expr NewLine^ } RightBraceToken^
+    ;
+
+ControlExpr
+    : IfElse
+    | For
+    ;
+
+ValueExpr
+    : Disjunction
+    | Content
+    ;
+
+Let : KwLet^ IdentifierToken EquToken^ Expr
     ;
 
 IdentList
-    : IdentifierToken { CommaToken IdentifierToken }
+    : IdentifierToken { CommaToken^ IdentifierToken }
     ;
 
 Makro
-    : KwMakro IdentifierToken LeftParenToken [ IdentList ] RightParenToken EquToken
-      ( Expr | ExprList ) NewLine
+    : KwMakro^ IdentifierToken LeftParenToken^ [ IdentList ] RightParenToken^ EquToken^ Expr
     ;
 
-ExprList
-    : StmtList Expr RightBraceToken
+Content
+    : LeftBracketToken^ ContentTail
     ;
 
-Expr: ContentMode
-    | IfElse
-    | For
-    | Disjunction
-    ;
-
-ContentMode
-    : LeftBracketToken %push(INITIAL) Block %pop() RightBracketToken
+ContentTail
+    : %push(INITIAL) ( NewLine^ Block | Elements ) %pop() RightBracketToken^
     ;
 
 // TODO maybe not ExprList but StmtList ?
 IfElse
-    : KwIf Disjunction ( ExprList | ContentMode ) KwElse ( ExprList | ContentMode | IfElse )
+    : KwIf Disjunction ( ListExpr | Content ) KwElse ( ListExpr | Content | IfElse )
     ;
 
 // Collection implemented as function call
@@ -262,7 +302,7 @@ Iterable
     | DigitsToken
     ;
 
-For : KwFor IdentifierToken KwIn Iterable ( ExprList | ContentMode )
+For : KwFor^ IdentifierToken KwIn^ Iterable ( ListExpr | Content )
     ;
 
 Disjunction
@@ -314,15 +354,14 @@ Arg : IdentifierToken [ ( ColonToken Value ) | Call ]
     | Bool
     ;
 
-Args: Arg { CommaToken Arg }
+Args: Arg { CommaToken^ Arg }
     ;
 
 Access
     : IdentifierToken [ Call ]
     ;
 
-Call: LeftParenToken [ Args ]
-      ( RightParenToken | RightParenLeftBracketToken %push(INITIAL) Block %pop() RightBracketToken )
+Call: LeftParenToken^ [ Args ] ( RightParenToken^ | RightParenLeftBracketToken^ ContentTail )
     ;
 
 KwMakro
@@ -694,7 +733,7 @@ SlashToken
     ;
 
 AsteriskToken
-    : <INITIAL, Code, Math>'*'
+    : <Element, Code, Math>'*'
     ;
 
 PercentToken
@@ -710,15 +749,15 @@ PipeToken
     ;
 
 UnderscoreDoubleToken
-    : <INITIAL>'__'
+    : <Element>'__'
     ;
 
 UnderscoreToken
-    : <INITIAL, Math>'_'
+    : <Element, Math>'_'
     ;
 
 CaretToken
-    : <INITIAL, Math>'^'
+    : <Element, Math>'^'
     ;
 
 BacktickTripleToken
@@ -726,11 +765,11 @@ BacktickTripleToken
     ;
 
 BacktickToken
-    : <INITIAL>'`'
+    : <Element>'`'
     ;
 
 TildeToken
-    : <INITIAL>'~'
+    : <Element>'~'
     ;
 
 HashToken
@@ -742,7 +781,7 @@ SigilToken
     ;
 
 AtToken
-    : <INITIAL>'@'
+    : <Element>'@'
     ;
 
 CommaToken
@@ -756,8 +795,12 @@ DotToken
     : <Code, Math>'.'
     ;
 
+ColonDoubleToken
+    : <Element>'::'
+    ;
+
 ColonToken
-    : <INITIAL, Code>':'
+    : <Code>':'
     ;
 
 LeftParenToken
@@ -785,7 +828,7 @@ LeftBracketToken
     ;
 
 RightBracketToken
-    : <Code>']'
+    : <Code, Element>']'
     ;
 
 LeftAngleEquToken
@@ -793,7 +836,7 @@ LeftAngleEquToken
     ;
 
 LeftAngleToken
-    : <INITIAL>'<'
+    : <Element>'<'
     ;
 
 RightAngleEquToken
@@ -801,7 +844,7 @@ RightAngleEquToken
     ;
 
 RightAngleToken
-    : <INITIAL>'>'
+    : <Element>'>'
     ;
 
 ExclamEquToken
@@ -827,21 +870,22 @@ IdentifierToken
 // EmojiIdentifierToken
 //     : <INITIAL>/[a-zA-Z_][0-9a-zA-Z_\.]*/
 //     ;
-// WhiteSpace
-//     : <INITIAL>/[ \t]+/
-//     ;
+WhiteSpace
+    : <Element>/[ \t]+/
+    ;
+
 NewLine
-    : <INITIAL, Code>/\n/
+    : <INITIAL, Element, Code>/\n/
     ;
 
 TextToken
-    : <INITIAL>/[A-Za-z0-9\.\&\=\+\-\(\)]+/
+    : <INITIAL, Element>/[A-Za-z0-9\.\&\=\+\-\(\)\:]+/
     ;
 
 SingleQuoteToken
-    : <INITIAL>/\'/
+    : <Element>/\'/
     ;
 
 DoubleQuoteToken
-    : <INITIAL, Code>/\"/
+    : <Element, Code>/\"/
     ;

@@ -14,8 +14,8 @@ This is strikethrough ~asdasd~
 These are links:
 
 // TODO - #link("mailto:contact@example.com")[Mail]
-- http://example.com
-- ("http://example.com")[Link]
+// - http://example.com
+// - ("http://example.com")[Link]
 
 ```
 <protocol>:<content>
