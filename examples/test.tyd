@@ -6,16 +6,16 @@ These functions can also be called instead but the syntactic sugar is prefered. 
 
 == Emphasis
 
-This is *bold* and this is _italic_
+This is *bold* and this is /italic/
 This is strikethrough ~asdasd~
 
 == Links
 
 These are links:
 
-// TODO - #link("mailto:contact@example.com")[Mail]
-// - http://example.com
-// - ("http://example.com")[Link]
+- <mailto:contact@example.com>[Link]
+- <http://example.com>
+- <http://example.com>[Click here]
 
 ```
 <protocol>:<content>
@@ -29,8 +29,8 @@ These are links:
 
 == Labels
 
-Text can be labelled <label>
-And labels can be referenced @label
+Text can be labelled @label
+And labels can be referenced <label>
 
 == Blockqoute
 
@@ -58,7 +58,7 @@ Lists can be numbered and unnumbered:
 | test | test |
 
 | *Some column* | *Other column*    |
-| and content   | and more _stuff_  |
+| and content   | and more /stuff/  |
 
 // TODO
 // |
@@ -66,9 +66,9 @@ Lists can be numbered and unnumbered:
 //     - item
 //                 |      blah      |
 
-== Terms
+// == Terms
 
-/ Term: description
+// / Term: description
 
 == Math
 

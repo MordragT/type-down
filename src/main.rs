@@ -1,15 +1,9 @@
 extern crate parol_runtime;
 
-mod type_down_grammar;
-// The output is version controlled
-mod type_down_grammar_trait;
-mod type_down_parser;
-
-use crate::type_down_grammar::TypeDownGrammar;
-use crate::type_down_parser::parse;
 use anyhow::{anyhow, Context, Result};
 use parol_runtime::{log::debug, Report};
 use std::{env, fs, time::Instant};
+use type_down::prelude::*;
 
 // To generate:
 // parol -f ./type_down.par -e ./type_down-exp.par -p ./src/type_down_parser.rs -a ./src/type_down_grammar_trait.rs -t TypeDownGrammar -m type_down_grammar -g
@@ -26,7 +20,7 @@ fn main() -> Result<()> {
         let file_name = args[1].clone();
         let input = fs::read_to_string(file_name.clone())
             .with_context(|| format!("Can't read file {}", file_name))?;
-        let mut type_down_grammar = TypeDownGrammar::new();
+        let mut type_down_grammar = Grammar::new();
         let now = Instant::now();
         match parse(&input, &file_name, &mut type_down_grammar) {
             Ok(_) => {
