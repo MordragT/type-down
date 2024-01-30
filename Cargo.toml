@@ -2,26 +2,17 @@
 name = "type_down"
 version = "0.1.0"
 edition = "2021"
+authors = ["Thomas Wehmoeller"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0"
-env_logger = "0.10.0"
-parol_runtime = { version = "0.17.1", features = ["auto_generation"] }
-thiserror = "1.0"
-build_html = "2.4.0"
+yaserde = "0.9.1"
+yaserde_derive = "0.9.1"
+clap = { version = "4.4.18", features = ["derive"] }
+parasite = { path = "../parasite" }
+ariadne = "0.4.0"
+html_tag = "0.1.3"
 
-[build-dependencies]
-parol = "0.22.1"
-parol_runtime = { version = "0.17.1", features = ["auto_generation"] }
-
-[profile.dev]
-opt-level = 3
-
-# For faster builds.
-[profile.dev.build-override]
-opt-level = 3
-
-[profile.release.build-override]
-opt-level = 3
+# [workspace]
+# members = ["crates/*"]

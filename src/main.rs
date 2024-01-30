@@ -1,41 +1,100 @@
-extern crate parol_runtime;
+use std::{
+    fs::File,
+    io::{Read, Write},
+    path::PathBuf,
+};
 
-use anyhow::{anyhow, Context, Result};
-use parol_runtime::{log::debug, Report};
-use std::{env, fs, time::Instant};
-use type_down::prelude::*;
+use ariadne::{Color, Label, Report, ReportKind, Source};
+use parasite::chumsky::{Parseable, Parser};
+use type_down::{ast::TypeDown, html::to_html};
 
-// To generate:
-// parol -f ./type_down.par -e ./type_down-exp.par -p ./src/type_down_parser.rs -a ./src/type_down_grammar_trait.rs -t TypeDownGrammar -m type_down_grammar -g
+#[derive(Debug, clap::Parser)]
+#[command(author, version, about, long_about = None)]
+pub struct Args {
+    #[command(subcommand)]
+    command: Commands,
+}
 
-struct ErrorReporter;
-impl Report for ErrorReporter {}
+#[derive(clap::Subcommand, Debug)]
+pub enum Commands {
+    Check { path: PathBuf },
+    Compile { input: PathBuf, output: PathBuf },
+}
 
-fn main() -> Result<()> {
-    env_logger::init();
-    debug!("env logger started");
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let args: Args = clap::Parser::parse();
 
-    let args: Vec<String> = env::args().collect();
-    if args.len() >= 2 {
-        let file_name = args[1].clone();
-        let input = fs::read_to_string(file_name.clone())
-            .with_context(|| format!("Can't read file {}", file_name))?;
-        let mut type_down_grammar = Grammar::new();
-        let now = Instant::now();
-        match parse(&input, &file_name, &mut type_down_grammar) {
-            Ok(_) => {
-                let elapsed_time = now.elapsed();
-                println!("Parsing took {} milliseconds.", elapsed_time.as_millis());
-                if args.len() > 2 && args[2] == "-q" {
-                    Ok(())
-                } else {
-                    println!("Success!\n{}", type_down_grammar);
-                    Ok(())
+    match args.command {
+        Commands::Check { path } => {
+            let mut file = File::open(path)?;
+
+            let mut input = String::new();
+            file.read_to_string(&mut input)?;
+
+            input = input.trim().to_owned();
+            input.push('\n');
+            input.push('\n');
+
+            let parser = TypeDown::parser();
+            match parser.parse(input.as_str()) {
+                Ok(ast) => {
+                    println!("{ast:#?}");
+                }
+                Err(errs) => {
+                    for err in errs {
+                        Report::build(ReportKind::Error, (), err.span().start)
+                            .with_code(3)
+                            .with_message(err.to_string())
+                            .with_label(
+                                Label::new(err.span())
+                                    // .with_message(err.reason().to_string())
+                                    .with_color(Color::Red),
+                            )
+                            .finish()
+                            .eprint(Source::from(&input))
+                            .unwrap();
+                    }
                 }
             }
-            Err(e) => ErrorReporter::report_error(&e, file_name),
+
+            Ok(())
         }
-    } else {
-        Err(anyhow!("Please provide a file name as first parameter!"))
+        Commands::Compile { input, output } => {
+            let mut file = File::open(input)?;
+
+            let mut input = String::new();
+            file.read_to_string(&mut input)?;
+
+            input = input.trim().to_owned();
+            input.push('\n');
+            input.push('\n');
+
+            let parser = TypeDown::parser();
+            match parser.parse(input.as_str()) {
+                Ok(ast) => {
+                    let body = ast.into();
+                    let html = to_html(body);
+
+                    std::fs::write(output, html)?;
+                }
+                Err(errs) => {
+                    for err in errs {
+                        Report::build(ReportKind::Error, (), err.span().start)
+                            .with_code(3)
+                            .with_message(err.to_string())
+                            .with_label(
+                                Label::new(err.span())
+                                    // .with_message(err.reason().to_string())
+                                    .with_color(Color::Red),
+                            )
+                            .finish()
+                            .eprint(Source::from(&input))
+                            .unwrap();
+                    }
+                }
+            }
+
+            Ok(())
+        }
     }
 }

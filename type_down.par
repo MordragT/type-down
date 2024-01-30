@@ -6,6 +6,7 @@
 %user_type Token = crate::token::Token
 %user_type HeadingLevel = crate::token::HeadingLevel
 %user_type BlockquoteLevel = crate::token::BlockquoteLevel
+%user_type ElementsTy = crate::token::Elements
 
 %scanner Escape {
     %auto_newline_off
@@ -112,7 +113,7 @@ Label
     : AtToken^ %push(Code) IdentifierToken %pop()
     ;
 
-Line: Elements [ Label ] NewLine^
+Line: Elements: ElementsTy [ Label ] NewLine^
     ;
 
 Elements

@@ -1,0 +1,14 @@
+== heading \@
+
+paragraph `monospace where @ | is ignored`
+
+-list H_2O ~strike *strong* /emphasis/ ~
+
++ ordered
++ multi
+
+| table | columns |
+
+> blockquote <https://example.com>
+
+labelled @label
