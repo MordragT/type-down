@@ -1,12 +1,8 @@
-use std::{
-    fs::File,
-    io::{Read, Write},
-    path::PathBuf,
-};
+use std::{fs::File, io::Read, path::PathBuf};
 
 use ariadne::{Color, Label, Report, ReportKind, Source};
 use parasite::chumsky::{Parseable, Parser};
-use type_down::{ast::TypeDown, html::to_html};
+use type_down::{context::Context, cst::Cst, html::HtmlCompiler, Compiler};
 
 #[derive(Debug, clap::Parser)]
 #[command(author, version, about, long_about = None)]
@@ -35,10 +31,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             input.push('\n');
             input.push('\n');
 
-            let parser = TypeDown::parser();
+            let parser = Cst::parser();
             match parser.parse(input.as_str()) {
-                Ok(ast) => {
-                    println!("{ast:#?}");
+                Ok(cst) => {
+                    println!("{cst:#?}");
                 }
                 Err(errs) => {
                     for err in errs {
@@ -60,7 +56,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             Ok(())
         }
         Commands::Compile { input, output } => {
-            let mut file = File::open(input)?;
+            let mut file = File::open(&input)?;
+
+            let ctx = Context::new("Testtitle".to_owned(), input, output);
 
             let mut input = String::new();
             file.read_to_string(&mut input)?;
@@ -69,13 +67,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             input.push('\n');
             input.push('\n');
 
-            let parser = TypeDown::parser();
+            let parser = Cst::parser();
             match parser.parse(input.as_str()) {
-                Ok(ast) => {
-                    let body = ast.into();
-                    let html = to_html(body);
-
-                    std::fs::write(output, html)?;
+                Ok(cst) => {
+                    let ast = cst.into();
+                    HtmlCompiler::compile(&ctx, &ast)?;
                 }
                 Err(errs) => {
                     for err in errs {
