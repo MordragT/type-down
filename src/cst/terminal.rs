@@ -87,3 +87,46 @@ impl Parseable<'_, char> for MonospaceContent {
             .map(MonospaceContent)
     }
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Terminal)]
+pub struct Character(pub char);
+
+impl Parseable<'_, char> for Character {
+    fn parser() -> impl Parser<char, Self, Error = Self::Error> + Clone {
+        NewLine::parser()
+            .ignored()
+            .or(At::parser().ignored())
+            .or(Pipe::parser().ignored())
+            .or(BackTick::parser().ignored())
+            .or(BackSlash::parser().ignored())
+            .or(LeftAngle::parser().ignored())
+            .or(Space::parser().ignored())
+            .or(Underscore::parser().ignored())
+            .or(Caret::parser().ignored())
+            .or(Star::parser().ignored())
+            .or(Slash::parser().ignored())
+            .or(Tilde::parser().ignored())
+            .or(DoubleQuote::parser().ignored())
+            .not()
+            .map(Character)
+    }
+}
+
+impl FromIterator<Character> for String {
+    fn from_iter<T: IntoIterator<Item = Character>>(iter: T) -> Self {
+        iter.into_iter().map(|c| c.0).collect()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Terminal)]
+pub struct Word(pub String);
+
+impl Parseable<'_, char> for Word {
+    fn parser() -> impl Parser<char, Self, Error = Self::Error> + Clone {
+        Character::parser()
+            .repeated()
+            .at_least(1)
+            .collect()
+            .map(Word)
+    }
+}

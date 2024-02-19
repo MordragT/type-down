@@ -1,9 +1,4 @@
-use crate::{
-    ast::*,
-    context::Context,
-    cst::{Script, Word},
-    Compiler,
-};
+use crate::{ast::*, context::Context, Compiler};
 use std::io;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -16,7 +11,7 @@ impl Compiler for HtmlCompiler {
         let title = &ctx.title;
         let body = ast.to_html().to_string();
 
-        let html = format!("<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>{title}</title></head><body>{body}</body></html>");
+        let html = format!("<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>{title}</title></head>{body}</html>");
         std::fs::write(&ctx.dest, html)
     }
 }
@@ -25,6 +20,7 @@ impl Compiler for HtmlCompiler {
 pub struct HtmlElement {
     tag: Option<String>,
     body: String,
+    next: Option<Box<Self>>,
 }
 
 impl HtmlElement {
@@ -32,6 +28,7 @@ impl HtmlElement {
         Self {
             tag: Some(tag.to_owned()),
             body: String::new(),
+            next: None,
         }
     }
 
@@ -39,6 +36,7 @@ impl HtmlElement {
         Self {
             tag: None,
             body: String::new(),
+            next: None,
         }
     }
 
@@ -46,6 +44,7 @@ impl HtmlElement {
         Self {
             tag: None,
             body: body.to_owned(),
+            next: None,
         }
     }
 
@@ -57,16 +56,28 @@ impl HtmlElement {
         self.body.push_str(element);
         self
     }
+
+    pub fn with_next(mut self, element: HtmlElement) -> Self {
+        self.next = Some(Box::new(element));
+        self
+    }
 }
 
 impl ToString for HtmlElement {
     fn to_string(&self) -> String {
-        let Self { tag, body } = self;
+        let Self { tag, body, next } = self;
 
-        match tag {
+        let mut this = match tag {
             Some(tag) => format!("<{tag}>{body}</{tag}>"),
             None => body.to_owned(),
+        };
+
+        match next {
+            Some(next) => this.push_str(&next.to_string()),
+            None => (),
         }
+
+        this
     }
 }
 
@@ -76,13 +87,13 @@ pub trait ToHtml {
 
 impl ToHtml for Ast {
     fn to_html(&self) -> HtmlElement {
-        let mut div = HtmlElement::new("div");
+        let mut body = HtmlElement::new("body");
 
         for block in &self.blocks {
-            div.push(&block.to_html().to_string());
+            body.push(&block.to_html().to_string());
         }
 
-        div
+        body
     }
 }
 
@@ -218,7 +229,7 @@ impl ToHtml for Element {
             Self::Link(link) => link.to_html(),
             Self::Escape(escape) => escape.to_html(),
             Self::Monospace(monospace) => monospace.to_html(),
-            Self::Word(word) => word.to_html(),
+            Self::Script(script) => script.to_html(),
         }
     }
 }
@@ -242,7 +253,7 @@ impl ToHtml for QuoteElement {
             Self::Strikethrough(strike) => strike.to_html(),
             Self::Emphasis(emphasis) => emphasis.to_html(),
             Self::Strong(strong) => strong.to_html(),
-            Self::Word(word) => word.to_html(),
+            Self::Script(script) => script.to_html(),
         }
     }
 }
@@ -265,7 +276,7 @@ impl ToHtml for StrikethroughElement {
         match self {
             Self::Emphasis(emphasis) => emphasis.to_html(),
             Self::Strong(strong) => strong.to_html(),
-            Self::Word(word) => word.to_html(),
+            Self::Script(script) => script.to_html(),
         }
     }
 }
@@ -274,8 +285,8 @@ impl ToHtml for Emphasis {
     fn to_html(&self) -> HtmlElement {
         let mut em = HtmlElement::new("em");
 
-        for word in &self.words {
-            em.push(&word.to_html().to_string());
+        for script in &self.scripts {
+            em.push(&script.to_html().to_string());
             em.push(" ");
         }
 
@@ -287,8 +298,8 @@ impl ToHtml for Strong {
     fn to_html(&self) -> HtmlElement {
         let mut strong = HtmlElement::new("strong");
 
-        for word in &self.words {
-            strong.push(&word.to_html().to_string());
+        for script in &self.scripts {
+            strong.push(&script.to_html().to_string());
             strong.push(" ");
         }
 
@@ -315,22 +326,22 @@ impl ToHtml for Monospace {
     }
 }
 
-impl ToHtml for Word {
+impl ToHtml for Script {
     fn to_html(&self) -> HtmlElement {
-        let Self { word, script } = self;
+        HtmlElement::body(&self.0).with(&self.1.to_html().to_string())
+    }
+}
 
-        match script {
-            Script::None => HtmlElement::body(word),
-            Script::Sub(sub) => HtmlElement::body(word).with(
-                &HtmlElement::new("sub")
-                    .with(&sub.to_html().to_string())
-                    .to_string(),
-            ),
-            Script::Sup(sup) => HtmlElement::body(word).with(
-                &HtmlElement::new("sup")
-                    .with(&sup.to_html().to_string())
-                    .to_string(),
-            ),
+impl ToHtml for ScriptTail {
+    fn to_html(&self) -> HtmlElement {
+        match self {
+            ScriptTail::Sup(c, script) => HtmlElement::new("sup")
+                .with(&c.to_string())
+                .with_next(script.to_html()),
+            ScriptTail::Sub(c, script) => HtmlElement::new("sub")
+                .with(&c.to_string())
+                .with_next(script.to_html()),
+            ScriptTail::None => HtmlElement::empty(),
         }
     }
 }

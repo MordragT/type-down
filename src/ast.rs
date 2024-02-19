@@ -1,6 +1,6 @@
 use parasite::chumsky::chain::Chain;
 
-use crate::cst::{self, Word};
+use crate::cst;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Ast {
@@ -225,7 +225,7 @@ pub enum Element {
     Escape(Escape),
     Monospace(Monospace),
     // Enclosed((LeftBracket, Vec<Element>, RightBracket)),
-    Word(Word),
+    Script(Script),
 }
 
 impl From<cst::Element> for Element {
@@ -238,7 +238,7 @@ impl From<cst::Element> for Element {
             cst::Element::Link(link) => Self::Link(link.into()),
             cst::Element::Escape(escape) => Self::Escape(escape.into()),
             cst::Element::Monospace(monospace) => Self::Monospace(monospace.into()),
-            cst::Element::Word(word) => Self::Word(word.into()),
+            cst::Element::Script(script) => Self::Script(script.into()),
         }
     }
 }
@@ -261,7 +261,7 @@ pub enum QuoteElement {
     Strikethrough(Strikethrough),
     Emphasis(Emphasis),
     Strong(Strong),
-    Word(Word),
+    Script(Script),
 }
 
 impl From<cst::QuoteElement> for QuoteElement {
@@ -272,7 +272,7 @@ impl From<cst::QuoteElement> for QuoteElement {
             }
             cst::QuoteElement::Emphasis(emphasis) => Self::Emphasis(emphasis.into()),
             cst::QuoteElement::Strong(strong) => Self::Strong(strong.into()),
-            cst::QuoteElement::Word(word) => Self::Word(word.into()),
+            cst::QuoteElement::Script(script) => Self::Script(script.into()),
         }
     }
 }
@@ -294,7 +294,7 @@ impl From<cst::Strikethrough> for Strikethrough {
 pub enum StrikethroughElement {
     Emphasis(Emphasis),
     Strong(Strong),
-    Word(Word),
+    Script(Script),
 }
 
 impl From<cst::StrikethroughElement> for StrikethroughElement {
@@ -302,34 +302,34 @@ impl From<cst::StrikethroughElement> for StrikethroughElement {
         match value {
             cst::StrikethroughElement::Emphasis(emphasis) => Self::Emphasis(emphasis.into()),
             cst::StrikethroughElement::Strong(strong) => Self::Strong(strong.into()),
-            cst::StrikethroughElement::Word(word) => Self::Word(word.into()),
+            cst::StrikethroughElement::Script(script) => Self::Script(script.into()),
         }
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Emphasis {
-    pub words: Vec<Word>,
+    pub scripts: Vec<Script>,
 }
 
 impl From<cst::Emphasis> for Emphasis {
     fn from(value: cst::Emphasis) -> Self {
-        let words = value.1 .0 .0;
+        let scripts = value.1 .0 .0.into_iter().map(Into::into).collect();
 
-        Self { words }
+        Self { scripts }
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Strong {
-    pub words: Vec<Word>,
+    pub scripts: Vec<Script>,
 }
 
 impl From<cst::Strong> for Strong {
     fn from(value: cst::Strong) -> Self {
-        let words = value.1 .0 .0;
+        let scripts = value.1 .0 .0.into_iter().map(Into::into).collect();
 
-        Self { words }
+        Self { scripts }
     }
 }
 
@@ -357,5 +357,37 @@ pub struct Escape(pub char);
 impl From<cst::Escape> for Escape {
     fn from(value: cst::Escape) -> Self {
         Escape(value.1 .0)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Script(pub String, pub ScriptTail);
+
+impl From<cst::Script> for Script {
+    fn from(value: cst::Script) -> Self {
+        let cst::Script(word, tail) = value;
+
+        Self(word.0, tail.into())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ScriptTail {
+    Sub(char, Box<Script>),
+    Sup(char, Box<Script>),
+    None,
+}
+
+impl From<Option<cst::ScriptTail>> for ScriptTail {
+    fn from(value: Option<cst::ScriptTail>) -> Self {
+        match value {
+            Some(cst::ScriptTail::Sup(_, c, script)) => {
+                ScriptTail::Sup(c.0, Box::new((*script.0).into()))
+            }
+            Some(cst::ScriptTail::Sub(_, c, script)) => {
+                ScriptTail::Sub(c.0, Box::new((*script.0).into()))
+            }
+            None => ScriptTail::None,
+        }
     }
 }

@@ -1,6 +1,6 @@
 use parasite::{
     chumsky::{prelude::*, Parseable},
-    combinators::{Any, End, Identifier, NewLine, NonEmptyVec, PaddedBy, SeparatedBy},
+    combinators::{Any, End, Identifier, NewLine, NonEmptyVec, PaddedBy, Rec, SeparatedBy},
     Parseable,
 };
 use terminal::*;
@@ -74,7 +74,7 @@ pub enum Element {
     Escape(Escape),
     Monospace(Monospace),
     // Enclosed((LeftBracket, Vec<Element>, RightBracket)),
-    Word(Word),
+    Script(Script),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
@@ -89,7 +89,7 @@ pub enum QuoteElement {
     Strikethrough(Strikethrough),
     Emphasis(Emphasis),
     Strong(Strong),
-    Word(Word),
+    Script(Script),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
@@ -103,56 +103,29 @@ pub struct Strikethrough(
 pub enum StrikethroughElement {
     Emphasis(Emphasis),
     Strong(Strong),
-    Word(Word),
+    Script(Script),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
 pub struct Emphasis(
     pub Slash,
-    pub PaddedBy<Vec<Space>, SeparatedBy<NonEmptyVec<Space>, Word>>,
+    pub PaddedBy<Vec<Space>, SeparatedBy<NonEmptyVec<Space>, Script>>,
     pub Slash,
 );
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
 pub struct Strong(
     pub Star,
-    pub PaddedBy<Vec<Space>, SeparatedBy<NonEmptyVec<Space>, Word>>,
+    pub PaddedBy<Vec<Space>, SeparatedBy<NonEmptyVec<Space>, Script>>,
     pub Star,
 );
+
+// TODO link body <www.example.com>[Hier klicken]
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
 pub struct Link(pub LeftAngle, pub LinkContent, pub RightAngle);
 
-// #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-// pub struct Link {
-//     link: String,
-//     children: Option<Vec<Element>>,
-// }
-
-// impl Parseable<'_, char> for Link {
-//     fn parser() -> impl Parser<char, Self, Error = Self::Error> + Clone {
-//         NewLine::parser()
-//             .ignored()
-//             .or(RightAngle::parser().ignored())
-//             .not()
-//             .repeated()
-//             .collect()
-//             .map(|link| Link {
-//                 link,
-//                 children: None,
-//             })
-//             .delimited_by(just('<'), just('>'))
-//         // .then(
-//         //     Element::parser()
-//         //         .repeated()
-//         //         .at_least(1)
-//         //         .collect::<Vec<_>>()
-//         //         .delimited_by(just("["), just(']'))
-//         //         .or_not(),
-//         // )
-//         // .map(|(link, children)| Link { link, children })
-//     }
-// }
+// TODO escape body /[@ / blah blah]
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
 pub struct Escape(pub BackSlash, pub Any);
@@ -161,68 +134,36 @@ pub struct Escape(pub BackSlash, pub Any);
 pub struct Monospace(pub BackTick, pub MonospaceContent, pub BackTick);
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub enum Script {
-    Sub(Box<Word>),
-    Sup(Box<Word>),
-    None,
-}
+pub struct Script(pub Word, pub Option<ScriptTail>);
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Word {
-    pub word: String,
-    pub script: Script,
-}
-
-impl Parseable<'_, char> for Word {
+impl Parseable<'_, char> for Script {
     fn parser() -> impl Parser<char, Self, Error = Self::Error> + Clone {
-        let mut word = Recursive::declare();
+        let mut script = Recursive::declare();
 
-        let text = NewLine::parser()
-            .ignored()
-            .or(At::parser().ignored())
-            .or(Pipe::parser().ignored())
-            .or(BackTick::parser().ignored())
-            .or(BackSlash::parser().ignored())
-            .or(LeftAngle::parser().ignored())
-            .or(Space::parser().ignored())
-            .or(Underscore::parser().ignored())
-            .or(Caret::parser().ignored())
-            .or(Star::parser().ignored())
-            .or(Slash::parser().ignored())
-            .or(Tilde::parser().ignored())
-            .not()
-            .repeated()
-            .at_least(1)
-            .collect();
+        let sub_script = Underscore::parser()
+            .then(Character::parser())
+            .then(script.clone())
+            .map(|((underscore, c), script)| ScriptTail::Sub(underscore, c, Rec(Box::new(script))));
 
-        word.define(
-            text.then(
-                Underscore::parser()
-                    .ignore_then(word.clone())
-                    .map(|script| Script::Sub(Box::new(script)))
-                    .or(Caret::parser()
-                        .ignore_then(word.clone())
-                        .map(|script| Script::Sup(Box::new(script))))
-                    .or_not()
-                    .map(|script| match script {
-                        Some(script) => script,
-                        None => Script::None,
-                    }),
-            )
-            .map(|(word, script)| Word { word, script }),
+        let sup_script = Caret::parser()
+            .then(Character::parser())
+            .then(script.clone())
+            .map(|((caret, c), script)| ScriptTail::Sup(caret, c, Rec(Box::new(script))));
+
+        script.define(
+            Word::parser()
+                .then(sub_script.or(sup_script).or_not())
+                .map(|(word, tail)| Script(word, tail)),
         );
 
-        //     text.then(
-        //         Underscore::parser()
-        //         .ignore_then(word.clone())
-        //         .or(Caret::parser().ignore_then(word.clone()))
-        //         .or_not(),
-        // .map(|((word, sub))| Word {
-        //     word,
-        //     sub: sub.map(Box::new),
-        //     // sup: sup.map(Box::new),
-        // })
-
-        word
+        script
     }
+}
+
+// TODO script body X_[long subscript]
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ScriptTail {
+    Sub(Underscore, Character, Rec<Script>),
+    Sup(Caret, Character, Rec<Script>),
 }
