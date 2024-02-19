@@ -14,3 +14,20 @@ paragraph `monospace where @ | is ignored`
 labelled @label
 
 "some quote"
+
+```
+Some text
+within a raw block
+blub
+blub 
+    asdas
+```
+
+
+```rust
+fn main() -> Result<(), String> {
+    let x = 10;
+
+    Ok(())
+}
+```

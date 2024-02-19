@@ -7,18 +7,25 @@ use terminal::*;
 
 pub mod terminal;
 
-// TODO track spans in ast ?
-
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
 pub struct Cst(pub NonEmptyVec<(Block, NonEmptyVec<NewLine>)>, pub End);
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
 pub enum Block {
+    Raw(RawBlock),
     Mark(MarkBlock),
-    // Raw(RawBlock),
     // Code(CodeBlock),
     // Math(MathBlock),
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
+pub struct RawBlock(
+    pub TripleBacktick,
+    pub Option<PaddedBy<Vec<Space>, Identifier>>,
+    pub NewLine,
+    pub RawContent,
+    pub TripleBacktick,
+);
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
 pub enum MarkBlock {

@@ -23,7 +23,7 @@ impl From<cst::Cst> for Ast {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Block {
     Mark(MarkBlock),
-    // Raw(RawBlock),
+    Raw(RawBlock),
     // Code(CodeBlock),
     // Math(MathBlock),
 }
@@ -31,7 +31,27 @@ pub enum Block {
 impl From<cst::Block> for Block {
     fn from(value: cst::Block) -> Self {
         match value {
+            cst::Block::Raw(raw_block) => Self::Raw(raw_block.into()),
             cst::Block::Mark(mark_block) => Self::Mark(mark_block.into()),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct RawBlock {
+    pub lang: Option<String>,
+    pub content: String,
+}
+
+impl From<cst::RawBlock> for RawBlock {
+    fn from(value: cst::RawBlock) -> Self {
+        let cst::RawBlock(_, lang, _, content, _) = value;
+
+        let lang = lang.map(|lang| lang.0 .0);
+
+        Self {
+            lang,
+            content: content.0,
         }
     }
 }

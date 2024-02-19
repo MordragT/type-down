@@ -26,6 +26,9 @@ pub struct BackSlash(Just<'\\'>);
 pub struct BackTick(Just<'`'>);
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable, Terminal)]
+pub struct TripleBacktick(BackTick, BackTick, BackTick);
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable, Terminal)]
 pub struct DoubleQuote(Just<'"'>);
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable, Terminal)]
@@ -57,6 +60,20 @@ pub struct Minus(Just<'-'>);
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable, Terminal)]
 pub struct Equals(Just<'='>);
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Terminal)]
+pub struct RawContent(pub String);
+
+impl Parseable<'_, char> for RawContent {
+    fn parser() -> impl Parser<char, Self, Error = Self::Error> + Clone {
+        TripleBacktick::parser()
+            .ignored()
+            .not()
+            .repeated()
+            .collect()
+            .map(RawContent)
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Terminal)]
 pub struct LinkContent(pub String);

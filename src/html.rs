@@ -11,7 +11,8 @@ impl Compiler for HtmlCompiler {
         let title = &ctx.title;
         let body = ast.to_html().to_string();
 
-        let html = format!("<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>{title}</title></head>{body}</html>");
+        let highlight = "<link rel=\"stylesheet\" href=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css\"><script src=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js\"></script><script src=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/go.min.js\"></script><script>hljs.highlightAll();</script>";
+        let html = format!("<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">{highlight}<title>{title}</title></head>{body}</html>");
         std::fs::write(&ctx.dest, html)
     }
 }
@@ -19,6 +20,8 @@ impl Compiler for HtmlCompiler {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct HtmlElement {
     tag: Option<String>,
+    class: Option<String>,
+    href: Option<String>,
     body: String,
     next: Option<Box<Self>>,
 }
@@ -28,6 +31,8 @@ impl HtmlElement {
         Self {
             tag: Some(tag.to_owned()),
             body: String::new(),
+            class: None,
+            href: None,
             next: None,
         }
     }
@@ -36,6 +41,8 @@ impl HtmlElement {
         Self {
             tag: None,
             body: String::new(),
+            class: None,
+            href: None,
             next: None,
         }
     }
@@ -44,12 +51,18 @@ impl HtmlElement {
         Self {
             tag: None,
             body: body.to_owned(),
+            class: None,
+            href: None,
             next: None,
         }
     }
 
     pub fn push(&mut self, element: &str) {
         self.body.push_str(element);
+    }
+
+    pub fn set_class(&mut self, class: String) {
+        self.class = Some(class);
     }
 
     pub fn with(mut self, element: &str) -> Self {
@@ -61,14 +74,42 @@ impl HtmlElement {
         self.next = Some(Box::new(element));
         self
     }
+
+    pub fn with_class(mut self, class: String) -> Self {
+        self.class = Some(class);
+        self
+    }
+
+    pub fn with_href(mut self, href: String) -> Self {
+        self.href = Some(href);
+        self
+    }
 }
 
 impl ToString for HtmlElement {
     fn to_string(&self) -> String {
-        let Self { tag, body, next } = self;
+        let Self {
+            tag,
+            body,
+            next,
+            class,
+            href,
+        } = self;
 
         let mut this = match tag {
-            Some(tag) => format!("<{tag}>{body}</{tag}>"),
+            Some(tag) => {
+                let mut left = tag.to_owned();
+
+                if let Some(class) = class {
+                    left.push_str(&format!(" class=\"{class}\""));
+                }
+
+                if let Some(href) = href {
+                    left.push_str(&format!(" href=\"{href}\""));
+                }
+
+                format!("<{left}>{body}</{tag}>")
+            }
             None => body.to_owned(),
         };
 
@@ -100,8 +141,21 @@ impl ToHtml for Ast {
 impl ToHtml for Block {
     fn to_html(&self) -> HtmlElement {
         match self {
+            Self::Raw(raw) => raw.to_html(),
             Self::Mark(block) => block.to_html(),
         }
+    }
+}
+
+impl ToHtml for RawBlock {
+    fn to_html(&self) -> HtmlElement {
+        let mut code = HtmlElement::new("code").with(&self.content);
+
+        if let Some(lang) = &self.lang {
+            code.set_class(format!("language-{lang}"));
+        }
+
+        HtmlElement::new("pre").with(&code.to_string())
     }
 }
 
@@ -309,7 +363,9 @@ impl ToHtml for Strong {
 
 impl ToHtml for Link {
     fn to_html(&self) -> HtmlElement {
-        HtmlElement::body(&self.0)
+        HtmlElement::new("a")
+            .with_href(self.0.clone())
+            .with(&self.0)
     }
 }
 
