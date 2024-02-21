@@ -28,7 +28,6 @@ blub
     asdas
 ```
 
-
 ```rust
 fn main() -> Result<(), String> {
     let x = 10;

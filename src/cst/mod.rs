@@ -5,6 +5,7 @@ use parasite::{
 };
 use terminal::*;
 
+pub mod fmt;
 pub mod terminal;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
@@ -25,6 +26,7 @@ pub struct RawBlock(
     pub NewLine,
     pub RawContent,
     pub TripleBacktick,
+    pub NewLine,
 );
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]

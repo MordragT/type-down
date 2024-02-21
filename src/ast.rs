@@ -45,7 +45,7 @@ pub struct RawBlock {
 
 impl From<cst::RawBlock> for RawBlock {
     fn from(value: cst::RawBlock) -> Self {
-        let cst::RawBlock(_, lang, _, content, _) = value;
+        let cst::RawBlock(_, lang, _, content, _, _) = value;
 
         let lang = lang.map(|lang| lang.0 .0);
 

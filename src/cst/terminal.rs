@@ -1,3 +1,5 @@
+use std::fmt;
+
 use parasite::{
     chumsky::{Parseable, Parser},
     combinators::{Just, NewLine},
@@ -7,62 +9,182 @@ use parasite::{
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable, Terminal)]
 pub struct Tilde(Just<'~'>);
 
+impl fmt::Display for Tilde {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "~")
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable, Terminal)]
 pub struct Star(Just<'*'>);
+
+impl fmt::Display for Star {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "*")
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable, Terminal)]
 pub struct Slash(Just<'/'>);
 
+impl fmt::Display for Slash {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "/")
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable, Terminal)]
 pub struct Underscore(Just<'_'>);
+
+impl fmt::Display for Underscore {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "_")
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable, Terminal)]
 pub struct Caret(Just<'^'>);
 
+impl fmt::Display for Caret {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "^")
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable, Terminal)]
 pub struct BackSlash(Just<'\\'>);
+
+impl fmt::Display for BackSlash {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "\\")
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable, Terminal)]
 pub struct BackTick(Just<'`'>);
 
+impl fmt::Display for BackTick {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "`")
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable, Terminal)]
 pub struct TripleBacktick(BackTick, BackTick, BackTick);
+
+impl fmt::Display for TripleBacktick {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "```")
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable, Terminal)]
 pub struct DoubleQuote(Just<'"'>);
 
+impl fmt::Display for DoubleQuote {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "\"")
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable, Terminal)]
 pub struct LeftBracket(Just<'['>);
+
+impl fmt::Display for LeftBracket {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "[")
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable, Terminal)]
 pub struct RightBracket(Just<']'>);
 
+impl fmt::Display for RightBracket {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "]")
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable, Terminal)]
 pub struct At(Just<'@'>);
+
+impl fmt::Display for At {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "@")
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable, Terminal)]
 pub struct LeftAngle(Just<'<'>);
 
+impl fmt::Display for LeftAngle {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "<")
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable, Terminal)]
 pub struct RightAngle(Just<'>'>);
+
+impl fmt::Display for RightAngle {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, ">")
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable, Terminal)]
 pub struct Pipe(Just<'|'>);
 
+impl fmt::Display for Pipe {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "|")
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable, Terminal)]
 pub struct Space(Just<' '>);
+
+impl fmt::Display for Space {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, " ")
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable, Terminal)]
 pub struct Plus(Just<'+'>);
 
+impl fmt::Display for Plus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "+")
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable, Terminal)]
 pub struct Minus(Just<'-'>);
+
+impl fmt::Display for Minus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "-")
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable, Terminal)]
 pub struct Equals(Just<'='>);
 
+impl fmt::Display for Equals {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "=")
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Terminal)]
 pub struct RawContent(pub String);
+
+impl fmt::Display for RawContent {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 
 impl Parseable<'static, char> for RawContent {
     fn parser(
@@ -80,6 +202,12 @@ impl Parseable<'static, char> for RawContent {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Terminal)]
 pub struct LinkContent(pub String);
+
+impl fmt::Display for LinkContent {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 
 impl Parseable<'static, char> for LinkContent {
     fn parser(
@@ -102,6 +230,12 @@ impl Parseable<'static, char> for LinkContent {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Terminal)]
 pub struct MonospaceContent(pub String);
 
+impl fmt::Display for MonospaceContent {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 impl Parseable<'static, char> for MonospaceContent {
     fn parser(
         ctx: &mut parasite::chumsky::Context,
@@ -122,6 +256,12 @@ impl Parseable<'static, char> for MonospaceContent {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Terminal)]
 pub struct Character(pub char);
+
+impl fmt::Display for Character {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 
 impl Parseable<'static, char> for Character {
     fn parser(
@@ -172,6 +312,12 @@ impl FromIterator<Character> for String {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Terminal)]
 pub struct Word(pub String);
+
+impl fmt::Display for Word {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 
 impl Parseable<'static, char> for Word {
     fn parser(

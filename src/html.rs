@@ -1,11 +1,19 @@
+use miette::Diagnostic;
+use thiserror::Error;
+
 use crate::{ast::*, context::Context, Compiler};
 use std::io;
+
+#[derive(Debug, Error, Diagnostic)]
+#[error(transparent)]
+#[diagnostic(code(type_down::html::HtmlCompiler::compile))]
+pub struct HtmlError(#[from] pub io::Error);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct HtmlCompiler;
 
 impl Compiler for HtmlCompiler {
-    type Error = io::Error;
+    type Error = HtmlError;
 
     fn compile(ctx: &Context, ast: &Ast) -> Result<(), Self::Error> {
         let title = &ctx.title;
@@ -13,7 +21,8 @@ impl Compiler for HtmlCompiler {
 
         let highlight = "<link rel=\"stylesheet\" href=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css\"><script src=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js\"></script><script src=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/go.min.js\"></script><script>hljs.highlightAll();</script>";
         let html = format!("<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">{highlight}<title>{title}</title></head>{body}</html>");
-        std::fs::write(&ctx.dest, html)
+        std::fs::write(&ctx.dest, html)?;
+        Ok(())
     }
 }
 
