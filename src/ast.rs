@@ -241,10 +241,10 @@ pub enum Element {
     Strikethrough(Strikethrough),
     Emphasis(Emphasis),
     Strong(Strong),
+    Enclosed(Enclosed),
     Link(Link),
     Escape(Escape),
     Monospace(Monospace),
-    // Enclosed((LeftBracket, Vec<Element>, RightBracket)),
     Script(Script),
 }
 
@@ -256,6 +256,7 @@ impl From<cst::Element> for Element {
             cst::Element::Emphasis(emphasis) => Self::Emphasis(emphasis.into()),
             cst::Element::Strong(strong) => Self::Strong(strong.into()),
             cst::Element::Link(link) => Self::Link(link.into()),
+            cst::Element::Enclosed(enclosed) => Self::Enclosed(enclosed.into()),
             cst::Element::Escape(escape) => Self::Escape(escape.into()),
             cst::Element::Monospace(monospace) => Self::Monospace(monospace.into()),
             cst::Element::Script(script) => Self::Script(script.into()),
@@ -354,11 +355,32 @@ impl From<cst::Strong> for Strong {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Link(pub String);
+pub struct Enclosed {
+    pub elements: Elements,
+}
+
+impl From<cst::Enclosed> for Enclosed {
+    fn from(value: cst::Enclosed) -> Self {
+        let elements = Elements::from(*value.1 .0);
+
+        Self { elements }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Link {
+    pub link: String,
+    pub elements: Option<Elements>,
+}
 
 impl From<cst::Link> for Link {
     fn from(value: cst::Link) -> Self {
-        Link(value.1 .0)
+        let cst::Link(_, content, _, enclosed) = value;
+
+        let link = content.0;
+        let elements = enclosed.map(|enclosed| Elements::from(*enclosed.1 .0));
+
+        Self { link, elements }
     }
 }
 

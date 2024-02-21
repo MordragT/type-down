@@ -1,7 +1,7 @@
 use std::{fs::File, io::Read, path::PathBuf};
 
 use ariadne::{Color, Label, Report, ReportKind, Source};
-use parasite::chumsky::{Parseable, Parser};
+use parasite::chumsky::{Context as ParseContext, Parseable, Parser};
 use type_down::{context::Context, cst::Cst, html::HtmlCompiler, Compiler};
 
 #[derive(Debug, clap::Parser)]
@@ -31,7 +31,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             input.push('\n');
             input.push('\n');
 
-            let parser = Cst::parser();
+            let mut parse_ctx = ParseContext::new();
+            let parser = Cst::parser(&mut parse_ctx);
             match parser.parse(input.as_str()) {
                 Ok(cst) => {
                     println!("{cst:#?}");
@@ -65,9 +66,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             input = input.trim().to_owned();
             input.push('\n');
-            input.push('\n');
+            let mut parse_ctx = ParseContext::new();
 
-            let parser = Cst::parser();
+            let parser = Cst::parser(&mut parse_ctx);
             match parser.parse(input.as_str()) {
                 Ok(cst) => {
                     let ast = cst.into();

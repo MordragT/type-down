@@ -9,9 +9,14 @@ paragraph `monospace where @ | is ignored`
 
 | table | columns |
 
-> blockquote <https://example.com>
+> blockquote <https://example.com>[Hier klicken] 
 
 labelled @label
+
+by labelling something it creates a invocable variable,
+which can then be cited by #label
+
+All labels are inside the global variable scope
 
 "some quote"
 

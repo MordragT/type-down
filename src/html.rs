@@ -280,6 +280,7 @@ impl ToHtml for Element {
             Self::Strikethrough(strike) => strike.to_html(),
             Self::Emphasis(emphasis) => emphasis.to_html(),
             Self::Strong(strong) => strong.to_html(),
+            Self::Enclosed(enclosed) => enclosed.to_html(),
             Self::Link(link) => link.to_html(),
             Self::Escape(escape) => escape.to_html(),
             Self::Monospace(monospace) => monospace.to_html(),
@@ -361,11 +362,22 @@ impl ToHtml for Strong {
     }
 }
 
+impl ToHtml for Enclosed {
+    fn to_html(&self) -> HtmlElement {
+        HtmlElement::new("div").with(&self.elements.to_html().to_string())
+    }
+}
+
 impl ToHtml for Link {
     fn to_html(&self) -> HtmlElement {
+        let display = match &self.elements {
+            Some(elements) => elements.to_html().to_string(),
+            None => self.link.clone(),
+        };
+
         HtmlElement::new("a")
-            .with_href(self.0.clone())
-            .with(&self.0)
+            .with_href(self.link.clone())
+            .with(&display)
     }
 }
 

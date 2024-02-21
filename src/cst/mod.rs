@@ -68,8 +68,33 @@ pub struct Label(pub At, pub Identifier);
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
 pub struct Line(pub Elements, pub Option<Label>, pub NewLine);
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Elements(pub PaddedBy<Vec<Space>, SeparatedBy<NonEmptyVec<Space>, Element>>);
+
+impl Parseable<'static, char> for Elements {
+    fn parser(
+        ctx: &mut parasite::chumsky::Context,
+    ) -> BoxedParser<'static, char, Self, Self::Error> {
+        if !ctx.contains::<Recursive<'static, char, Self, Self::Error>>() {
+            let script: Recursive<'static, char, Self, Self::Error> = Recursive::declare();
+            ctx.insert(script);
+
+            let elements = PaddedBy::parser(ctx).map(Elements);
+
+            let parser = ctx
+                .get_mut::<Recursive<'static, char, Self, Self::Error>>()
+                .unwrap();
+            parser.define(elements);
+
+            return parser.clone().boxed();
+        }
+
+        ctx.get::<Recursive<'static, char, Self, Self::Error>>()
+            .unwrap()
+            .clone()
+            .boxed()
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
 pub enum Element {
@@ -77,10 +102,10 @@ pub enum Element {
     Strikethrough(Strikethrough),
     Emphasis(Emphasis),
     Strong(Strong),
+    Enclosed(Enclosed),
     Link(Link),
     Escape(Escape),
     Monospace(Monospace),
-    // Enclosed((LeftBracket, Vec<Element>, RightBracket)),
     Script(Script),
 }
 
@@ -127,10 +152,16 @@ pub struct Strong(
     pub Star,
 );
 
-// TODO link body <www.example.com>[Hier klicken]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
+pub struct Enclosed(pub LeftBracket, pub Rec<Elements>, pub RightBracket);
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
-pub struct Link(pub LeftAngle, pub LinkContent, pub RightAngle);
+pub struct Link(
+    pub LeftAngle,
+    pub LinkContent,
+    pub RightAngle,
+    pub Option<Enclosed>,
+);
 
 // TODO escape body /[@ / blah blah]
 
@@ -143,33 +174,34 @@ pub struct Monospace(pub BackTick, pub MonospaceContent, pub BackTick);
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Script(pub Word, pub Option<ScriptTail>);
 
-impl Parseable<'_, char> for Script {
-    fn parser() -> impl Parser<char, Self, Error = Self::Error> + Clone {
-        let mut script = Recursive::declare();
+impl Parseable<'static, char> for Script {
+    fn parser(
+        ctx: &mut parasite::chumsky::Context,
+    ) -> BoxedParser<'static, char, Self, Self::Error> {
+        if !ctx.contains::<Recursive<'static, char, Self, Self::Error>>() {
+            let script: Recursive<'static, char, Self, Self::Error> = Recursive::declare();
+            ctx.insert(script);
 
-        let sub_script = Underscore::parser()
-            .then(Character::parser())
-            .then(script.clone())
-            .map(|((underscore, c), script)| ScriptTail::Sub(underscore, c, Rec(Box::new(script))));
+            let word = Word::parser(ctx);
+            let script = Option::<ScriptTail>::parser(ctx);
 
-        let sup_script = Caret::parser()
-            .then(Character::parser())
-            .then(script.clone())
-            .map(|((caret, c), script)| ScriptTail::Sup(caret, c, Rec(Box::new(script))));
+            let parser = ctx
+                .get_mut::<Recursive<'static, char, Self, Self::Error>>()
+                .unwrap();
+            parser.define(word.then(script).map(|(word, script)| Script(word, script)));
 
-        script.define(
-            Word::parser()
-                .then(sub_script.or(sup_script).or_not())
-                .map(|(word, tail)| Script(word, tail)),
-        );
+            return parser.clone().boxed();
+        }
 
-        script
+        ctx.get::<Recursive<'static, char, Self, Self::Error>>()
+            .unwrap()
+            .clone()
+            .boxed()
     }
 }
 
 // TODO script body X_[long subscript]
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
 pub enum ScriptTail {
     Sub(Underscore, Character, Rec<Script>),
     Sup(Caret, Character, Rec<Script>),
