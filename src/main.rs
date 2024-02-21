@@ -1,7 +1,10 @@
 use std::path::PathBuf;
 
 use miette::Result;
-use type_down::{context::Context, html::HtmlCompiler, parse, Compiler};
+use type_down::{
+    compile::{html::HtmlCompiler, pdf::PdfCompiler, Compiler, Context},
+    parse::{parse, Ast},
+};
 
 #[derive(Debug, clap::Parser)]
 #[command(author, version, about, long_about = None)]
@@ -12,9 +15,24 @@ pub struct Args {
 
 #[derive(clap::Subcommand, Debug)]
 pub enum Commands {
-    Check { path: PathBuf },
-    Format { path: PathBuf },
-    Compile { input: PathBuf, output: PathBuf },
+    Check {
+        path: PathBuf,
+    },
+    Format {
+        path: PathBuf,
+    },
+    Compile {
+        compiler: CompilerBackend,
+        input: PathBuf,
+        output: PathBuf,
+    },
+}
+
+#[derive(clap::ValueEnum, Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum CompilerBackend {
+    #[default]
+    Html,
+    Pdf,
 }
 
 fn main() -> Result<()> {
@@ -25,24 +43,28 @@ fn main() -> Result<()> {
             let cst = parse(path)?;
 
             println!("{cst:?}");
-
-            Ok(())
         }
         Commands::Format { path } => {
             let cst = parse(path)?;
 
             println!("{cst}");
-
-            Ok(())
         }
-        Commands::Compile { input, output } => {
+        Commands::Compile {
+            input,
+            output,
+            compiler,
+        } => {
             let cst = parse(&input)?;
-            let ast = cst.into();
+            let ast = Ast::from(cst);
 
             let ctx = Context::new("Testtitle".to_owned(), input, output);
-            HtmlCompiler::compile(&ctx, &ast)?;
 
-            Ok(())
+            match compiler {
+                CompilerBackend::Html => HtmlCompiler::compile(&ctx, &ast)?,
+                CompilerBackend::Pdf => PdfCompiler::compile(&ctx, &ast)?,
+            }
         }
     }
+
+    Ok(())
 }

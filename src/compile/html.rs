@@ -1,12 +1,14 @@
 use miette::Diagnostic;
 use thiserror::Error;
 
-use crate::{ast::*, context::Context, Compiler};
+use crate::parse::ast::*;
 use std::io;
+
+use super::{Compiler, Context};
 
 #[derive(Debug, Error, Diagnostic)]
 #[error(transparent)]
-#[diagnostic(code(type_down::html::HtmlCompiler::compile))]
+#[diagnostic(code(type_down::compile::html::HtmlCompiler::compile))]
 pub struct HtmlError(#[from] pub io::Error);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]

@@ -1,6 +1,6 @@
 use parasite::chumsky::chain::Chain;
 
-use crate::cst;
+use super::cst;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Ast {
