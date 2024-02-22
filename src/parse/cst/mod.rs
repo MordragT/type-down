@@ -1,6 +1,6 @@
 use parasite::{
     chumsky::{prelude::*, Parseable},
-    combinators::{Any, End, Identifier, NewLine, NonEmptyVec, PaddedBy, Rec, SeparatedBy},
+    combinators::{Any, End, Identifier, NewLine, NonEmptyVec, PaddedBy, Rec},
     Parseable,
 };
 use terminal::*;
@@ -40,6 +40,9 @@ pub struct HeadingLevel(pub NonEmptyVec<Equals>);
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
 pub struct Heading(pub HeadingLevel, pub Line);
 
+// TODO enforce paragaph does not start with tab(4 spaces)
+// and use tab as indentation level for lists, blockquote
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
 pub struct Paragraph(pub NonEmptyVec<Line>);
 
@@ -66,7 +69,7 @@ pub struct Label(pub At, pub Identifier);
 pub struct Line(pub Elements, pub Option<Label>, pub NewLine);
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Elements(pub PaddedBy<Vec<Space>, SeparatedBy<NonEmptyVec<Space>, Element>>);
+pub struct Elements(pub NonEmptyVec<Element>);
 
 impl Parseable<'static, char> for Elements {
     fn parser(
@@ -76,7 +79,7 @@ impl Parseable<'static, char> for Elements {
             let script: Recursive<'static, char, Self, Self::Error> = Recursive::declare();
             ctx.insert(script);
 
-            let elements = PaddedBy::parser(ctx).map(Elements);
+            let elements = NonEmptyVec::parser(ctx).map(Elements);
 
             let parser = ctx
                 .get_mut::<Recursive<'static, char, Self, Self::Error>>()
@@ -93,10 +96,9 @@ impl Parseable<'static, char> for Elements {
     }
 }
 
-// TODO maybe space and line breaks as element ?
-
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
 pub enum Element {
+    Inline(Inline),
     Quote(Quote),
     Strikethrough(Strikethrough),
     Emphasis(Emphasis),
@@ -105,51 +107,55 @@ pub enum Element {
     Link(Link),
     Escape(Escape),
     Monospace(Monospace),
-    Script(Script),
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
+pub enum Inline {
+    SubScript(SubScript),
+    SupScript(SupScript),
+    Word(Word),
+    Spacing(Spacing),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
+pub struct SubScript(pub Underscore, pub Character);
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
+pub struct SupScript(pub Caret, pub Character);
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
+pub struct Spacing(pub NonEmptyVec<Space>);
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
 pub struct Quote(
     pub DoubleQuote,
-    pub PaddedBy<Vec<Space>, SeparatedBy<NonEmptyVec<Space>, QuoteElement>>,
+    pub NonEmptyVec<QuoteElement>,
     pub DoubleQuote,
 );
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
 pub enum QuoteElement {
+    Inline(Inline),
     Strikethrough(Strikethrough),
     Emphasis(Emphasis),
     Strong(Strong),
-    Script(Script),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
-pub struct Strikethrough(
-    pub Tilde,
-    pub PaddedBy<Vec<Space>, SeparatedBy<NonEmptyVec<Space>, StrikethroughElement>>,
-    pub Tilde,
-);
+pub struct Strikethrough(pub Tilde, pub NonEmptyVec<StrikethroughElement>, pub Tilde);
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
 pub enum StrikethroughElement {
+    Inline(Inline),
     Emphasis(Emphasis),
     Strong(Strong),
-    Script(Script),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
-pub struct Emphasis(
-    pub Slash,
-    pub PaddedBy<Vec<Space>, SeparatedBy<NonEmptyVec<Space>, Script>>,
-    pub Slash,
-);
+pub struct Emphasis(pub Slash, pub NonEmptyVec<Inline>, pub Slash);
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
-pub struct Strong(
-    pub Star,
-    pub PaddedBy<Vec<Space>, SeparatedBy<NonEmptyVec<Space>, Script>>,
-    pub Star,
-);
+pub struct Strong(pub Star, pub NonEmptyVec<Inline>, pub Star);
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
 pub struct Enclosed(pub LeftBracket, pub Rec<Elements>, pub RightBracket);
@@ -169,39 +175,3 @@ pub struct Escape(pub BackSlash, pub Any);
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
 pub struct Monospace(pub BackTick, pub MonospaceContent, pub BackTick);
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Script(pub Word, pub Option<ScriptTail>);
-
-impl Parseable<'static, char> for Script {
-    fn parser(
-        ctx: &mut parasite::chumsky::Context,
-    ) -> BoxedParser<'static, char, Self, Self::Error> {
-        if !ctx.contains::<Recursive<'static, char, Self, Self::Error>>() {
-            let script: Recursive<'static, char, Self, Self::Error> = Recursive::declare();
-            ctx.insert(script);
-
-            let word = Word::parser(ctx);
-            let script = Option::<ScriptTail>::parser(ctx);
-
-            let parser = ctx
-                .get_mut::<Recursive<'static, char, Self, Self::Error>>()
-                .unwrap();
-            parser.define(word.then(script).map(|(word, script)| Script(word, script)));
-
-            return parser.clone().boxed();
-        }
-
-        ctx.get::<Recursive<'static, char, Self, Self::Error>>()
-            .unwrap()
-            .clone()
-            .boxed()
-    }
-}
-
-// TODO script body X_[long subscript]
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
-pub enum ScriptTail {
-    Sub(Underscore, Character, Rec<Script>),
-    Sup(Caret, Character, Rec<Script>),
-}

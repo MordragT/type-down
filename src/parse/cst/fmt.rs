@@ -144,19 +144,18 @@ impl fmt::Display for Elements {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut output = String::new();
 
-        for el in &self.0 .0 .0 {
-            write!(output, "{el} ")?;
+        for el in &self.0 .0 {
+            write!(output, "{el}")?;
         }
 
-        output.pop();
-
-        write!(f, "{output}")
+        write!(f, "{}", output.trim())
     }
 }
 
 impl fmt::Display for Element {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self {
+            Self::Inline(inline) => inline.fmt(f),
             Self::Quote(quote) => quote.fmt(f),
             Self::Strikethrough(strikethrough) => strikethrough.fmt(f),
             Self::Emphasis(emphasis) => emphasis.fmt(f),
@@ -165,8 +164,42 @@ impl fmt::Display for Element {
             Self::Link(link) => link.fmt(f),
             Self::Escape(escape) => escape.fmt(f),
             Self::Monospace(monospace) => monospace.fmt(f),
-            Self::Script(script) => script.fmt(f),
         }
+    }
+}
+
+impl fmt::Display for Inline {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self {
+            Self::Spacing(spacing) => spacing.fmt(f),
+            Self::SubScript(script) => script.fmt(f),
+            Self::SupScript(script) => script.fmt(f),
+            Self::Word(word) => word.fmt(f),
+        }
+    }
+}
+
+impl fmt::Display for SubScript {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)?;
+        self.1.fmt(f)
+    }
+}
+
+impl fmt::Display for SupScript {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)?;
+        self.1.fmt(f)
+    }
+}
+
+impl fmt::Display for Spacing {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for space in &self.0 .0 {
+            space.fmt(f)?;
+        }
+
+        Ok(())
     }
 }
 
@@ -176,22 +209,21 @@ impl fmt::Display for Quote {
 
         let mut output = String::new();
 
-        for el in &content.0 .0 {
-            write!(output, "{el} ")?;
+        for el in &content.0 {
+            write!(output, "{el}")?;
         }
-        output.pop();
 
-        write!(f, "{l}{output}{r}")
+        write!(f, "{l}{}{r}", output.trim())
     }
 }
 
 impl fmt::Display for QuoteElement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self {
+            Self::Inline(inline) => inline.fmt(f),
             Self::Strikethrough(strikethrough) => strikethrough.fmt(f),
             Self::Emphasis(emphasis) => emphasis.fmt(f),
             Self::Strong(strong) => strong.fmt(f),
-            Self::Script(script) => script.fmt(f),
         }
     }
 }
@@ -202,21 +234,20 @@ impl fmt::Display for Strikethrough {
 
         let mut output = String::new();
 
-        for el in &content.0 .0 {
-            write!(output, "{el} ")?;
+        for el in &content.0 {
+            write!(output, "{el}")?;
         }
-        output.pop();
 
-        write!(f, "{l}{output}{r}")
+        write!(f, "{l}{}{r}", output.trim())
     }
 }
 
 impl fmt::Display for StrikethroughElement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self {
+            Self::Inline(inline) => inline.fmt(f),
             Self::Emphasis(emphasis) => emphasis.fmt(f),
             Self::Strong(strong) => strong.fmt(f),
-            Self::Script(script) => script.fmt(f),
         }
     }
 }
@@ -227,12 +258,11 @@ impl fmt::Display for Emphasis {
 
         let mut output = String::new();
 
-        for script in &content.0 .0 {
-            write!(output, "{script} ")?;
+        for inline in &content.0 {
+            write!(output, "{inline}")?;
         }
-        output.pop();
 
-        write!(f, "{l}{output}{r}")
+        write!(f, "{l}{}{r}", output.trim())
     }
 }
 
@@ -242,12 +272,11 @@ impl fmt::Display for Strong {
 
         let mut output = String::new();
 
-        for script in &content.0 .0 {
-            write!(output, "{script} ")?;
+        for inline in &content.0 {
+            write!(output, "{inline}")?;
         }
-        output.pop();
 
-        write!(f, "{l}{output}{r}")
+        write!(f, "{l}{}{r}", output.trim())
     }
 }
 
@@ -286,28 +315,5 @@ impl fmt::Display for Monospace {
         let Self(l, content, r) = &self;
 
         write!(f, "{l}{content}{r}")
-    }
-}
-
-impl fmt::Display for Script {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let Self(word, tail) = &self;
-
-        word.fmt(f)?;
-
-        if let Some(tail) = tail {
-            tail.fmt(f)?;
-        }
-
-        Ok(())
-    }
-}
-
-impl fmt::Display for ScriptTail {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match &self {
-            Self::Sub(underscore, c, script) => write!(f, "{underscore}{c}{}", script.0),
-            Self::Sup(caret, c, script) => write!(f, "{caret}{c}{}", script.0),
-        }
     }
 }

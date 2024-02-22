@@ -269,7 +269,6 @@ impl ToHtml for Elements {
 
         for el in &self.0 {
             empty.push(&el.to_html().to_string());
-            empty.push(" ");
         }
 
         empty
@@ -279,6 +278,7 @@ impl ToHtml for Elements {
 impl ToHtml for Element {
     fn to_html(&self) -> HtmlElement {
         match self {
+            Self::Inline(inline) => inline.to_html(),
             Self::Quote(quote) => quote.to_html(),
             Self::Strikethrough(strike) => strike.to_html(),
             Self::Emphasis(emphasis) => emphasis.to_html(),
@@ -287,8 +287,36 @@ impl ToHtml for Element {
             Self::Link(link) => link.to_html(),
             Self::Escape(escape) => escape.to_html(),
             Self::Monospace(monospace) => monospace.to_html(),
-            Self::Script(script) => script.to_html(),
         }
+    }
+}
+
+impl ToHtml for Inline {
+    fn to_html(&self) -> HtmlElement {
+        match self {
+            Self::SubScript(script) => script.to_html(),
+            Self::SupScript(script) => script.to_html(),
+            Self::Spacing(spacing) => spacing.to_html(),
+            Self::Word(word) => HtmlElement::empty().with(&word),
+        }
+    }
+}
+
+impl ToHtml for SubScript {
+    fn to_html(&self) -> HtmlElement {
+        HtmlElement::new("sub").with(&self.0.to_string())
+    }
+}
+
+impl ToHtml for SupScript {
+    fn to_html(&self) -> HtmlElement {
+        HtmlElement::new("sup").with(&self.0.to_string())
+    }
+}
+
+impl ToHtml for Spacing {
+    fn to_html(&self) -> HtmlElement {
+        HtmlElement::empty().with(&" ".repeat(self.0))
     }
 }
 
@@ -298,7 +326,6 @@ impl ToHtml for Quote {
 
         for el in &self.elements {
             q.push(&el.to_html().to_string());
-            q.push(" ");
         }
 
         q
@@ -308,10 +335,10 @@ impl ToHtml for Quote {
 impl ToHtml for QuoteElement {
     fn to_html(&self) -> HtmlElement {
         match self {
+            Self::Inline(inline) => inline.to_html(),
             Self::Strikethrough(strike) => strike.to_html(),
             Self::Emphasis(emphasis) => emphasis.to_html(),
             Self::Strong(strong) => strong.to_html(),
-            Self::Script(script) => script.to_html(),
         }
     }
 }
@@ -322,7 +349,6 @@ impl ToHtml for Strikethrough {
 
         for el in &self.elements {
             del.push(&el.to_html().to_string());
-            del.push(" ");
         }
 
         del
@@ -332,9 +358,9 @@ impl ToHtml for Strikethrough {
 impl ToHtml for StrikethroughElement {
     fn to_html(&self) -> HtmlElement {
         match self {
+            Self::Inline(inline) => inline.to_html(),
             Self::Emphasis(emphasis) => emphasis.to_html(),
             Self::Strong(strong) => strong.to_html(),
-            Self::Script(script) => script.to_html(),
         }
     }
 }
@@ -343,9 +369,8 @@ impl ToHtml for Emphasis {
     fn to_html(&self) -> HtmlElement {
         let mut em = HtmlElement::new("em");
 
-        for script in &self.scripts {
-            em.push(&script.to_html().to_string());
-            em.push(" ");
+        for inline in &self.inlines {
+            em.push(&inline.to_html().to_string());
         }
 
         em
@@ -356,9 +381,8 @@ impl ToHtml for Strong {
     fn to_html(&self) -> HtmlElement {
         let mut strong = HtmlElement::new("strong");
 
-        for script in &self.scripts {
-            strong.push(&script.to_html().to_string());
-            strong.push(" ");
+        for inline in &self.inlines {
+            strong.push(&inline.to_html().to_string());
         }
 
         strong
@@ -394,25 +418,5 @@ impl ToHtml for Escape {
 impl ToHtml for Monospace {
     fn to_html(&self) -> HtmlElement {
         HtmlElement::new("code").with(&self.0)
-    }
-}
-
-impl ToHtml for Script {
-    fn to_html(&self) -> HtmlElement {
-        HtmlElement::body(&self.0).with(&self.1.to_html().to_string())
-    }
-}
-
-impl ToHtml for ScriptTail {
-    fn to_html(&self) -> HtmlElement {
-        match self {
-            ScriptTail::Sup(c, script) => HtmlElement::new("sup")
-                .with(&c.to_string())
-                .with_next(script.to_html()),
-            ScriptTail::Sub(c, script) => HtmlElement::new("sub")
-                .with(&c.to_string())
-                .with_next(script.to_html()),
-            ScriptTail::None => HtmlElement::empty(),
-        }
     }
 }

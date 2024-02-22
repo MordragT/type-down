@@ -218,7 +218,7 @@ pub struct Elements(pub Vec<Element>);
 
 impl From<cst::Elements> for Elements {
     fn from(value: cst::Elements) -> Self {
-        let elements = value.0 .0 .0.into_iter().map(Into::into).collect();
+        let elements = value.0 .0.into_iter().map(Into::into).collect();
 
         Self(elements)
     }
@@ -226,6 +226,7 @@ impl From<cst::Elements> for Elements {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Element {
+    Inline(Inline),
     Quote(Quote),
     Strikethrough(Strikethrough),
     Emphasis(Emphasis),
@@ -234,12 +235,12 @@ pub enum Element {
     Link(Link),
     Escape(Escape),
     Monospace(Monospace),
-    Script(Script),
 }
 
 impl From<cst::Element> for Element {
     fn from(value: cst::Element) -> Self {
         match value {
+            cst::Element::Inline(inline) => Self::Inline(inline.into()),
             cst::Element::Quote(quote) => Self::Quote(quote.into()),
             cst::Element::Strikethrough(strikethrough) => Self::Strikethrough(strikethrough.into()),
             cst::Element::Emphasis(emphasis) => Self::Emphasis(emphasis.into()),
@@ -248,8 +249,53 @@ impl From<cst::Element> for Element {
             cst::Element::Enclosed(enclosed) => Self::Enclosed(enclosed.into()),
             cst::Element::Escape(escape) => Self::Escape(escape.into()),
             cst::Element::Monospace(monospace) => Self::Monospace(monospace.into()),
-            cst::Element::Script(script) => Self::Script(script.into()),
         }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Inline {
+    SubScript(SubScript),
+    SupScript(SupScript),
+    Word(String),
+    Spacing(Spacing),
+}
+
+impl From<cst::Inline> for Inline {
+    fn from(value: cst::Inline) -> Self {
+        match value {
+            cst::Inline::SubScript(script) => Self::SubScript(script.into()),
+            cst::Inline::SupScript(script) => Self::SupScript(script.into()),
+            cst::Inline::Spacing(spacing) => Self::Spacing(spacing.into()),
+            cst::Inline::Word(word) => Self::Word(word.0),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct SubScript(pub char);
+
+impl From<cst::SubScript> for SubScript {
+    fn from(value: cst::SubScript) -> Self {
+        Self(value.1 .0)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct SupScript(pub char);
+
+impl From<cst::SupScript> for SupScript {
+    fn from(value: cst::SupScript) -> Self {
+        Self(value.1 .0)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Spacing(pub usize);
+
+impl From<cst::Spacing> for Spacing {
+    fn from(value: cst::Spacing) -> Self {
+        Self(value.0 .0.len())
     }
 }
 
@@ -260,7 +306,7 @@ pub struct Quote {
 
 impl From<cst::Quote> for Quote {
     fn from(value: cst::Quote) -> Self {
-        let elements = value.1 .0 .0.into_iter().map(Into::into).collect();
+        let elements = value.1 .0.into_iter().map(Into::into).collect();
 
         Self { elements }
     }
@@ -268,21 +314,21 @@ impl From<cst::Quote> for Quote {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum QuoteElement {
+    Inline(Inline),
     Strikethrough(Strikethrough),
     Emphasis(Emphasis),
     Strong(Strong),
-    Script(Script),
 }
 
 impl From<cst::QuoteElement> for QuoteElement {
     fn from(value: cst::QuoteElement) -> Self {
         match value {
+            cst::QuoteElement::Inline(inline) => Self::Inline(inline.into()),
             cst::QuoteElement::Strikethrough(strikethrough) => {
                 Self::Strikethrough(strikethrough.into())
             }
             cst::QuoteElement::Emphasis(emphasis) => Self::Emphasis(emphasis.into()),
             cst::QuoteElement::Strong(strong) => Self::Strong(strong.into()),
-            cst::QuoteElement::Script(script) => Self::Script(script.into()),
         }
     }
 }
@@ -294,7 +340,7 @@ pub struct Strikethrough {
 
 impl From<cst::Strikethrough> for Strikethrough {
     fn from(value: cst::Strikethrough) -> Self {
-        let elements = value.1 .0 .0.into_iter().map(Into::into).collect();
+        let elements = value.1 .0.into_iter().map(Into::into).collect();
 
         Self { elements }
     }
@@ -302,44 +348,44 @@ impl From<cst::Strikethrough> for Strikethrough {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum StrikethroughElement {
+    Inline(Inline),
     Emphasis(Emphasis),
     Strong(Strong),
-    Script(Script),
 }
 
 impl From<cst::StrikethroughElement> for StrikethroughElement {
     fn from(value: cst::StrikethroughElement) -> Self {
         match value {
+            cst::StrikethroughElement::Inline(inline) => Self::Inline(inline.into()),
             cst::StrikethroughElement::Emphasis(emphasis) => Self::Emphasis(emphasis.into()),
             cst::StrikethroughElement::Strong(strong) => Self::Strong(strong.into()),
-            cst::StrikethroughElement::Script(script) => Self::Script(script.into()),
         }
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Emphasis {
-    pub scripts: Vec<Script>,
+    pub inlines: Vec<Inline>,
 }
 
 impl From<cst::Emphasis> for Emphasis {
     fn from(value: cst::Emphasis) -> Self {
-        let scripts = value.1 .0 .0.into_iter().map(Into::into).collect();
+        let inlines = value.1 .0.into_iter().map(Into::into).collect();
 
-        Self { scripts }
+        Self { inlines }
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Strong {
-    pub scripts: Vec<Script>,
+    pub inlines: Vec<Inline>,
 }
 
 impl From<cst::Strong> for Strong {
     fn from(value: cst::Strong) -> Self {
-        let scripts = value.1 .0 .0.into_iter().map(Into::into).collect();
+        let inlines = value.1 .0.into_iter().map(Into::into).collect();
 
-        Self { scripts }
+        Self { inlines }
     }
 }
 
@@ -388,37 +434,5 @@ pub struct Escape(pub char);
 impl From<cst::Escape> for Escape {
     fn from(value: cst::Escape) -> Self {
         Escape(value.1 .0)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Script(pub String, pub ScriptTail);
-
-impl From<cst::Script> for Script {
-    fn from(value: cst::Script) -> Self {
-        let cst::Script(word, tail) = value;
-
-        Self(word.0, tail.into())
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub enum ScriptTail {
-    Sub(char, Box<Script>),
-    Sup(char, Box<Script>),
-    None,
-}
-
-impl From<Option<cst::ScriptTail>> for ScriptTail {
-    fn from(value: Option<cst::ScriptTail>) -> Self {
-        match value {
-            Some(cst::ScriptTail::Sup(_, c, script)) => {
-                ScriptTail::Sup(c.0, Box::new((*script.0).into()))
-            }
-            Some(cst::ScriptTail::Sub(_, c, script)) => {
-                ScriptTail::Sub(c.0, Box::new((*script.0).into()))
-            }
-            None => ScriptTail::None,
-        }
     }
 }
