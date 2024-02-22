@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use miette::Result;
 use type_down::{
-    compile::{html::HtmlCompiler, pdf::PdfCompiler, Compiler, Context},
+    compile::{docx::DocxCompiler, html::HtmlCompiler, pdf::PdfCompiler, Compiler, Context},
     parse::{parse, Ast},
 };
 
@@ -33,6 +33,7 @@ pub enum CompilerBackend {
     #[default]
     Html,
     Pdf,
+    Docx,
 }
 
 fn main() -> Result<()> {
@@ -62,6 +63,7 @@ fn main() -> Result<()> {
             match compiler {
                 CompilerBackend::Html => HtmlCompiler::compile(&ctx, &ast)?,
                 CompilerBackend::Pdf => PdfCompiler::compile(&ctx, &ast)?,
+                CompilerBackend::Docx => DocxCompiler::compile(&ctx, &ast)?,
             }
         }
     }

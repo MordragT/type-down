@@ -2,6 +2,8 @@ use crate::parse::Ast;
 use miette::Diagnostic;
 use std::path::PathBuf;
 
+#[cfg(feature = "docx")]
+pub mod docx;
 pub mod html;
 #[cfg(feature = "pdf")]
 pub mod pdf;

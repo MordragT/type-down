@@ -20,61 +20,50 @@ impl From<cst::Cst> for Ast {
     }
 }
 
+// TODO merge Block and MarkBlock to one
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Block {
-    Mark(MarkBlock),
-    Raw(RawBlock),
-    // Code(CodeBlock),
-    // Math(MathBlock),
-}
-
-impl From<cst::Block> for Block {
-    fn from(value: cst::Block) -> Self {
-        match value {
-            cst::Block::Raw(raw_block) => Self::Raw(raw_block.into()),
-            cst::Block::Mark(mark_block) => Self::Mark(mark_block.into()),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct RawBlock {
-    pub lang: Option<String>,
-    pub content: String,
-}
-
-impl From<cst::RawBlock> for RawBlock {
-    fn from(value: cst::RawBlock) -> Self {
-        let cst::RawBlock(_, lang, _, content, _, _) = value;
-
-        let lang = lang.map(|lang| lang.0 .0);
-
-        Self {
-            lang,
-            content: content.0,
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub enum MarkBlock {
+    Raw(Raw),
     Heading(Heading),
     List(List),
     OrderedList(OrderedList),
     Table(Table),
     Blockquote(Blockquote),
     Paragraph(Paragraph),
+    // Code(Code),
+    // Math(Math),
 }
 
-impl From<cst::MarkBlock> for MarkBlock {
-    fn from(value: cst::MarkBlock) -> Self {
+impl From<cst::Block> for Block {
+    fn from(value: cst::Block) -> Self {
         match value {
-            cst::MarkBlock::Heading(heading) => Self::Heading(heading.into()),
-            cst::MarkBlock::List(list) => Self::List(list.into()),
-            cst::MarkBlock::OrderedList(ordered) => Self::OrderedList(ordered.into()),
-            cst::MarkBlock::Table(table) => Self::Table(table.into()),
-            cst::MarkBlock::Blockquote(blockquote) => Self::Blockquote(blockquote.into()),
-            cst::MarkBlock::Paragraph(paragraph) => Self::Paragraph(paragraph.into()),
+            cst::Block::Raw(raw_block) => Self::Raw(raw_block.into()),
+            cst::Block::Heading(heading) => Self::Heading(heading.into()),
+            cst::Block::List(list) => Self::List(list.into()),
+            cst::Block::OrderedList(ordered) => Self::OrderedList(ordered.into()),
+            cst::Block::Table(table) => Self::Table(table.into()),
+            cst::Block::Blockquote(blockquote) => Self::Blockquote(blockquote.into()),
+            cst::Block::Paragraph(paragraph) => Self::Paragraph(paragraph.into()),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Raw {
+    pub lang: Option<String>,
+    pub content: String,
+}
+
+impl From<cst::Raw> for Raw {
+    fn from(value: cst::Raw) -> Self {
+        let cst::Raw(_, lang, _, content, _, _) = value;
+
+        let lang = lang.map(|lang| lang.0 .0);
+
+        Self {
+            lang,
+            content: content.0,
         }
     }
 }
@@ -149,19 +138,19 @@ impl From<cst::Table> for Table {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TableRow {
-    pub elements: Vec<Elements>,
+    pub cells: Vec<Elements>,
 }
 
 impl From<cst::TableRow> for TableRow {
     fn from(value: cst::TableRow) -> Self {
-        let elements = value
+        let cells = value
             .1
              .0
             .into_iter()
             .map(|(elements, _)| elements.into())
             .collect();
 
-        Self { elements }
+        Self { cells }
     }
 }
 

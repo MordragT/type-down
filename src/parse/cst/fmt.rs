@@ -15,15 +15,7 @@ impl fmt::Display for Cst {
 impl fmt::Display for Block {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self {
-            Self::Mark(mark) => mark.fmt(f),
             Self::Raw(raw) => raw.fmt(f),
-        }
-    }
-}
-
-impl fmt::Display for MarkBlock {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match &self {
             Self::Heading(heading) => heading.fmt(f),
             Self::List(list) => list.fmt(f),
             Self::OrderedList(ordered) => ordered.fmt(f),
@@ -34,7 +26,7 @@ impl fmt::Display for MarkBlock {
     }
 }
 
-impl fmt::Display for RawBlock {
+impl fmt::Display for Raw {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Self(l, lang, _, content, r, _) = &self;
 

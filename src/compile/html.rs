@@ -153,12 +153,17 @@ impl ToHtml for Block {
     fn to_html(&self) -> HtmlElement {
         match self {
             Self::Raw(raw) => raw.to_html(),
-            Self::Mark(block) => block.to_html(),
+            Self::Heading(heading) => heading.to_html(),
+            Self::List(list) => list.to_html(),
+            Self::OrderedList(ordered) => ordered.to_html(),
+            Self::Table(table) => table.to_html(),
+            Self::Blockquote(blockquote) => blockquote.to_html(),
+            Self::Paragraph(paragraph) => paragraph.to_html(),
         }
     }
 }
 
-impl ToHtml for RawBlock {
+impl ToHtml for Raw {
     fn to_html(&self) -> HtmlElement {
         let mut code = HtmlElement::new("code").with(&self.content);
 
@@ -167,19 +172,6 @@ impl ToHtml for RawBlock {
         }
 
         HtmlElement::new("pre").with(&code.to_string())
-    }
-}
-
-impl ToHtml for MarkBlock {
-    fn to_html(&self) -> HtmlElement {
-        match self {
-            Self::Heading(heading) => heading.to_html(),
-            Self::List(list) => list.to_html(),
-            Self::OrderedList(ordered) => ordered.to_html(),
-            Self::Table(table) => table.to_html(),
-            Self::Blockquote(blockquote) => blockquote.to_html(),
-            Self::Paragraph(paragraph) => paragraph.to_html(),
-        }
     }
 }
 
@@ -244,7 +236,7 @@ impl ToHtml for TableRow {
     fn to_html(&self) -> HtmlElement {
         let mut tr = HtmlElement::new("tr");
 
-        for el in &self.elements {
+        for el in &self.cells {
             let td = HtmlElement::new("td").with(&el.to_html().to_string());
             tr.push(&td.to_string());
         }

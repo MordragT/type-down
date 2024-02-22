@@ -13,14 +13,19 @@ pub struct Cst(pub NonEmptyVec<(Block, NonEmptyVec<NewLine>)>, pub End);
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
 pub enum Block {
-    Raw(RawBlock),
-    Mark(MarkBlock),
-    // Code(CodeBlock),
-    // Math(MathBlock),
+    Raw(Raw),
+    Heading(Heading),
+    List(List),
+    OrderedList(OrderedList),
+    Table(Table),
+    Blockquote(Blockquote),
+    Paragraph(Paragraph),
+    // Code(Code),
+    // Math(Math),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
-pub struct RawBlock(
+pub struct Raw(
     pub TripleBacktick,
     pub Option<PaddedBy<Vec<Space>, Identifier>>,
     pub NewLine,
@@ -28,16 +33,6 @@ pub struct RawBlock(
     pub TripleBacktick,
     pub NewLine,
 );
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
-pub enum MarkBlock {
-    Heading(Heading),
-    List(List),
-    OrderedList(OrderedList),
-    Table(Table),
-    Blockquote(Blockquote),
-    Paragraph(Paragraph),
-}
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
 pub struct HeadingLevel(pub NonEmptyVec<Equals>);
@@ -97,6 +92,8 @@ impl Parseable<'static, char> for Elements {
             .boxed()
     }
 }
+
+// TODO maybe space and line breaks as element ?
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
 pub enum Element {
