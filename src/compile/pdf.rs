@@ -17,8 +17,9 @@ pub struct PdfCompiler;
 
 impl Compiler for PdfCompiler {
     type Error = PdfError;
+    type Context = Context;
 
-    fn compile(ctx: &Context, ast: &Ast) -> Result<(), Self::Error> {
+    fn compile(ctx: Context, ast: &Ast) -> Result<(), Self::Error> {
         let title = &ctx.title;
 
         // Start writing.

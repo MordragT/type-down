@@ -6,8 +6,8 @@ use miette::Diagnostic;
 use thiserror::Error;
 
 use self::visitor::{
-    walk_blockquote, walk_emphasis, walk_enclosed, walk_heading, walk_paragraph, walk_quote,
-    walk_strikethrough, walk_strong, walk_table, Visitor,
+    walk_blockquote, walk_call_tail, walk_emphasis, walk_enclosed, walk_heading, walk_paragraph,
+    walk_quote, walk_strikethrough, walk_strong, walk_table, Visitor,
 };
 
 use super::{Compiler, Context};
@@ -24,44 +24,54 @@ pub struct HtmlCompiler;
 
 impl Compiler for HtmlCompiler {
     type Error = HtmlError;
+    type Context = Context;
 
-    fn compile(ctx: &Context, ast: &Ast) -> Result<(), Self::Error> {
-        let mut builder = HtmlBuilder::new(&ctx.title);
+    fn compile(ctx: Context, ast: &Ast) -> Result<(), Self::Error> {
+        let dest = ctx.dest.clone();
+
+        let mut builder = HtmlBuilder::new(ctx);
         builder.visit_ast(ast);
 
         let doc = builder.build();
         let contents = doc.to_string();
 
-        fs::write(&ctx.dest, contents)?;
+        fs::write(dest, contents)?;
 
         Ok(())
     }
 }
 
-#[derive(Debug)]
+// #[derive(Debug)]
 pub struct HtmlBuilder {
     head: HtmlElement<HeadTag>,
     body: HtmlElement<BodyTag>,
     stack: HtmlStack,
+    ctx: Context,
 }
 
 impl HtmlBuilder {
-    pub fn new(title: &str) -> Self {
+    pub fn new(ctx: Context) -> Self {
         let head = HtmlElement::head()
             .child(HtmlElement::stylesheet(
                 "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css",
             ))
-            .with_title(title);
+            .with_title(&ctx.title);
 
         Self {
             head,
             body: HtmlElement::body(),
             stack: HtmlStack::new(),
+            ctx,
         }
     }
 
     pub fn build(self) -> HtmlDocument {
-        let Self { head, body, stack } = self;
+        let Self {
+            head,
+            body,
+            stack,
+            ctx: _,
+        } = self;
 
         assert!(stack.is_empty());
 
@@ -257,5 +267,21 @@ impl Visitor for HtmlBuilder {
 
     fn visit_word(&mut self, word: &crate::parse::cst::terminal::Word) {
         self.stack.add_child(word.0.to_owned());
+    }
+
+    fn visit_access(&mut self, access: &Access) {
+        let Access { ident, tail } = access;
+
+        if let Some(CallTail { args, content }) = tail {
+            let f = self.ctx.symbol_table.func(ident).unwrap();
+
+            let pos = self.stack.start(f(args));
+
+            if let Some(enclosed) = content {
+                self.visit_enclosed(enclosed);
+            }
+
+            self.stack.fold(pos);
+        }
     }
 }

@@ -12,7 +12,9 @@ paragraph `monospace where @ | is ignored`
 
 | table | columns |
 
-> blockquote <https://example.com>[Hier klicken] 
+> blockquote <https://example.com>[Hier klicken]
+
+#image(src:"skate_gauss.png")
 
 labelled @label
 

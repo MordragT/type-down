@@ -1,6 +1,6 @@
 use parasite::{
     chumsky::{prelude::*, Parseable},
-    combinators::{Any, End, Identifier, NewLine, NonEmptyVec, PaddedBy, Rec},
+    combinators::{Any, End, Identifier, NewLine, NonEmptyVec, PaddedBy, Rec, SeparatedBy},
     Parseable,
 };
 use terminal::*;
@@ -107,6 +107,7 @@ pub enum Element {
     Link(Link),
     Escape(Escape),
     Monospace(Monospace),
+    Access(Access),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
@@ -139,6 +140,7 @@ pub enum QuoteElement {
     Strikethrough(Strikethrough),
     Emphasis(Emphasis),
     Strong(Strong),
+    Access(Access),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
@@ -149,6 +151,7 @@ pub enum StrikethroughElement {
     Inline(Inline),
     Emphasis(Emphasis),
     Strong(Strong),
+    Access(Access),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
@@ -175,3 +178,37 @@ pub struct Escape(pub BackSlash, pub Any);
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
 pub struct Monospace(pub BackTick, pub MonospaceContent, pub BackTick);
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
+pub struct Access(pub Pound, pub Identifier, pub Option<CallTail>);
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
+pub struct CallTail(
+    pub LeftParen,
+    pub Args,
+    pub RightParen,
+    pub Option<Enclosed>,
+);
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
+pub struct Args(pub SeparatedBy<Comma, Arg>);
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
+pub struct Arg(pub Identifier, pub Colon, pub Value);
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
+pub enum Value {
+    Identifier(Identifier),
+    String(StringValue),
+    // Number(Number),
+    // Bool(Boolean),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
+pub struct StringValue(pub DoubleQuote, pub StringContent, pub DoubleQuote);
+
+// #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
+// pub enum Boolean {
+//     True(KwTrue),
+//     False(KwFalse),
+// }

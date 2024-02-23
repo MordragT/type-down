@@ -92,6 +92,14 @@ pub trait Visitor {
     fn visit_word(&mut self, _word: &Word) {}
 
     fn visit_spacing(&mut self, _spacing: &Spacing) {}
+
+    fn visit_access(&mut self, access: &Access) {
+        walk_access(self, access)
+    }
+
+    fn visit_call_tail(&mut self, call_tail: &CallTail) {
+        walk_call_tail(self, call_tail)
+    }
 }
 
 pub fn walk_ast<V: Visitor + ?Sized>(visitor: &mut V, ast: &Ast) {
@@ -176,6 +184,7 @@ pub fn walk_element<V: Visitor + ?Sized>(visitor: &mut V, element: &Element) {
         Element::Link(link) => visitor.visit_link(link),
         Element::Escape(escape) => visitor.visit_escape(escape),
         Element::Monospace(monospace) => visitor.visit_monospace(monospace),
+        Element::Access(access) => visitor.visit_access(access),
     }
 }
 
@@ -215,5 +224,17 @@ pub fn walk_enclosed<V: Visitor + ?Sized>(visitor: &mut V, enclosed: &Enclosed) 
 pub fn walk_link<V: Visitor + ?Sized>(visitor: &mut V, link: &Link) {
     if let Some(elements) = &link.elements {
         visitor.visit_elements(elements)
+    }
+}
+
+pub fn walk_access<V: Visitor + ?Sized>(visitor: &mut V, access: &Access) {
+    if let Some(tail) = &access.tail {
+        visitor.visit_call_tail(tail)
+    }
+}
+
+pub fn walk_call_tail<V: Visitor + ?Sized>(visitor: &mut V, call_tail: &CallTail) {
+    if let Some(enclosed) = &call_tail.content {
+        visitor.visit_enclosed(enclosed)
     }
 }

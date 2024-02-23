@@ -2,7 +2,9 @@ use std::path::PathBuf;
 
 use miette::Result;
 use type_down::{
-    compile::{docx::DocxCompiler, html::HtmlCompiler, pdf::PdfCompiler, Compiler, Context},
+    compile::{
+        docx::DocxCompiler, html::HtmlCompiler, image, pdf::PdfCompiler, Compiler, ContextBuilder,
+    },
     parse::{parse, Ast},
 };
 
@@ -58,12 +60,17 @@ fn main() -> Result<()> {
             let cst = parse(&input)?;
             let ast = Ast::from(cst);
 
-            let ctx = Context::new("Testtitle".to_owned(), input, output);
+            let ctx = ContextBuilder::new()
+                .title("Testtitle".to_owned())
+                .source(input)
+                .destination(output)
+                .register_func("image", image)
+                .build()?;
 
             match compiler {
-                CompilerBackend::Html => HtmlCompiler::compile(&ctx, &ast)?,
-                CompilerBackend::Pdf => PdfCompiler::compile(&ctx, &ast)?,
-                CompilerBackend::Docx => DocxCompiler::compile(&ctx, &ast)?,
+                CompilerBackend::Html => HtmlCompiler::compile(ctx, &ast)?,
+                CompilerBackend::Pdf => PdfCompiler::compile(ctx, &ast)?,
+                CompilerBackend::Docx => DocxCompiler::compile(ctx, &ast)?,
             }
         }
     }

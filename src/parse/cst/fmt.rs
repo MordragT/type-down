@@ -47,13 +47,13 @@ impl fmt::Display for Heading {
 
 impl fmt::Display for HeadingLevel {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut output = String::new();
+        let mut buffer = String::new();
 
         for _ in 0..self.0 .0.len() {
-            output.push('=');
+            buffer.push('=');
         }
 
-        write!(f, "{output}")
+        buffer.fmt(f)
     }
 }
 
@@ -142,13 +142,13 @@ impl fmt::Display for Label {
 
 impl fmt::Display for Elements {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut output = String::new();
+        let mut buffer = String::new();
 
         for el in &self.0 .0 {
-            write!(output, "{el}")?;
+            buffer.push_str(&el.to_string());
         }
 
-        write!(f, "{}", output.trim())
+        buffer.trim().fmt(f)
     }
 }
 
@@ -164,6 +164,7 @@ impl fmt::Display for Element {
             Self::Link(link) => link.fmt(f),
             Self::Escape(escape) => escape.fmt(f),
             Self::Monospace(monospace) => monospace.fmt(f),
+            Self::Access(access) => access.fmt(f),
         }
     }
 }
@@ -224,6 +225,7 @@ impl fmt::Display for QuoteElement {
             Self::Strikethrough(strikethrough) => strikethrough.fmt(f),
             Self::Emphasis(emphasis) => emphasis.fmt(f),
             Self::Strong(strong) => strong.fmt(f),
+            Self::Access(access) => access.fmt(f),
         }
     }
 }
@@ -248,6 +250,7 @@ impl fmt::Display for StrikethroughElement {
             Self::Inline(inline) => inline.fmt(f),
             Self::Emphasis(emphasis) => emphasis.fmt(f),
             Self::Strong(strong) => strong.fmt(f),
+            Self::Access(access) => access.fmt(f),
         }
     }
 }
@@ -314,6 +317,73 @@ impl fmt::Display for Monospace {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Self(l, content, r) = &self;
 
+        write!(f, "{l}{content}{r}")
+    }
+}
+
+impl fmt::Display for Access {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self(pound, ident, call) = &self;
+
+        pound.fmt(f)?;
+        ident.0.fmt(f)?;
+
+        if let Some(call) = call {
+            call.fmt(f)?;
+        }
+
+        Ok(())
+    }
+}
+
+impl fmt::Display for CallTail {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self(l, args, r, enclosed) = &self;
+
+        write!(f, "{l}{args}{r}")?;
+
+        if let Some(enclosed) = enclosed {
+            enclosed.fmt(f)?;
+        }
+
+        Ok(())
+    }
+}
+
+impl fmt::Display for Args {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut buffer = String::new();
+
+        for arg in &self.0 .0 {
+            buffer.push_str(&arg.to_string());
+            buffer.push(',');
+        }
+
+        buffer.pop();
+
+        buffer.fmt(f)
+    }
+}
+
+impl fmt::Display for Arg {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self(ident, colon, value) = &self;
+        write!(f, "{}{colon}{value}", ident.0)
+    }
+}
+
+impl fmt::Display for Value {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self {
+            Self::Identifier(ident) => ident.0.fmt(f),
+            Self::String(s) => s.fmt(f),
+        }
+    }
+}
+
+impl fmt::Display for StringValue {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self(l, content, r) = &self;
         write!(f, "{l}{content}{r}")
     }
 }

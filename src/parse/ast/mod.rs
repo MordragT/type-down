@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use parasite::chumsky::chain::Chain;
 
 use super::cst::{self, terminal::Word};
@@ -237,6 +239,7 @@ pub enum Element {
     Link(Link),
     Escape(Escape),
     Monospace(Monospace),
+    Access(Access),
 }
 
 impl From<cst::Element> for Element {
@@ -251,6 +254,7 @@ impl From<cst::Element> for Element {
             cst::Element::Enclosed(enclosed) => Self::Enclosed(enclosed.into()),
             cst::Element::Escape(escape) => Self::Escape(escape.into()),
             cst::Element::Monospace(monospace) => Self::Monospace(monospace.into()),
+            cst::Element::Access(access) => Self::Access(access.into()),
         }
     }
 }
@@ -261,6 +265,7 @@ impl From<cst::StrikethroughElement> for Element {
             cst::StrikethroughElement::Inline(inline) => Self::Inline(inline.into()),
             cst::StrikethroughElement::Emphasis(emphasis) => Self::Emphasis(emphasis.into()),
             cst::StrikethroughElement::Strong(strong) => Self::Strong(strong.into()),
+            cst::StrikethroughElement::Access(access) => Self::Access(access.into()),
         }
     }
 }
@@ -274,6 +279,7 @@ impl From<cst::QuoteElement> for Element {
             }
             cst::QuoteElement::Emphasis(emphasis) => Self::Emphasis(emphasis.into()),
             cst::QuoteElement::Strong(strong) => Self::Strong(strong.into()),
+            cst::QuoteElement::Access(access) => Self::Access(access.into()),
         }
     }
 }
@@ -337,27 +343,6 @@ impl From<cst::Quote> for Quote {
     }
 }
 
-// #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-// pub enum QuoteElement {
-//     Inline(Inline),
-//     Strikethrough(Strikethrough),
-//     Emphasis(Emphasis),
-//     Strong(Strong),
-// }
-
-// impl From<cst::QuoteElement> for QuoteElement {
-//     fn from(value: cst::QuoteElement) -> Self {
-//         match value {
-//             cst::QuoteElement::Inline(inline) => Self::Inline(inline.into()),
-//             cst::QuoteElement::Strikethrough(strikethrough) => {
-//                 Self::Strikethrough(strikethrough.into())
-//             }
-//             cst::QuoteElement::Emphasis(emphasis) => Self::Emphasis(emphasis.into()),
-//             cst::QuoteElement::Strong(strong) => Self::Strong(strong.into()),
-//         }
-//     }
-// }
-
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Strikethrough {
     pub elements: Elements,
@@ -370,23 +355,6 @@ impl From<cst::Strikethrough> for Strikethrough {
         Self { elements }
     }
 }
-
-// #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-// pub enum StrikethroughElement {
-//     Inline(Inline),
-//     Emphasis(Emphasis),
-//     Strong(Strong),
-// }
-
-// impl From<cst::StrikethroughElement> for StrikethroughElement {
-//     fn from(value: cst::StrikethroughElement) -> Self {
-//         match value {
-//             cst::StrikethroughElement::Inline(inline) => Self::Inline(inline.into()),
-//             cst::StrikethroughElement::Emphasis(emphasis) => Self::Emphasis(emphasis.into()),
-//             cst::StrikethroughElement::Strong(strong) => Self::Strong(strong.into()),
-//         }
-//     }
-// }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Emphasis {
@@ -459,5 +427,61 @@ pub struct Escape(pub char);
 impl From<cst::Escape> for Escape {
     fn from(value: cst::Escape) -> Self {
         Escape(value.1 .0)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Access {
+    pub ident: String,
+    pub tail: Option<CallTail>,
+}
+
+impl From<cst::Access> for Access {
+    fn from(value: cst::Access) -> Self {
+        let cst::Access(_, ident, tail) = value;
+
+        let ident = ident.0;
+        let tail = tail.map(Into::into);
+
+        Self { ident, tail }
+    }
+}
+
+pub type Args = BTreeMap<String, Value>;
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct CallTail {
+    pub args: BTreeMap<String, Value>,
+    pub content: Option<Enclosed>,
+}
+
+impl From<cst::CallTail> for CallTail {
+    fn from(value: cst::CallTail) -> Self {
+        let cst::CallTail(_, args, _, enclosed) = value;
+
+        let args = args
+            .0
+             .0
+            .into_iter()
+            .map(|cst::Arg(ident, _, value)| (ident.0, value.into()))
+            .collect();
+        let content = enclosed.map(Into::into);
+
+        Self { args, content }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Value {
+    Identifier(String),
+    StringValue(String),
+}
+
+impl From<cst::Value> for Value {
+    fn from(value: cst::Value) -> Self {
+        match value {
+            cst::Value::Identifier(ident) => Self::Identifier(ident.0),
+            cst::Value::String(s) => Self::StringValue(s.1 .0),
+        }
     }
 }

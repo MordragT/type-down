@@ -80,6 +80,9 @@ pub struct SupTag;
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ScriptTag;
 
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ImageTag;
+
 impl<T: HrefAttr> HtmlElement<T> {
     pub fn href(self, href: impl Into<String>) -> Self {
         self.attribute("href", href)
@@ -261,5 +264,15 @@ impl HtmlElement<SupTag> {
 impl HtmlElement<ScriptTag> {
     pub fn script() -> Self {
         Self::init("script")
+    }
+}
+
+impl HtmlElement<ImageTag> {
+    pub fn image() -> Self {
+        Self::init("image")
+    }
+
+    pub fn src(self, src: impl Into<String>) -> Self {
+        self.attribute("src", src)
     }
 }

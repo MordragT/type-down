@@ -21,8 +21,9 @@ pub struct DocxCompiler;
 
 impl Compiler for DocxCompiler {
     type Error = DocxError;
+    type Context = Context;
 
-    fn compile(ctx: &Context, ast: &Ast) -> Result<(), Self::Error> {
+    fn compile(ctx: Context, ast: &Ast) -> Result<(), Self::Error> {
         let mut builder = DocxBuilder::new();
         builder.visit_ast(ast);
 

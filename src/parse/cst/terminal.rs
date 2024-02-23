@@ -88,6 +88,24 @@ impl fmt::Display for DoubleQuote {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable, Terminal)]
+pub struct LeftParen(Just<'('>);
+
+impl fmt::Display for LeftParen {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "(")
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable, Terminal)]
+pub struct RightParen(Just<')'>);
+
+impl fmt::Display for RightParen {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "]")
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable, Terminal)]
 pub struct LeftBracket(Just<'['>);
 
 impl fmt::Display for LeftBracket {
@@ -106,15 +124,6 @@ impl fmt::Display for RightBracket {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable, Terminal)]
-pub struct At(Just<'@'>);
-
-impl fmt::Display for At {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "@")
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable, Terminal)]
 pub struct LeftAngle(Just<'<'>);
 
 impl fmt::Display for LeftAngle {
@@ -129,6 +138,24 @@ pub struct RightAngle(Just<'>'>);
 impl fmt::Display for RightAngle {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, ">")
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable, Terminal)]
+pub struct At(Just<'@'>);
+
+impl fmt::Display for At {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "@")
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable, Terminal)]
+pub struct Pound(Just<'#'>);
+
+impl fmt::Display for Pound {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "#")
     }
 }
 
@@ -174,6 +201,47 @@ pub struct Equals(Just<'='>);
 impl fmt::Display for Equals {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "=")
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable, Terminal)]
+pub struct Comma(Just<','>);
+
+impl fmt::Display for Comma {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, ",")
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable, Terminal)]
+pub struct Colon(Just<':'>);
+
+impl fmt::Display for Colon {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, ":")
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Terminal)]
+pub struct StringContent(pub String);
+
+impl fmt::Display for StringContent {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl Parseable<'static, char> for StringContent {
+    fn parser(
+        ctx: &mut parasite::chumsky::Context,
+    ) -> parasite::chumsky::prelude::BoxedParser<'static, char, Self, Self::Error> {
+        DoubleQuote::parser(ctx)
+            .ignored()
+            .not()
+            .repeated()
+            .collect()
+            .map(StringContent)
+            .boxed()
     }
 }
 
@@ -282,6 +350,7 @@ impl Parseable<'static, char> for Character {
         let double_quote = DoubleQuote::parser(ctx).ignored();
         let left_bracket = LeftBracket::parser(ctx).ignored();
         let right_bracket = RightBracket::parser(ctx).ignored();
+        let pound = Pound::parser(ctx).ignored();
 
         newline
             .or(at)
@@ -298,6 +367,7 @@ impl Parseable<'static, char> for Character {
             .or(double_quote)
             .or(left_bracket)
             .or(right_bracket)
+            .or(pound)
             .not()
             .map(Character)
             .boxed()
