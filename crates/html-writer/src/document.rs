@@ -1,6 +1,6 @@
-use crate::{tags::HtmlTag, HtmlElement, DOCTYPE, LANGUAGE, NAMESPACE};
+use crate::{tags::HtmlTag, HtmlElement, HtmlRender, DOCTYPE, LANGUAGE, NAMESPACE};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug)]
 pub struct HtmlDocument {
     doctype: Option<String>,
     root: HtmlElement<HtmlTag>,
@@ -64,11 +64,11 @@ impl HtmlDocument {
         self.root.set_namespace(namespace)
     }
 
-    pub fn add_child(&mut self, child: impl Into<String>) {
+    pub fn add_child(&mut self, child: impl HtmlRender + 'static + 'static) {
         self.root.add_child(child);
     }
 
-    pub fn child(mut self, child: impl Into<String>) -> Self {
+    pub fn child(mut self, child: impl HtmlRender + 'static) -> Self {
         self.root.add_child(child);
         self
     }

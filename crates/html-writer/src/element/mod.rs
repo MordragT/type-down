@@ -1,16 +1,16 @@
-use crate::INDENT;
-use std::{collections::HashMap, marker::PhantomData};
+use crate::{HtmlRender, TAB};
+use std::{collections::HashMap, fmt::Debug, marker::PhantomData};
 
 pub use dynamic::*;
 
 mod dynamic;
 pub mod tags;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug)]
 pub struct HtmlElement<T> {
     tag: String,
     attributes: HashMap<String, String>,
-    children: Vec<String>,
+    children: Vec<Box<dyn HtmlRender>>,
     ty: PhantomData<T>,
 }
 
@@ -61,18 +61,18 @@ impl<T> HtmlElement<T> {
         self
     }
 
-    pub fn add_child(&mut self, child: impl Into<String>) {
-        self.children.push(child.into())
+    pub fn add_child(&mut self, child: impl HtmlRender + 'static) {
+        self.children.push(Box::new(child))
     }
 
-    pub fn child(mut self, child: impl Into<String>) -> Self {
+    pub fn child(mut self, child: impl HtmlRender + 'static) -> Self {
         self.add_child(child);
         self
     }
 }
 
-impl<T> ToString for HtmlElement<T> {
-    fn to_string(&self) -> String {
+impl<T: Debug> HtmlRender for HtmlElement<T> {
+    fn render(&self, rank: usize) -> String {
         let Self {
             tag,
             attributes,
@@ -81,22 +81,33 @@ impl<T> ToString for HtmlElement<T> {
         } = &self;
 
         let mut buffer = String::new();
+        // FIXME
+        // let indentation = TAB.repeat(rank);
 
         let attrs = attributes
             .iter()
             .map(|(key, value)| format!("{key}=\"{value}\""))
             .collect::<Vec<_>>();
-        let attrs = attrs.join(" ");
 
-        let open = format!("<{tag} {attrs}>");
+        let open = if attrs.is_empty() {
+            format!("<{tag}>")
+        } else {
+            let attrs = attrs.join(" ");
+            format!("<{tag} {attrs}>")
+        };
         buffer.push_str(&open);
 
-        let indentation = " ".repeat(INDENT);
-        let separator = format!("\n{}", &indentation);
-        let children = children.join(&separator);
+        let children = children
+            .iter()
+            .map(|child| child.render(rank + 1))
+            .collect::<Vec<_>>();
 
-        let mut body = separator;
-        body.push_str(&children);
+        let body = if children.is_empty() {
+            String::new()
+        } else {
+            let children = children.join("");
+            children
+        };
         buffer.push_str(&body);
 
         let close = format!("</{tag}>");
@@ -106,7 +117,13 @@ impl<T> ToString for HtmlElement<T> {
     }
 }
 
-impl<T> Into<String> for HtmlElement<T> {
+impl<T: Debug> ToString for HtmlElement<T> {
+    fn to_string(&self) -> String {
+        self.render(0)
+    }
+}
+
+impl<T: Debug> Into<String> for HtmlElement<T> {
     fn into(self) -> String {
         self.to_string()
     }

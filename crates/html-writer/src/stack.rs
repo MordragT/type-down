@@ -1,8 +1,8 @@
-use crate::DynHtmlElement;
+use crate::{DynHtmlElement, HtmlRender};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug)]
 pub struct HtmlStack {
-    stack: Vec<HtmlLock>,
+    stack: Vec<DynHtmlElement>,
 }
 
 impl HtmlStack {
@@ -10,91 +10,30 @@ impl HtmlStack {
         Self { stack: Vec::new() }
     }
 
-    pub fn push(&mut self, lock: HtmlLock) {
-        self.stack.push(lock);
-    }
-
-    pub fn push_open(&mut self, element: impl Into<DynHtmlElement>) -> usize {
-        let lock = HtmlLock::new(element.into());
+    pub fn start(&mut self, element: impl Into<DynHtmlElement>) -> usize {
         let pos = self.stack.len();
-        self.stack.push(lock);
+        self.stack.push(element.into());
         pos
     }
 
-    pub fn push_close(&mut self, element: impl Into<DynHtmlElement>) -> usize {
-        let lock = HtmlLock::Close(element.into());
-        let pos = self.stack.len();
-        self.stack.push(lock);
-        pos
-    }
-
-    pub fn add_content(&mut self, content: impl AsRef<str>) {
-        let dest = self
-            .stack
-            .iter_mut()
-            .rev()
-            .find_map(|lock| {
-                if let HtmlLock::Open {
-                    element: _,
-                    content,
-                } = lock
-                {
-                    Some(content)
-                } else {
-                    None
-                }
-            })
-            .unwrap();
-
-        dest.push_str(content.as_ref());
-    }
-
-    pub fn fold(&mut self, at: usize) -> DynHtmlElement {
-        let mut iter = self.stack.drain(at..).map(Into::into);
+    pub fn end(&mut self, start: usize) -> DynHtmlElement {
+        let mut iter = self.stack.drain(start..).map(Into::into);
         let el: DynHtmlElement = iter.next().unwrap();
         let el = iter.fold(el, |accu, el| accu.child(el));
         el
     }
 
-    pub fn fold_push(&mut self, at: usize) {
-        let el = self.fold(at);
-        self.push_close(el);
+    pub fn add_child(&mut self, child: impl HtmlRender + 'static) {
+        let item = self.stack.last_mut().unwrap();
+        item.add_child(child);
+    }
+
+    pub fn fold(&mut self, start: usize) {
+        let el = self.end(start);
+        self.add_child(el);
     }
 
     pub fn is_empty(&self) -> bool {
         self.stack.is_empty()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum HtmlLock {
-    Open {
-        element: DynHtmlElement,
-        content: String,
-    },
-    Close(DynHtmlElement),
-}
-
-impl HtmlLock {
-    pub fn new(element: DynHtmlElement) -> Self {
-        Self::Open {
-            element,
-            content: String::new(),
-        }
-    }
-}
-
-impl From<DynHtmlElement> for HtmlLock {
-    fn from(value: DynHtmlElement) -> Self {
-        Self::new(value)
-    }
-}
-
-impl Into<DynHtmlElement> for HtmlLock {
-    fn into(self) -> DynHtmlElement {
-        match self {
-            HtmlLock::Open { element, content } => element.child(content),
-            HtmlLock::Close(element) => element,
-        }
     }
 }

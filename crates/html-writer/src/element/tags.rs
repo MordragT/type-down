@@ -120,7 +120,7 @@ impl HtmlElement<HeadTag> {
     }
 
     pub fn with_title(self, title: impl Into<String>) -> Self {
-        self.child(HtmlElement::title().child(title).to_string())
+        self.child(HtmlElement::title().child(title.into()))
     }
 }
 

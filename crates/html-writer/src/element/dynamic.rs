@@ -1,7 +1,9 @@
+use crate::HtmlRender;
+
 use super::HtmlElement;
 use std::marker::PhantomData;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug)]
 pub struct DynHtmlElement {
     element: HtmlElement<()>,
 }
@@ -43,13 +45,19 @@ impl DynHtmlElement {
         self
     }
 
-    pub fn add_child(&mut self, child: impl Into<String>) {
+    pub fn add_child(&mut self, child: impl HtmlRender + 'static) {
         self.element.add_child(child);
     }
 
-    pub fn child(mut self, child: impl Into<String>) -> Self {
+    pub fn child(mut self, child: impl HtmlRender + 'static) -> Self {
         self.element.add_child(child);
         self
+    }
+}
+
+impl HtmlRender for DynHtmlElement {
+    fn render(&self, rank: usize) -> String {
+        self.element.render(rank)
     }
 }
 

@@ -1,6 +1,6 @@
 use html_writer::{
     tags::{BodyTag, HeadTag},
-    DynHtmlElement, HtmlDocument, HtmlElement, HtmlStack,
+    DynHtmlElement, HtmlDocument, HtmlElement, HtmlStack, NoIndent,
 };
 use miette::Diagnostic;
 use thiserror::Error;
@@ -38,7 +38,7 @@ impl Compiler for HtmlCompiler {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug)]
 pub struct HtmlBuilder {
     head: HtmlElement<HeadTag>,
     body: HtmlElement<BodyTag>,
@@ -87,7 +87,7 @@ impl HtmlBuilder {
 
 impl Visitor for HtmlBuilder {
     fn visit_raw(&mut self, raw: &Raw) {
-        let mut code = HtmlElement::code().child(&raw.content);
+        let mut code = HtmlElement::code().child(NoIndent(raw.content.to_owned()));
 
         if let Some(lang) = &raw.lang {
             code.add_class(format!("language-{lang}"));
@@ -99,163 +99,163 @@ impl Visitor for HtmlBuilder {
 
     fn visit_heading(&mut self, heading: &Heading) {
         let h = DynHtmlElement::new(&format!("h{}", heading.level));
-        let pos = self.stack.push_open(h);
+        let pos = self.stack.start(h);
 
         walk_heading(self, heading);
 
-        let h = self.stack.fold(pos);
+        let h = self.stack.end(pos);
         self.body.add_child(h);
     }
 
     fn visit_list(&mut self, list: &List) {
-        let pos = self.stack.push_open(HtmlElement::ul());
+        let pos = self.stack.start(HtmlElement::ul());
 
         for line in &list.lines {
-            let pos = self.stack.push_open(HtmlElement::li());
+            let pos = self.stack.start(HtmlElement::li());
 
             self.visit_line(line);
 
-            self.stack.fold_push(pos)
+            self.stack.fold(pos);
         }
 
-        let ul = self.stack.fold(pos);
+        let ul = self.stack.end(pos);
         self.body.add_child(ul);
     }
 
     fn visit_ordered_list(&mut self, ordered_list: &OrderedList) {
-        let pos = self.stack.push_open(HtmlElement::ol());
+        let pos = self.stack.start(HtmlElement::ol());
 
         for line in &ordered_list.lines {
-            let pos = self.stack.push_open(HtmlElement::li());
+            let pos = self.stack.start(HtmlElement::li());
 
             self.visit_line(line);
 
-            self.stack.fold_push(pos)
+            self.stack.fold(pos);
         }
 
-        let ol = self.stack.fold(pos);
+        let ol = self.stack.end(pos);
         self.body.add_child(ol);
     }
 
     fn visit_table(&mut self, table: &Table) {
-        let pos = self.stack.push_open(HtmlElement::table());
+        let pos = self.stack.start(HtmlElement::table());
 
         walk_table(self, table);
 
-        let tbl = self.stack.fold(pos);
+        let tbl = self.stack.end(pos);
         self.body.add_child(tbl);
     }
 
     fn visit_table_row(&mut self, table_row: &TableRow) {
-        let pos = self.stack.push_open(HtmlElement::tr());
+        let pos = self.stack.start(HtmlElement::tr());
 
         for cell in &table_row.cells {
-            let pos = self.stack.push_open(HtmlElement::td());
+            let pos = self.stack.start(HtmlElement::td());
 
             self.visit_elements(cell);
 
-            self.stack.fold_push(pos);
+            self.stack.fold(pos);
         }
 
-        self.stack.fold_push(pos);
+        self.stack.fold(pos);
     }
 
     fn visit_blockquote(&mut self, blockquote: &Blockquote) {
-        let pos = self.stack.push_open(HtmlElement::blockquote());
+        let pos = self.stack.start(HtmlElement::blockquote());
 
         walk_blockquote(self, blockquote);
 
-        let blqt = self.stack.fold(pos);
+        let blqt = self.stack.end(pos);
         self.body.add_child(blqt)
     }
 
     fn visit_paragraph(&mut self, paragraph: &Paragraph) {
-        let pos = self.stack.push_open(HtmlElement::p());
+        let pos = self.stack.start(HtmlElement::p());
 
         walk_paragraph(self, paragraph);
 
-        let p = self.stack.fold(pos);
+        let p = self.stack.end(pos);
         self.body.add_child(p);
     }
 
     fn visit_quote(&mut self, quote: &Quote) {
-        let pos = self.stack.push_open(HtmlElement::q());
+        let pos = self.stack.start(HtmlElement::q());
 
         walk_quote(self, quote);
 
-        self.stack.fold_push(pos);
+        self.stack.fold(pos);
     }
 
     fn visit_strikethrough(&mut self, strikethrough: &Strikethrough) {
-        let pos = self.stack.push_open(HtmlElement::del());
+        let pos = self.stack.start(HtmlElement::del());
 
         walk_strikethrough(self, strikethrough);
 
-        self.stack.fold_push(pos);
+        self.stack.fold(pos);
     }
 
     fn visit_strong(&mut self, strong: &Strong) {
-        let pos = self.stack.push_open(HtmlElement::strong());
+        let pos = self.stack.start(HtmlElement::strong());
 
         walk_strong(self, strong);
 
-        self.stack.fold_push(pos);
+        self.stack.fold(pos);
     }
 
     fn visit_emphasis(&mut self, emphasis: &Emphasis) {
-        let pos = self.stack.push_open(HtmlElement::em());
+        let pos = self.stack.start(HtmlElement::em());
 
         walk_emphasis(self, emphasis);
 
-        self.stack.fold_push(pos);
+        self.stack.fold(pos);
     }
 
     fn visit_enclosed(&mut self, enclosed: &Enclosed) {
-        let pos = self.stack.push_open(HtmlElement::div());
+        let pos = self.stack.start(HtmlElement::div());
 
         walk_enclosed(self, enclosed);
 
-        self.stack.fold_push(pos);
+        self.stack.fold(pos);
     }
 
     fn visit_link(&mut self, link: &Link) {
         let a = HtmlElement::a().href(&link.link);
 
         if let Some(elements) = &link.elements {
-            let pos = self.stack.push_open(a);
+            let pos = self.stack.start(a);
 
             self.visit_elements(elements);
 
-            self.stack.fold_push(pos);
+            self.stack.fold(pos);
         } else {
-            self.stack.push_close(a.child(&link.link));
+            self.stack.add_child(a.child(link.link.to_owned()));
         }
     }
 
     fn visit_escape(&mut self, escape: &Escape) {
-        self.stack.add_content(escape.0.to_string());
+        self.stack.add_child(escape.0.to_string());
     }
 
     fn visit_monospace(&mut self, monospace: &Monospace) {
         self.stack
-            .push_close(HtmlElement::code().child(&monospace.0));
+            .add_child(HtmlElement::code().child(monospace.0.to_owned()));
     }
 
     fn visit_sub_script(&mut self, sub_script: &SubScript) {
         self.stack
-            .push_close(HtmlElement::sub().child(sub_script.0.to_string()));
+            .add_child(HtmlElement::sub().child(sub_script.0.to_string()));
     }
 
     fn visit_sup_script(&mut self, sup_script: &SupScript) {
         self.stack
-            .push_close(HtmlElement::sup().child(sup_script.0.to_string()));
+            .add_child(HtmlElement::sup().child(sup_script.0.to_string()));
     }
 
     fn visit_spacing(&mut self, spacing: &Spacing) {
-        self.stack.add_content(" ".repeat(spacing.0));
+        self.stack.add_child(" ".repeat(spacing.0));
     }
 
     fn visit_word(&mut self, word: &crate::parse::cst::terminal::Word) {
-        self.stack.add_content(&word.0);
+        self.stack.add_child(word.0.to_owned());
     }
 }
