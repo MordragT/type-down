@@ -1,10 +1,18 @@
+use html_writer::{
+    tags::{BodyTag, HeadTag},
+    DynHtmlElement, HtmlDocument, HtmlElement, HtmlStack,
+};
 use miette::Diagnostic;
 use thiserror::Error;
 
-use crate::parse::ast::*;
-use std::io;
+use self::visitor::{
+    walk_blockquote, walk_emphasis, walk_enclosed, walk_heading, walk_paragraph, walk_quote,
+    walk_strikethrough, walk_strong, walk_table, Visitor,
+};
 
 use super::{Compiler, Context};
+use crate::parse::ast::*;
+use std::{fs, io};
 
 #[derive(Debug, Error, Diagnostic)]
 #[error(transparent)]
@@ -18,405 +26,236 @@ impl Compiler for HtmlCompiler {
     type Error = HtmlError;
 
     fn compile(ctx: &Context, ast: &Ast) -> Result<(), Self::Error> {
-        let title = &ctx.title;
-        let body = ast.to_html().to_string();
+        let mut builder = HtmlBuilder::new(&ctx.title);
+        builder.visit_ast(ast);
 
-        let highlight = "<link rel=\"stylesheet\" href=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css\"><script src=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js\"></script><script src=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/go.min.js\"></script><script>hljs.highlightAll();</script>";
-        let html = format!("<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">{highlight}<title>{title}</title></head>{body}</html>");
-        std::fs::write(&ctx.dest, html)?;
+        let doc = builder.build();
+        let contents = doc.to_string();
+
+        fs::write(&ctx.dest, contents)?;
+
         Ok(())
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct HtmlElement {
-    tag: Option<String>,
-    class: Option<String>,
-    href: Option<String>,
-    body: String,
-    next: Option<Box<Self>>,
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HtmlBuilder {
+    head: HtmlElement<HeadTag>,
+    body: HtmlElement<BodyTag>,
+    stack: HtmlStack,
 }
 
-impl HtmlElement {
-    pub fn new(tag: &str) -> Self {
+impl HtmlBuilder {
+    pub fn new(title: &str) -> Self {
+        let head = HtmlElement::head()
+            .child(HtmlElement::stylesheet(
+                "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css",
+            ))
+            .with_title(title);
+
         Self {
-            tag: Some(tag.to_owned()),
-            body: String::new(),
-            class: None,
-            href: None,
-            next: None,
+            head,
+            body: HtmlElement::body(),
+            stack: HtmlStack::new(),
         }
     }
 
-    pub fn empty() -> Self {
-        Self {
-            tag: None,
-            body: String::new(),
-            class: None,
-            href: None,
-            next: None,
+    pub fn build(self) -> HtmlDocument {
+        let Self { head, body, stack } = self;
+
+        assert!(stack.is_empty());
+
+        let body = body
+            .child(HtmlElement::script().attribute(
+                "src",
+                "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js",
+            ))
+            .child(HtmlElement::script().attribute(
+                "src",
+                "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/go.min.js",
+            ))
+            .child(HtmlElement::script().child("hljs.highlightAll();"));
+
+        HtmlDocument::new()
+            .default_doctype()
+            .default_language()
+            .default_namespace()
+            .child(head)
+            .child(body)
+    }
+}
+
+impl Visitor for HtmlBuilder {
+    fn visit_raw(&mut self, raw: &Raw) {
+        let mut code = HtmlElement::code().child(&raw.content);
+
+        if let Some(lang) = &raw.lang {
+            code.add_class(format!("language-{lang}"));
+        }
+
+        let pre = HtmlElement::pre().child(code);
+        self.body.add_child(pre);
+    }
+
+    fn visit_heading(&mut self, heading: &Heading) {
+        let h = DynHtmlElement::new(&format!("h{}", heading.level));
+        let pos = self.stack.push_open(h);
+
+        walk_heading(self, heading);
+
+        let h = self.stack.fold(pos);
+        self.body.add_child(h);
+    }
+
+    fn visit_list(&mut self, list: &List) {
+        let pos = self.stack.push_open(HtmlElement::ul());
+
+        for line in &list.lines {
+            let pos = self.stack.push_open(HtmlElement::li());
+
+            self.visit_line(line);
+
+            self.stack.fold_push(pos)
+        }
+
+        let ul = self.stack.fold(pos);
+        self.body.add_child(ul);
+    }
+
+    fn visit_ordered_list(&mut self, ordered_list: &OrderedList) {
+        let pos = self.stack.push_open(HtmlElement::ol());
+
+        for line in &ordered_list.lines {
+            let pos = self.stack.push_open(HtmlElement::li());
+
+            self.visit_line(line);
+
+            self.stack.fold_push(pos)
+        }
+
+        let ol = self.stack.fold(pos);
+        self.body.add_child(ol);
+    }
+
+    fn visit_table(&mut self, table: &Table) {
+        let pos = self.stack.push_open(HtmlElement::table());
+
+        walk_table(self, table);
+
+        let tbl = self.stack.fold(pos);
+        self.body.add_child(tbl);
+    }
+
+    fn visit_table_row(&mut self, table_row: &TableRow) {
+        let pos = self.stack.push_open(HtmlElement::tr());
+
+        for cell in &table_row.cells {
+            let pos = self.stack.push_open(HtmlElement::td());
+
+            self.visit_elements(cell);
+
+            self.stack.fold_push(pos);
+        }
+
+        self.stack.fold_push(pos);
+    }
+
+    fn visit_blockquote(&mut self, blockquote: &Blockquote) {
+        let pos = self.stack.push_open(HtmlElement::blockquote());
+
+        walk_blockquote(self, blockquote);
+
+        let blqt = self.stack.fold(pos);
+        self.body.add_child(blqt)
+    }
+
+    fn visit_paragraph(&mut self, paragraph: &Paragraph) {
+        let pos = self.stack.push_open(HtmlElement::p());
+
+        walk_paragraph(self, paragraph);
+
+        let p = self.stack.fold(pos);
+        self.body.add_child(p);
+    }
+
+    fn visit_quote(&mut self, quote: &Quote) {
+        let pos = self.stack.push_open(HtmlElement::q());
+
+        walk_quote(self, quote);
+
+        self.stack.fold_push(pos);
+    }
+
+    fn visit_strikethrough(&mut self, strikethrough: &Strikethrough) {
+        let pos = self.stack.push_open(HtmlElement::del());
+
+        walk_strikethrough(self, strikethrough);
+
+        self.stack.fold_push(pos);
+    }
+
+    fn visit_strong(&mut self, strong: &Strong) {
+        let pos = self.stack.push_open(HtmlElement::strong());
+
+        walk_strong(self, strong);
+
+        self.stack.fold_push(pos);
+    }
+
+    fn visit_emphasis(&mut self, emphasis: &Emphasis) {
+        let pos = self.stack.push_open(HtmlElement::em());
+
+        walk_emphasis(self, emphasis);
+
+        self.stack.fold_push(pos);
+    }
+
+    fn visit_enclosed(&mut self, enclosed: &Enclosed) {
+        let pos = self.stack.push_open(HtmlElement::div());
+
+        walk_enclosed(self, enclosed);
+
+        self.stack.fold_push(pos);
+    }
+
+    fn visit_link(&mut self, link: &Link) {
+        let a = HtmlElement::a().href(&link.link);
+
+        if let Some(elements) = &link.elements {
+            let pos = self.stack.push_open(a);
+
+            self.visit_elements(elements);
+
+            self.stack.fold_push(pos);
+        } else {
+            self.stack.push_close(a.child(&link.link));
         }
     }
 
-    pub fn body(body: &str) -> Self {
-        Self {
-            tag: None,
-            body: body.to_owned(),
-            class: None,
-            href: None,
-            next: None,
-        }
+    fn visit_escape(&mut self, escape: &Escape) {
+        self.stack.add_content(escape.0.to_string());
     }
 
-    pub fn push(&mut self, element: &str) {
-        self.body.push_str(element);
+    fn visit_monospace(&mut self, monospace: &Monospace) {
+        self.stack
+            .push_close(HtmlElement::code().child(&monospace.0));
     }
 
-    pub fn set_class(&mut self, class: String) {
-        self.class = Some(class);
+    fn visit_sub_script(&mut self, sub_script: &SubScript) {
+        self.stack
+            .push_close(HtmlElement::sub().child(sub_script.0.to_string()));
     }
 
-    pub fn with(mut self, element: &str) -> Self {
-        self.body.push_str(element);
-        self
+    fn visit_sup_script(&mut self, sup_script: &SupScript) {
+        self.stack
+            .push_close(HtmlElement::sup().child(sup_script.0.to_string()));
     }
 
-    pub fn with_next(mut self, element: HtmlElement) -> Self {
-        self.next = Some(Box::new(element));
-        self
+    fn visit_spacing(&mut self, spacing: &Spacing) {
+        self.stack.add_content(" ".repeat(spacing.0));
     }
 
-    pub fn with_class(mut self, class: String) -> Self {
-        self.class = Some(class);
-        self
-    }
-
-    pub fn with_href(mut self, href: String) -> Self {
-        self.href = Some(href);
-        self
-    }
-}
-
-impl ToString for HtmlElement {
-    fn to_string(&self) -> String {
-        let Self {
-            tag,
-            body,
-            next,
-            class,
-            href,
-        } = self;
-
-        let mut this = match tag {
-            Some(tag) => {
-                let mut left = tag.to_owned();
-
-                if let Some(class) = class {
-                    left.push_str(&format!(" class=\"{class}\""));
-                }
-
-                if let Some(href) = href {
-                    left.push_str(&format!(" href=\"{href}\""));
-                }
-
-                format!("<{left}>{body}</{tag}>")
-            }
-            None => body.to_owned(),
-        };
-
-        match next {
-            Some(next) => this.push_str(&next.to_string()),
-            None => (),
-        }
-
-        this
-    }
-}
-
-pub trait ToHtml {
-    fn to_html(&self) -> HtmlElement;
-}
-
-impl ToHtml for Ast {
-    fn to_html(&self) -> HtmlElement {
-        let mut body = HtmlElement::new("body");
-
-        for block in &self.blocks {
-            body.push(&block.to_html().to_string());
-        }
-
-        body
-    }
-}
-
-impl ToHtml for Block {
-    fn to_html(&self) -> HtmlElement {
-        match self {
-            Self::Raw(raw) => raw.to_html(),
-            Self::Heading(heading) => heading.to_html(),
-            Self::List(list) => list.to_html(),
-            Self::OrderedList(ordered) => ordered.to_html(),
-            Self::Table(table) => table.to_html(),
-            Self::Blockquote(blockquote) => blockquote.to_html(),
-            Self::Paragraph(paragraph) => paragraph.to_html(),
-        }
-    }
-}
-
-impl ToHtml for Raw {
-    fn to_html(&self) -> HtmlElement {
-        let mut code = HtmlElement::new("code").with(&self.content);
-
-        if let Some(lang) = &self.lang {
-            code.set_class(format!("language-{lang}"));
-        }
-
-        HtmlElement::new("pre").with(&code.to_string())
-    }
-}
-
-impl ToHtml for Heading {
-    fn to_html(&self) -> HtmlElement {
-        HtmlElement::new(&format!("h{}", self.level)).with(&self.line.to_html().to_string())
-    }
-}
-
-impl ToHtml for Paragraph {
-    fn to_html(&self) -> HtmlElement {
-        let mut p = HtmlElement::new("p");
-
-        for line in &self.lines {
-            p.push(&line.to_html().to_string());
-        }
-
-        p
-    }
-}
-
-impl ToHtml for List {
-    fn to_html(&self) -> HtmlElement {
-        let mut ul = HtmlElement::new("ul");
-
-        for line in &self.lines {
-            let li = HtmlElement::new("li").with(&line.to_html().to_string());
-            ul.push(&li.to_string());
-        }
-
-        ul
-    }
-}
-
-impl ToHtml for OrderedList {
-    fn to_html(&self) -> HtmlElement {
-        let mut ol = HtmlElement::new("ol");
-
-        for line in &self.lines {
-            let li = HtmlElement::new("li").with(&line.to_html().to_string());
-            ol.push(&li.to_string());
-        }
-
-        ol
-    }
-}
-
-impl ToHtml for Table {
-    fn to_html(&self) -> HtmlElement {
-        let mut table = HtmlElement::new("table");
-
-        for row in &self.rows {
-            let tr = row.to_html();
-            table.push(&tr.to_string());
-        }
-
-        table
-    }
-}
-
-impl ToHtml for TableRow {
-    fn to_html(&self) -> HtmlElement {
-        let mut tr = HtmlElement::new("tr");
-
-        for el in &self.cells {
-            let td = HtmlElement::new("td").with(&el.to_html().to_string());
-            tr.push(&td.to_string());
-        }
-
-        tr
-    }
-}
-
-impl ToHtml for Blockquote {
-    fn to_html(&self) -> HtmlElement {
-        let mut blockquote = HtmlElement::new("blockquote");
-
-        for line in &self.lines {
-            blockquote.push(&line.to_html().to_string());
-        }
-
-        blockquote
-    }
-}
-
-impl ToHtml for Line {
-    fn to_html(&self) -> HtmlElement {
-        self.elements.to_html()
-    }
-}
-
-impl ToHtml for Elements {
-    fn to_html(&self) -> HtmlElement {
-        let mut empty = HtmlElement::empty();
-
-        for el in &self.0 {
-            empty.push(&el.to_html().to_string());
-        }
-
-        empty
-    }
-}
-
-impl ToHtml for Element {
-    fn to_html(&self) -> HtmlElement {
-        match self {
-            Self::Inline(inline) => inline.to_html(),
-            Self::Quote(quote) => quote.to_html(),
-            Self::Strikethrough(strike) => strike.to_html(),
-            Self::Emphasis(emphasis) => emphasis.to_html(),
-            Self::Strong(strong) => strong.to_html(),
-            Self::Enclosed(enclosed) => enclosed.to_html(),
-            Self::Link(link) => link.to_html(),
-            Self::Escape(escape) => escape.to_html(),
-            Self::Monospace(monospace) => monospace.to_html(),
-        }
-    }
-}
-
-impl ToHtml for Inline {
-    fn to_html(&self) -> HtmlElement {
-        match self {
-            Self::SubScript(script) => script.to_html(),
-            Self::SupScript(script) => script.to_html(),
-            Self::Spacing(spacing) => spacing.to_html(),
-            Self::Word(word) => HtmlElement::empty().with(&word),
-        }
-    }
-}
-
-impl ToHtml for SubScript {
-    fn to_html(&self) -> HtmlElement {
-        HtmlElement::new("sub").with(&self.0.to_string())
-    }
-}
-
-impl ToHtml for SupScript {
-    fn to_html(&self) -> HtmlElement {
-        HtmlElement::new("sup").with(&self.0.to_string())
-    }
-}
-
-impl ToHtml for Spacing {
-    fn to_html(&self) -> HtmlElement {
-        HtmlElement::empty().with(&" ".repeat(self.0))
-    }
-}
-
-impl ToHtml for Quote {
-    fn to_html(&self) -> HtmlElement {
-        let mut q = HtmlElement::new("q");
-
-        for el in &self.elements {
-            q.push(&el.to_html().to_string());
-        }
-
-        q
-    }
-}
-
-impl ToHtml for QuoteElement {
-    fn to_html(&self) -> HtmlElement {
-        match self {
-            Self::Inline(inline) => inline.to_html(),
-            Self::Strikethrough(strike) => strike.to_html(),
-            Self::Emphasis(emphasis) => emphasis.to_html(),
-            Self::Strong(strong) => strong.to_html(),
-        }
-    }
-}
-
-impl ToHtml for Strikethrough {
-    fn to_html(&self) -> HtmlElement {
-        let mut del = HtmlElement::new("del");
-
-        for el in &self.elements {
-            del.push(&el.to_html().to_string());
-        }
-
-        del
-    }
-}
-
-impl ToHtml for StrikethroughElement {
-    fn to_html(&self) -> HtmlElement {
-        match self {
-            Self::Inline(inline) => inline.to_html(),
-            Self::Emphasis(emphasis) => emphasis.to_html(),
-            Self::Strong(strong) => strong.to_html(),
-        }
-    }
-}
-
-impl ToHtml for Emphasis {
-    fn to_html(&self) -> HtmlElement {
-        let mut em = HtmlElement::new("em");
-
-        for inline in &self.inlines {
-            em.push(&inline.to_html().to_string());
-        }
-
-        em
-    }
-}
-
-impl ToHtml for Strong {
-    fn to_html(&self) -> HtmlElement {
-        let mut strong = HtmlElement::new("strong");
-
-        for inline in &self.inlines {
-            strong.push(&inline.to_html().to_string());
-        }
-
-        strong
-    }
-}
-
-impl ToHtml for Enclosed {
-    fn to_html(&self) -> HtmlElement {
-        HtmlElement::new("div").with(&self.elements.to_html().to_string())
-    }
-}
-
-impl ToHtml for Link {
-    fn to_html(&self) -> HtmlElement {
-        let display = match &self.elements {
-            Some(elements) => elements.to_html().to_string(),
-            None => self.link.clone(),
-        };
-
-        HtmlElement::new("a")
-            .with_href(self.link.clone())
-            .with(&display)
-    }
-}
-
-impl ToHtml for Escape {
-    fn to_html(&self) -> HtmlElement {
-        // TODO escape html style
-        HtmlElement::body(&self.0.escape_default().to_string())
-    }
-}
-
-impl ToHtml for Monospace {
-    fn to_html(&self) -> HtmlElement {
-        HtmlElement::new("code").with(&self.0)
+    fn visit_word(&mut self, word: &crate::parse::cst::terminal::Word) {
+        self.stack.add_content(&word.0);
     }
 }

@@ -4,6 +4,7 @@ use std::path::PathBuf;
 
 #[cfg(feature = "docx")]
 pub mod docx;
+#[cfg(feature = "html")]
 pub mod html;
 #[cfg(feature = "pdf")]
 pub mod pdf;

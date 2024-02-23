@@ -7,6 +7,9 @@ paragraph `monospace where @ | is ignored`
 + ordered
 + multi
 
+- simple
+- list
+
 | table | columns |
 
 > blockquote <https://example.com>[Hier klicken] 
