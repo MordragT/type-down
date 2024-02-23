@@ -1,10 +1,10 @@
 use crate::parse::ast::*;
-use docx_rs::{
-    DocumentChild, Docx, Paragraph, Run, Table as DocxTable, TableCell, TableRow as DocxTableRow,
-};
+use docx_rs::{DocumentChild, Docx, Paragraph, Run};
 use miette::Diagnostic;
 use std::{fs::File, io};
 use thiserror::Error;
+
+use self::visitor::Visitor;
 
 use super::{Compiler, Context};
 
@@ -23,11 +23,12 @@ impl Compiler for DocxCompiler {
     type Error = DocxError;
 
     fn compile(ctx: &Context, ast: &Ast) -> Result<(), Self::Error> {
-        let title = &ctx.title;
+        let mut builder = DocxBuilder::new();
+        builder.visit_ast(ast);
 
-        let docx = ast.to_docx();
-
+        let docx = builder.build();
         let file = File::create(&ctx.dest)?;
+
         docx.build()
             .pack(file)
             .map_err(docx_rs::DocxError::ZipError)?;
@@ -36,15 +37,23 @@ impl Compiler for DocxCompiler {
     }
 }
 
-impl Ast {
-    pub fn to_docx(&self) -> Docx {
+#[derive(Debug, Clone)]
+pub struct DocxBuilder {
+    stack: Vec<DocumentChild>,
+}
+
+impl DocxBuilder {
+    pub fn new() -> Self {
+        Self { stack: Vec::new() }
+    }
+
+    pub fn build(self) -> Docx {
         let mut docx = Docx::new();
 
-        for block in &self.blocks {
-            let child = block.to_docx();
-            docx = match child {
+        for item in self.stack {
+            docx = match item {
+                DocumentChild::Paragraph(p) => docx.add_paragraph(*p),
                 DocumentChild::Table(table) => docx.add_table(*table),
-                DocumentChild::Paragraph(paragraph) => docx.add_paragraph(*paragraph),
                 _ => todo!(),
             };
         }
@@ -53,53 +62,9 @@ impl Ast {
     }
 }
 
-impl Block {
-    pub fn to_docx(&self) -> DocumentChild {
-        match &self {
-            Block::Raw(raw) => DocumentChild::Paragraph(Box::new(raw.to_docx())),
-            Block::Table(table) => DocumentChild::Table(Box::new(table.to_docx())),
-            _ => todo!(),
-        }
-    }
-}
-
-impl Raw {
-    pub fn to_docx(&self) -> Paragraph {
-        Paragraph::new().add_run(Run::new().add_text(&self.content))
-    }
-}
-
-impl Table {
-    pub fn to_docx(&self) -> DocxTable {
-        DocxTable::new(self.rows.iter().map(|row| row.to_docx()).collect())
-    }
-}
-
-impl TableRow {
-    pub fn to_docx(&self) -> DocxTableRow {
-        DocxTableRow::new(
-            self.cells
-                .iter()
-                .map(|elements| elements.to_docx_cell())
-                .collect(),
-        )
-    }
-}
-
-impl Elements {
-    pub fn to_docx_cell(&self) -> TableCell {
-        let mut paragraph = Paragraph::new();
-
-        for el in &self.0 {
-            paragraph = paragraph.add_run(el.to_docx());
-        }
-
-        TableCell::new().add_paragraph(paragraph)
-    }
-}
-
-impl Element {
-    pub fn to_docx(&self) -> Run {
-        todo!()
+impl Visitor for DocxBuilder {
+    fn visit_raw(&mut self, raw: &Raw) {
+        let p = Paragraph::new().add_run(Run::new().add_text(&raw.content));
+        self.stack.push(DocumentChild::Paragraph(Box::new(p)));
     }
 }
