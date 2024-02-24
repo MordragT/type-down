@@ -8,18 +8,19 @@ authors = ["Thomas Wehmoeller"]
 
 [dependencies]
 clap = { version = "4.4.18", features = ["derive"] }
-parasite = { path = "../parasite" }
 miette = { version = "7.1.0", features = ["fancy"] }
-thiserror = "1.0"
-html-writer = { path = "crates/html-writer" }
-pandoc_ast = "0.8.6"
-pandoc = { version = "0.8.11", optional = true }
+tyd-syntax = { path = "crates/tyd-syntax" }
+tyd-render = { path = "crates/tyd-render" }
+tyd-pandoc = { path = "crates/tyd-pandoc" }
+tyd-html = { path = "crates/tyd-html", optional = true }
 
 [features]
-default = ["pdf", "docx", "html"]
-pdf = ["pandoc"]
-docx = ["pandoc"]
-html = []
+# default = ["pdf", "docx", "html"]
+# pdf = ["pandoc"]
+# docx = ["pandoc"]
+# html = []
+default = []
+html = ["tyd-html"]
 
 [workspace]
 members = ["crates/*"]

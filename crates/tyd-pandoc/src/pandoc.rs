@@ -1,20 +1,19 @@
-use std::{collections::BTreeMap, fs, io};
-
 use miette::Diagnostic;
 use pandoc_ast::{
     Attr as PandocAttr, Block as PandocBlock, Inline, ListNumberDelim, ListNumberStyle, Pandoc,
     QuoteType,
 };
+use std::{collections::BTreeMap, fs, io};
 use thiserror::Error;
 
-use crate::parse::ast::{visitor::Visitor, *};
-
-use self::visitor::{
-    walk_emphasis, walk_enclosed, walk_heading, walk_link, walk_paragraph, walk_quote,
-    walk_strikeout, walk_strong,
+use tyd_render::{Context, Output, Render};
+use tyd_syntax::ast::{
+    visitor::{
+        walk_emphasis, walk_enclosed, walk_heading, walk_link, walk_paragraph, walk_quote,
+        walk_strikeout, walk_strong, Visitor,
+    },
+    *,
 };
-
-use super::{Compiler, Context, Output};
 
 #[derive(Debug, Error, Diagnostic)]
 #[error(transparent)]
@@ -24,11 +23,10 @@ pub struct PandocError(#[from] pub io::Error);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PandocCompiler;
 
-impl Compiler for PandocCompiler {
+impl Render for PandocCompiler {
     type Error = PandocError;
-    type Context = Context;
 
-    fn compile(ast: &Ast, ctx: Context, output: Output) -> Result<(), Self::Error> {
+    fn render(ast: &Ast, ctx: Context, output: Output) -> Result<(), Self::Error> {
         let mut builder = PandocBuilder::new(ctx);
         builder.visit_ast(ast);
 
@@ -238,7 +236,7 @@ impl Visitor for PandocBuilder {
         self.stack.push(Inline::Space);
     }
 
-    fn visit_word(&mut self, word: &crate::parse::cst::terminal::Word) {
+    fn visit_word(&mut self, word: &Word) {
         let inline = Inline::Str(word.0.to_owned());
         self.stack.push(inline);
     }

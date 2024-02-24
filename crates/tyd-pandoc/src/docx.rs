@@ -3,8 +3,10 @@ use pandoc::{InputFormat, InputKind, OutputFormat, OutputKind, Pandoc};
 use std::io;
 use thiserror::Error;
 
-use super::{pandoc::PandocBuilder, Compiler, Context, Output};
-use crate::parse::{ast::visitor::Visitor, Ast};
+use tyd_render::{Context, Output, Render};
+use tyd_syntax::ast::{visitor::Visitor, Ast};
+
+use super::pandoc::PandocBuilder;
 
 #[derive(Debug, Error, Diagnostic)]
 #[error(transparent)]
@@ -20,11 +22,10 @@ pub enum DocxError {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct DocxCompiler;
 
-impl Compiler for DocxCompiler {
+impl Render for DocxCompiler {
     type Error = DocxError;
-    type Context = Context;
 
-    fn compile(ast: &Ast, ctx: Context, output: Output) -> Result<(), Self::Error> {
+    fn render(ast: &Ast, ctx: Context, output: Output) -> Result<(), Self::Error> {
         let dest = match output {
             Output::File(path) => path,
             Output::Stdout => return Err(DocxError::StdoutUnsupported),

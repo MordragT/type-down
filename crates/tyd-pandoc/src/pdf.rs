@@ -3,9 +3,10 @@ use pandoc::{InputFormat, InputKind, OutputFormat, OutputKind, Pandoc, PandocOpt
 use std::io;
 use thiserror::Error;
 
-use super::{pandoc::PandocBuilder, Compiler, Context, Output};
-use crate::parse::{ast::visitor::Visitor, Ast};
+use tyd_render::{Context, Output, Render};
+use tyd_syntax::ast::{visitor::Visitor, Ast};
 
+use super::pandoc::PandocBuilder;
 #[derive(Debug, Error, Diagnostic)]
 #[diagnostic(code(type_down::compile::pdf::PdfCompiler::compile))]
 pub enum PdfError {
@@ -20,11 +21,10 @@ pub enum PdfError {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PdfCompiler;
 
-impl Compiler for PdfCompiler {
+impl Render for PdfCompiler {
     type Error = PdfError;
-    type Context = Context;
 
-    fn compile(ast: &Ast, ctx: Context, output: Output) -> Result<(), Self::Error> {
+    fn render(ast: &Ast, ctx: Context, output: Output) -> Result<(), Self::Error> {
         let dest = match output {
             Output::File(path) => path,
             Output::Stdout => return Err(PdfError::StdoutUnsupported),

@@ -1,9 +1,10 @@
-use crate::{HtmlRender, TAB};
 use std::{collections::HashMap, fmt::Debug, marker::PhantomData};
 
 pub use dynamic::*;
+pub use render::*;
 
 mod dynamic;
+mod render;
 pub mod tags;
 
 #[derive(Debug)]

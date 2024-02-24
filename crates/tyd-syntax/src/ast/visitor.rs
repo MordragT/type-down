@@ -5,6 +5,10 @@ pub trait Visitor {
         walk_ast(self, ast)
     }
 
+    fn visit_blocks(&mut self, blocks: &Blocks) {
+        walk_blocks(self, blocks)
+    }
+
     fn visit_block(&mut self, block: &Block) {
         walk_block(self, block)
     }
@@ -99,7 +103,11 @@ pub trait Visitor {
 }
 
 pub fn walk_ast<V: Visitor + ?Sized>(visitor: &mut V, ast: &Ast) {
-    for block in &ast.blocks {
+    visitor.visit_blocks(&ast.blocks)
+}
+
+pub fn walk_blocks<V: Visitor + ?Sized>(visitor: &mut V, blocks: &Blocks) {
+    for block in &blocks.0 {
         visitor.visit_block(block)
     }
 }

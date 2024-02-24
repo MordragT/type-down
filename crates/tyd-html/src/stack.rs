@@ -1,4 +1,4 @@
-use crate::{DynHtmlElement, HtmlRender};
+use crate::element::{DynHtmlElement, HtmlRender};
 
 #[derive(Debug)]
 pub struct HtmlStack {

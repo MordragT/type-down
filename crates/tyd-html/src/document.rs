@@ -1,4 +1,7 @@
-use crate::{tags::HtmlTag, HtmlElement, HtmlRender, DOCTYPE, LANGUAGE, NAMESPACE};
+use crate::{
+    element::{tags::HtmlTag, HtmlElement, HtmlRender},
+    DOCTYPE, LANGUAGE, NAMESPACE,
+};
 
 #[derive(Debug)]
 pub struct HtmlDocument {

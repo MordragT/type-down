@@ -1,6 +1,4 @@
-use crate::HtmlRender;
-
-use super::HtmlElement;
+use super::{HtmlElement, HtmlRender};
 use std::marker::PhantomData;
 
 #[derive(Debug)]

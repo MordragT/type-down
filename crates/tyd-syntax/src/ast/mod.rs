@@ -1,28 +1,34 @@
+use parasite::chumsky::chain::Chain;
 use std::collections::BTreeMap;
 
-use parasite::chumsky::chain::Chain;
-
-use super::cst::{self, terminal::Word};
+use super::cst;
 
 pub mod visitor;
 
+pub use cst::terminal::Word;
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Ast {
-    pub blocks: Vec<Block>,
+    pub blocks: Blocks,
 }
 
 impl From<cst::Cst> for Ast {
     fn from(value: cst::Cst) -> Self {
-        let blocks = value
-            .0
-             .0
-            .into_iter()
-            .map(|(block, _)| block.into())
-            .collect();
+        let blocks = Blocks(
+            value
+                .0
+                 .0
+                .into_iter()
+                .map(|(block, _)| block.into())
+                .collect(),
+        );
 
         Self { blocks }
     }
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Blocks(pub Vec<Block>);
 
 // TODO merge Block and MarkBlock to one
 

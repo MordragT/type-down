@@ -1,13 +1,13 @@
+use miette::Result;
 use std::path::PathBuf;
 
-use miette::Result;
-use type_down::{
-    compile::{
-        docx::DocxCompiler, html::HtmlCompiler, image, pandoc::PandocCompiler, pdf::PdfCompiler,
-        Compiler, ContextBuilder, Output,
-    },
-    parse::{parse, Ast},
-};
+#[cfg(feature = "html")]
+use tyd_html::HtmlCompiler;
+#[cfg(not(feature = "html"))]
+use tyd_pandoc::html::HtmlCompiler;
+use tyd_pandoc::{docx::DocxCompiler, pandoc::PandocCompiler, pdf::PdfCompiler};
+use tyd_render::{Context, Output, Render};
+use tyd_syntax::{parse, Ast};
 
 #[derive(Debug, clap::Parser)]
 #[command(author, version, about, long_about = None)]
@@ -62,9 +62,7 @@ fn main() -> Result<()> {
             let cst = parse(&input)?;
             let ast = Ast::from(cst);
 
-            let ctx = ContextBuilder::new("Testtitle".to_owned())
-                .register_func("image", image)
-                .build();
+            let ctx = Context::new().symbol("title", "Default title");
 
             let output = match output {
                 Some(path) => Output::File(path),
@@ -72,10 +70,10 @@ fn main() -> Result<()> {
             };
 
             match format {
-                Format::Html => HtmlCompiler::compile(&ast, ctx, output)?,
-                Format::Pdf => PdfCompiler::compile(&ast, ctx, output)?,
-                Format::Docx => DocxCompiler::compile(&ast, ctx, output)?,
-                Format::Json => PandocCompiler::compile(&ast, ctx, output)?,
+                Format::Html => HtmlCompiler::render(&ast, ctx, output)?,
+                Format::Pdf => PdfCompiler::render(&ast, ctx, output)?,
+                Format::Docx => DocxCompiler::render(&ast, ctx, output)?,
+                Format::Json => PandocCompiler::render(&ast, ctx, output)?,
             }
         }
     }

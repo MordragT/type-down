@@ -1,46 +1,33 @@
-use html_writer::{
-    tags::{BodyTag, HeadTag},
-    DynHtmlElement, HtmlDocument, HtmlElement, HtmlStack, NoIndent,
+// use html_writer::{
+//     tags::{BodyTag, HeadTag},
+//     DynHtmlElement, HtmlDocument, HtmlElement, HtmlStack, NoIndent,
+// };
+
+// use self::visitor::{
+//     walk_block_quote, walk_emphasis, walk_enclosed, walk_heading, walk_paragraph, walk_quote,
+//     walk_strikeout, walk_strong, walk_table, Visitor,
+// };
+
+// use super::{Compiler, Context, Output};
+// use crate::parse::ast::*;
+
+use tyd_render::Context;
+use tyd_syntax::ast::{
+    visitor::{
+        walk_block_quote, walk_emphasis, walk_enclosed, walk_heading, walk_paragraph, walk_quote,
+        walk_strikeout, walk_strong, walk_table, Visitor,
+    },
+    *,
 };
-use miette::Diagnostic;
-use thiserror::Error;
 
-use self::visitor::{
-    walk_block_quote, walk_emphasis, walk_enclosed, walk_heading, walk_paragraph, walk_quote,
-    walk_strikeout, walk_strong, walk_table, Visitor,
+use crate::{
+    document::HtmlDocument,
+    element::{
+        tags::{BodyTag, HeadTag},
+        DynHtmlElement, HtmlElement, NoIndent,
+    },
+    stack::HtmlStack,
 };
-
-use super::{Compiler, Context, Output};
-use crate::parse::ast::*;
-use std::{fs, io};
-
-#[derive(Debug, Error, Diagnostic)]
-#[error(transparent)]
-#[diagnostic(code(type_down::compile::html::HtmlCompiler::compile))]
-pub struct HtmlError(#[from] pub io::Error);
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct HtmlCompiler;
-
-impl Compiler for HtmlCompiler {
-    type Error = HtmlError;
-    type Context = Context;
-
-    fn compile(ast: &Ast, ctx: Context, output: Output) -> Result<(), Self::Error> {
-        let mut builder = HtmlBuilder::new(ctx);
-        builder.visit_ast(ast);
-
-        let doc = builder.build();
-        let contents = doc.to_string();
-
-        match output {
-            Output::Stdout => println!("{contents}"),
-            Output::File(path) => fs::write(path, contents)?,
-        }
-
-        Ok(())
-    }
-}
 
 // #[derive(Debug)]
 pub struct HtmlBuilder {
@@ -52,11 +39,10 @@ pub struct HtmlBuilder {
 
 impl HtmlBuilder {
     pub fn new(ctx: Context) -> Self {
-        let head = HtmlElement::head()
-            .child(HtmlElement::stylesheet(
-                "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css",
-            ))
-            .with_title(&ctx.title);
+        let head = HtmlElement::head().child(HtmlElement::stylesheet(
+            "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css",
+        ));
+        // .with_title(&ctx.title);
 
         Self {
             head,
@@ -266,7 +252,7 @@ impl Visitor for HtmlBuilder {
         self.stack.add_child(" ".repeat(spacing.0));
     }
 
-    fn visit_word(&mut self, word: &crate::parse::cst::terminal::Word) {
+    fn visit_word(&mut self, word: &Word) {
         self.stack.add_child(word.0.to_owned());
     }
 
@@ -274,15 +260,17 @@ impl Visitor for HtmlBuilder {
         let Access { ident, tail } = access;
 
         if let Some(CallTail { args, content }) = tail {
-            let f = self.ctx.symbol_table.func(ident).unwrap();
+            let f = self.ctx.call(ident).unwrap();
 
-            let pos = self.stack.start(f(args));
+            todo!();
 
-            if let Some(enclosed) = content {
-                self.visit_enclosed(enclosed);
-            }
+            // let pos = self.stack.start(f(args));
 
-            self.stack.fold(pos);
+            // if let Some(enclosed) = content {
+            //     self.visit_enclosed(enclosed);
+            // }
+
+            // self.stack.fold(pos);
         }
     }
 }

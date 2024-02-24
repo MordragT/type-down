@@ -1,0 +1,14 @@
+[package]
+name = "tyd-pandoc"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tyd-syntax = { path = "../tyd-syntax" }
+tyd-render = { path = "../tyd-render" }
+miette = "7.1.0"
+thiserror = "1.0"
+pandoc_ast = "0.8.6"
+pandoc = "0.8.11"

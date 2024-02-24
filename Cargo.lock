@@ -226,10 +226,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "95505c38b4572b2d910cecb0281560f54b440a19336cbbcb27bf6ce6adc6f5a8"
 
 [[package]]
-name = "html-writer"
-version = "0.1.0"
-
-[[package]]
 name = "is_ci"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -557,16 +553,54 @@ dependencies = [
 ]
 
 [[package]]
+name = "tyd-html"
+version = "0.1.0"
+dependencies = [
+ "miette",
+ "thiserror",
+ "tyd-render",
+ "tyd-syntax",
+]
+
+[[package]]
+name = "tyd-pandoc"
+version = "0.1.0"
+dependencies = [
+ "miette",
+ "pandoc",
+ "pandoc_ast",
+ "thiserror",
+ "tyd-render",
+ "tyd-syntax",
+]
+
+[[package]]
+name = "tyd-render"
+version = "0.1.0"
+dependencies = [
+ "miette",
+ "tyd-syntax",
+]
+
+[[package]]
+name = "tyd-syntax"
+version = "0.1.0"
+dependencies = [
+ "miette",
+ "parasite",
+ "thiserror",
+]
+
+[[package]]
 name = "type_down"
 version = "0.1.0"
 dependencies = [
  "clap",
- "html-writer",
  "miette",
- "pandoc",
- "pandoc_ast",
- "parasite",
- "thiserror",
+ "tyd-html",
+ "tyd-pandoc",
+ "tyd-render",
+ "tyd-syntax",
 ]
 
 [[package]]

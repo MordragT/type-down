@@ -1,4 +1,4 @@
-use crate::error::{ParseError, TydError};
+use error::{ParseError, TydError};
 use miette::NamedSource;
 use parasite::chumsky::{Context as ParseContext, Parseable, Parser};
 use std::{fs::File, io::Read, path::Path};
@@ -8,6 +8,7 @@ pub use cst::Cst;
 
 pub mod ast;
 pub mod cst;
+pub mod error;
 
 pub fn parse<P: AsRef<Path>>(path: P) -> Result<Cst, TydError> {
     let name = path.as_ref().as_os_str().to_string_lossy().into_owned();
