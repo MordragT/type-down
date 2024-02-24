@@ -13,7 +13,9 @@ pub enum PdfError {
     #[error(transparent)]
     Io(#[from] io::Error),
     #[error(transparent)]
-    Pandoc(#[from] pandoc::PandocError),
+    PandocExec(#[from] pandoc::PandocError),
+    #[error(transparent)]
+    Pandoc(#[from] super::pandoc::PandocError),
     #[error("Stdout is unsupported for pdf")]
     StdoutUnsupported,
 }
@@ -31,7 +33,7 @@ impl Render for PdfCompiler {
         };
 
         let mut builder = PandocBuilder::new(ctx);
-        builder.visit_ast(ast);
+        builder.visit_ast(ast)?;
 
         let pandoc = builder.build();
         let contents = pandoc.to_json();

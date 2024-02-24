@@ -18,7 +18,9 @@ pub enum HtmlError {
     #[error(transparent)]
     Io(#[from] io::Error),
     #[error(transparent)]
-    Pandoc(#[from] pandoc::PandocError),
+    PandocExec(#[from] pandoc::PandocError),
+    #[error(transparent)]
+    Pandoc(#[from] super::pandoc::PandocError),
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct HtmlCompiler;
@@ -28,7 +30,7 @@ impl Render for HtmlCompiler {
 
     fn render(ast: &Ast, ctx: Context, output: Output) -> Result<(), Self::Error> {
         let mut builder = PandocBuilder::new(ctx);
-        builder.visit_ast(ast);
+        builder.visit_ast(ast)?;
 
         let pandoc = builder.build();
         let contents = pandoc.to_json();

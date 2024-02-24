@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 tyd-syntax = { path = "../tyd-syntax" }
 miette = "7.1.0"
+thiserror = "1.0"

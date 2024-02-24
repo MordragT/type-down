@@ -15,3 +15,7 @@
 - curriculum vitae `test`
 - calendar/todo (like markdown when ?)
 - presentation (reveal ?)
+
+| test | table |
+|:-:|:-:|
+| a | b |

@@ -11,15 +11,16 @@ paragraph `monospace where @ | is ignored`
 - list
 
 | table | columns |
+| a | b |
 
 > blockquote <https://example.com>[Hier klicken]
 
-#image(src:"skate_gauss.png")
+#image(src:"human.png")
 
 labelled @label
 
 by labelling something it creates a invocable variable,
-which can then be cited by #label
+which can then be cited by 
 
 All labels are inside the global variable scope
 

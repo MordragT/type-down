@@ -11,7 +11,7 @@
 // use super::{Compiler, Context, Output};
 // use crate::parse::ast::*;
 
-use tyd_render::Context;
+use tyd_render::{Args, Context, Object};
 use tyd_syntax::ast::{
     visitor::{
         walk_block_quote, walk_emphasis, walk_enclosed, walk_heading, walk_paragraph, walk_quote,
@@ -27,6 +27,7 @@ use crate::{
         DynHtmlElement, HtmlElement, NoIndent,
     },
     stack::HtmlStack,
+    HtmlError,
 };
 
 // #[derive(Debug)]
@@ -83,7 +84,9 @@ impl HtmlBuilder {
 }
 
 impl Visitor for HtmlBuilder {
-    fn visit_raw(&mut self, raw: &Raw) {
+    type Error = HtmlError;
+
+    fn visit_raw(&mut self, raw: &Raw) -> Result<(), Self::Error> {
         let mut code = HtmlElement::code().child(NoIndent(raw.content.to_owned()));
 
         if let Some(lang) = &raw.lang {
@@ -92,177 +95,227 @@ impl Visitor for HtmlBuilder {
 
         let pre = HtmlElement::pre().child(code);
         self.body.add_child(pre);
+
+        Ok(())
     }
 
-    fn visit_heading(&mut self, heading: &Heading) {
+    fn visit_heading(&mut self, heading: &Heading) -> Result<(), Self::Error> {
         let h = DynHtmlElement::new(&format!("h{}", heading.level));
         let pos = self.stack.start(h);
 
-        walk_heading(self, heading);
+        walk_heading(self, heading)?;
 
         let h = self.stack.end(pos);
         self.body.add_child(h);
+
+        Ok(())
     }
 
-    fn visit_bullet_list(&mut self, list: &BulletList) {
+    fn visit_bullet_list(&mut self, list: &BulletList) -> Result<(), Self::Error> {
         let pos = self.stack.start(HtmlElement::ul());
 
         for line in &list.lines {
             let pos = self.stack.start(HtmlElement::li());
 
-            self.visit_line(line);
+            self.visit_line(line)?;
 
             self.stack.fold(pos);
         }
 
         let ul = self.stack.end(pos);
         self.body.add_child(ul);
+
+        Ok(())
     }
 
-    fn visit_ordered_list(&mut self, ordered_list: &OrderedList) {
+    fn visit_ordered_list(&mut self, ordered_list: &OrderedList) -> Result<(), Self::Error> {
         let pos = self.stack.start(HtmlElement::ol());
 
         for line in &ordered_list.lines {
             let pos = self.stack.start(HtmlElement::li());
 
-            self.visit_line(line);
+            self.visit_line(line)?;
 
             self.stack.fold(pos);
         }
 
         let ol = self.stack.end(pos);
         self.body.add_child(ol);
+
+        Ok(())
     }
 
-    fn visit_table(&mut self, table: &Table) {
+    fn visit_table(&mut self, table: &Table) -> Result<(), Self::Error> {
         let pos = self.stack.start(HtmlElement::table());
 
-        walk_table(self, table);
+        walk_table(self, table)?;
 
         let tbl = self.stack.end(pos);
         self.body.add_child(tbl);
+
+        Ok(())
     }
 
-    fn visit_table_row(&mut self, table_row: &TableRow) {
+    fn visit_table_row(&mut self, table_row: &TableRow) -> Result<(), Self::Error> {
         let pos = self.stack.start(HtmlElement::tr());
 
         for cell in &table_row.cells {
             let pos = self.stack.start(HtmlElement::td());
 
-            self.visit_elements(cell);
+            self.visit_elements(cell)?;
 
             self.stack.fold(pos);
         }
 
         self.stack.fold(pos);
+
+        Ok(())
     }
 
-    fn visit_block_quote(&mut self, block_quote: &BlockQuote) {
+    fn visit_block_quote(&mut self, block_quote: &BlockQuote) -> Result<(), Self::Error> {
         let pos = self.stack.start(HtmlElement::blockquote());
 
-        walk_block_quote(self, block_quote);
+        walk_block_quote(self, block_quote)?;
 
         let blqt = self.stack.end(pos);
-        self.body.add_child(blqt)
+        self.body.add_child(blqt);
+
+        Ok(())
     }
 
-    fn visit_paragraph(&mut self, paragraph: &Paragraph) {
+    fn visit_paragraph(&mut self, paragraph: &Paragraph) -> Result<(), Self::Error> {
         let pos = self.stack.start(HtmlElement::p());
 
-        walk_paragraph(self, paragraph);
+        walk_paragraph(self, paragraph)?;
 
         let p = self.stack.end(pos);
         self.body.add_child(p);
+
+        Ok(())
     }
 
-    fn visit_quote(&mut self, quote: &Quote) {
+    fn visit_quote(&mut self, quote: &Quote) -> Result<(), Self::Error> {
         let pos = self.stack.start(HtmlElement::q());
 
-        walk_quote(self, quote);
+        walk_quote(self, quote)?;
 
         self.stack.fold(pos);
+        Ok(())
     }
 
-    fn visit_strikeout(&mut self, strikeout: &Strikeout) {
+    fn visit_strikeout(&mut self, strikeout: &Strikeout) -> Result<(), Self::Error> {
         let pos = self.stack.start(HtmlElement::del());
 
-        walk_strikeout(self, strikeout);
+        walk_strikeout(self, strikeout)?;
 
         self.stack.fold(pos);
+        Ok(())
     }
 
-    fn visit_strong(&mut self, strong: &Strong) {
+    fn visit_strong(&mut self, strong: &Strong) -> Result<(), Self::Error> {
         let pos = self.stack.start(HtmlElement::strong());
 
-        walk_strong(self, strong);
+        walk_strong(self, strong)?;
 
         self.stack.fold(pos);
+        Ok(())
     }
 
-    fn visit_emphasis(&mut self, emphasis: &Emphasis) {
+    fn visit_emphasis(&mut self, emphasis: &Emphasis) -> Result<(), Self::Error> {
         let pos = self.stack.start(HtmlElement::em());
 
-        walk_emphasis(self, emphasis);
+        walk_emphasis(self, emphasis)?;
 
         self.stack.fold(pos);
+        Ok(())
     }
 
-    fn visit_enclosed(&mut self, enclosed: &Enclosed) {
+    fn visit_enclosed(&mut self, enclosed: &Enclosed) -> Result<(), Self::Error> {
         let pos = self.stack.start(HtmlElement::div());
 
-        walk_enclosed(self, enclosed);
+        walk_enclosed(self, enclosed)?;
 
         self.stack.fold(pos);
+        Ok(())
     }
 
-    fn visit_link(&mut self, link: &Link) {
+    fn visit_link(&mut self, link: &Link) -> Result<(), Self::Error> {
         let a = HtmlElement::a().href(&link.link);
 
         if let Some(elements) = &link.elements {
             let pos = self.stack.start(a);
 
-            self.visit_elements(elements);
+            self.visit_elements(elements)?;
 
             self.stack.fold(pos);
         } else {
             self.stack.add_child(a.child(link.link.to_owned()));
         }
+
+        Ok(())
     }
 
-    fn visit_escape(&mut self, escape: &Escape) {
+    fn visit_escape(&mut self, escape: &Escape) -> Result<(), Self::Error> {
         self.stack.add_child(escape.0.to_string());
+        Ok(())
     }
 
-    fn visit_raw_inline(&mut self, raw_inline: &RawInline) {
+    fn visit_raw_inline(&mut self, raw_inline: &RawInline) -> Result<(), Self::Error> {
         self.stack
             .add_child(HtmlElement::code().child(raw_inline.0.to_owned()));
+        Ok(())
     }
 
-    fn visit_sub_script(&mut self, sub_script: &SubScript) {
+    fn visit_sub_script(&mut self, sub_script: &SubScript) -> Result<(), Self::Error> {
         self.stack
             .add_child(HtmlElement::sub().child(sub_script.0.to_string()));
+        Ok(())
     }
 
-    fn visit_sup_script(&mut self, sup_script: &SupScript) {
+    fn visit_sup_script(&mut self, sup_script: &SupScript) -> Result<(), Self::Error> {
         self.stack
             .add_child(HtmlElement::sup().child(sup_script.0.to_string()));
+        Ok(())
     }
 
-    fn visit_spacing(&mut self, spacing: &Spacing) {
+    fn visit_spacing(&mut self, spacing: &Spacing) -> Result<(), Self::Error> {
         self.stack.add_child(" ".repeat(spacing.0));
+        Ok(())
     }
 
-    fn visit_word(&mut self, word: &Word) {
+    fn visit_word(&mut self, word: &Word) -> Result<(), Self::Error> {
         self.stack.add_child(word.0.to_owned());
+        Ok(())
     }
 
-    fn visit_access(&mut self, access: &Access) {
+    fn visit_access(&mut self, access: &Access) -> Result<(), Self::Error> {
         let Access { ident, tail } = access;
 
         if let Some(CallTail { args, content }) = tail {
-            let f = self.ctx.call(ident).unwrap();
+            // FIXME better argument handling and evaluation layer
+            let mut f_args = Args::new();
 
-            todo!();
+            for (key, value) in args {
+                match value {
+                    Value::Identifier(ident) => {
+                        let object = self.ctx.get(ident).unwrap();
+                        f_args.insert(key.clone(), object.clone());
+                    }
+                    Value::String(s) => {
+                        f_args.insert(key.clone(), Object::Str(s.clone()));
+                    }
+                }
+            }
+
+            let f = self.ctx.call(ident).unwrap();
+            let result = f(f_args)?;
+
+            match result {
+                Object::Block(block) => self.visit_block(&block)?,
+                Object::Element(el) => self.visit_element(&el)?,
+                // TODO error
+                _ => panic!("access calls must return block or element"),
+            }
 
             // let pos = self.stack.start(f(args));
 
@@ -271,6 +324,16 @@ impl Visitor for HtmlBuilder {
             // }
 
             // self.stack.fold(pos);
+        } else {
+            let object = self.ctx.get(ident).unwrap().clone();
+
+            match object {
+                Object::Block(block) => self.visit_block(&block)?,
+                Object::Element(el) => self.visit_element(&el)?,
+                // TODO error
+                _ => panic!("access calls must return block or element"),
+            }
         }
+        Ok(())
     }
 }

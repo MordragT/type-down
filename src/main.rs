@@ -6,7 +6,7 @@ use tyd_html::HtmlCompiler;
 #[cfg(not(feature = "html"))]
 use tyd_pandoc::html::HtmlCompiler;
 use tyd_pandoc::{docx::DocxCompiler, pandoc::PandocCompiler, pdf::PdfCompiler};
-use tyd_render::{Context, Output, Render};
+use tyd_render::{builtin, Context, Object, Output, Render};
 use tyd_syntax::{parse, Ast};
 
 #[derive(Debug, clap::Parser)]
@@ -62,7 +62,10 @@ fn main() -> Result<()> {
             let cst = parse(&input)?;
             let ast = Ast::from(cst);
 
-            let ctx = Context::new().symbol("title", "Default title");
+            let ctx = Context::new()
+                .symbol("title", "Default title")
+                .symbol("author", vec![Object::from("Max Mustermann")])
+                .function("image", builtin::image);
 
             let output = match output {
                 Some(path) => Output::File(path),

@@ -41,6 +41,7 @@ pub enum Block {
     Table(Table),
     BlockQuote(BlockQuote),
     Paragraph(Paragraph),
+    Image(Image),
     // Expr(Expr),
     // Math(Math),
 }
@@ -193,6 +194,12 @@ impl From<cst::Paragraph> for Paragraph {
 
         Self { lines }
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Image {
+    pub src: String,
+    pub alt: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]

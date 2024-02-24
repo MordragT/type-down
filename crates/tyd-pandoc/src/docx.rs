@@ -15,8 +15,10 @@ pub enum DocxError {
     #[error(transparent)]
     Io(#[from] io::Error),
     #[error(transparent)]
-    Pandoc(#[from] pandoc::PandocError),
-    #[error("Stdout is unsupported for docx")]
+    PandocExec(#[from] pandoc::PandocError),
+    #[error(transparent)]
+    Pandoc(#[from] super::pandoc::PandocError),
+    #[error("Stdout is unsupported for pdf")]
     StdoutUnsupported,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -32,7 +34,7 @@ impl Render for DocxCompiler {
         };
 
         let mut builder = PandocBuilder::new(ctx);
-        builder.visit_ast(ast);
+        builder.visit_ast(ast)?;
 
         let pandoc = builder.build();
         let contents = pandoc.to_json();
