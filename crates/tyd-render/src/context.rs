@@ -5,19 +5,23 @@ use crate::{Map, Object, ObjectKind};
 
 #[derive(Error, Debug, Diagnostic)]
 #[diagnostic(code(tyd_render::Context::call))]
-pub enum CallError {
+pub enum ContextError {
     #[error("{0}")]
     Message(String),
     #[error("Missing Argument {0}")]
     MissingArgument(String),
     #[error("Wrong Type for argument {arg}. Expected {expected}")]
-    WrongType { arg: String, expected: ObjectKind },
+    WrongArgType { arg: String, expected: ObjectKind },
     #[error("Wrong Arguments")]
     WrongArguments,
+    #[error("Function '{0}' not found")]
+    FunctionNotFound(String),
+    #[error("Symbol '{0}' not found")]
+    SymbolNotFound(String),
 }
 
 pub type Args = Map<String, Object>;
-pub type Func = Box<dyn Fn(Args) -> Result<Object, CallError>>;
+pub type Func = Box<dyn Fn(Args) -> Result<Object, ContextError>>;
 
 pub type SymbolTable = Map<String, Object>;
 pub type FunctionTable = Map<String, Func>;
@@ -40,14 +44,16 @@ impl Context {
     pub fn function(
         mut self,
         key: impl Into<String>,
-        f: impl Fn(Args) -> Result<Object, CallError> + 'static,
+        f: impl Fn(Args) -> Result<Object, ContextError> + 'static,
     ) -> Self {
         self.function_table.insert(key.into(), Box::new(f));
         self
     }
 
-    pub fn call(&self, key: impl AsRef<str>) -> Option<&Func> {
-        self.function_table.get(key.as_ref())
+    pub fn call(&self, key: impl AsRef<str>) -> Result<&Func, ContextError> {
+        self.function_table
+            .get(key.as_ref())
+            .ok_or(ContextError::FunctionNotFound(key.as_ref().to_owned()))
     }
 
     pub fn symbol(mut self, key: impl Into<String>, value: impl Into<Object>) -> Self {
@@ -55,7 +61,9 @@ impl Context {
         self
     }
 
-    pub fn get(&self, key: impl AsRef<str>) -> Option<&Object> {
-        self.symbol_table.get(key.as_ref())
+    pub fn get(&self, key: impl AsRef<str>) -> Result<&Object, ContextError> {
+        self.symbol_table
+            .get(key.as_ref())
+            .ok_or(ContextError::SymbolNotFound(key.as_ref().to_owned()))
     }
 }

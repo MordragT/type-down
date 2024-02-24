@@ -3,7 +3,7 @@ use std::{fs, io};
 use builder::HtmlBuilder;
 use miette::Diagnostic;
 use thiserror::Error;
-use tyd_render::{CallError, Context, Output, Render};
+use tyd_render::{Context, ContextError, Output, Render};
 use tyd_syntax::{ast::visitor::Visitor, Ast};
 
 pub mod builder;
@@ -22,7 +22,7 @@ pub const LANGUAGE: &str = "en";
 #[diagnostic(code(type_down::compile::html::HtmlCompiler::compile))]
 pub enum HtmlError {
     Io(#[from] io::Error),
-    Call(#[from] CallError),
+    Call(#[from] ContextError),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]

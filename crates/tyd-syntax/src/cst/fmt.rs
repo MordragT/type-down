@@ -377,8 +377,8 @@ impl fmt::Display for Args {
 
 impl fmt::Display for Arg {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let Self(ident, colon, value) = &self;
-        write!(f, "{}{colon}{value}", ident.0)
+        let Self(ident, colon, _, value) = &self;
+        write!(f, "{}{colon} {value}", ident.0)
     }
 }
 

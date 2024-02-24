@@ -1,21 +1,21 @@
 use tyd_syntax::ast::{Block, Image};
 
-use crate::{Args, CallError, Object, ObjectKind};
+use crate::{Args, ContextError, Object, ObjectKind};
 
-pub fn image(mut args: Args) -> Result<Object, CallError> {
-    use CallError::*;
+pub fn image(mut args: Args) -> Result<Object, ContextError> {
+    use ContextError::*;
 
     let src = args
         .remove("src")
         .ok_or(MissingArgument("src".to_owned()))?;
 
-    let src = src.into_string().ok_or(WrongType {
+    let src = src.into_string().ok_or(WrongArgType {
         arg: "src".to_owned(),
         expected: ObjectKind::Str,
     })?;
 
     let alt = if let Some(alt) = args.remove("alt") {
-        Some(alt.into_string().ok_or(WrongType {
+        Some(alt.into_string().ok_or(WrongArgType {
             arg: "alt".to_owned(),
             expected: ObjectKind::Str,
         })?)

@@ -15,12 +15,12 @@ paragraph `monospace where @ | is ignored`
 
 > blockquote <https://example.com>[Hier klicken]
 
-#image(src:"human.png")
+#image(src: "human.png", alt: "Human")
 
 labelled @label
 
 by labelling something it creates a invocable variable,
-which can then be cited by 
+which can then be cited by #label
 
 All labels are inside the global variable scope
 

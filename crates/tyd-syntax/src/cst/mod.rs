@@ -203,10 +203,10 @@ pub struct CallTail(
 );
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
-pub struct Args(pub SeparatedBy<Comma, Arg>);
+pub struct Args(pub SeparatedBy<PaddedBy<Vec<Space>, Comma>, Arg>);
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
-pub struct Arg(pub Identifier, pub Colon, pub Value);
+pub struct Arg(pub Identifier, pub Colon, pub Vec<Space>, pub Value);
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
 pub enum Value {

@@ -6,7 +6,7 @@ use pandoc_ast::{
 use std::{collections::BTreeMap, fs, io};
 use thiserror::Error;
 
-use tyd_render::{Args, CallError, Context, Object, Output, Render};
+use tyd_render::{Args, Context, ContextError, Object, Output, Render};
 use tyd_syntax::ast::{
     visitor::{
         walk_emphasis, walk_enclosed, walk_heading, walk_link, walk_paragraph, walk_quote,
@@ -20,7 +20,7 @@ use tyd_syntax::ast::{
 #[error(transparent)]
 pub enum PandocError {
     Io(#[from] io::Error),
-    Call(#[from] CallError),
+    Call(#[from] ContextError),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -57,7 +57,7 @@ impl PandocBuilder {
 
         let mut meta = BTreeMap::new();
 
-        if let Some(Object::Str(title)) = ctx.get("title") {
+        if let Ok(Object::Str(title)) = ctx.get("title") {
             meta.insert("title".to_owned(), MetaValue::MetaString(title.clone()));
         }
 
@@ -365,7 +365,7 @@ impl Visitor for PandocBuilder {
             for (key, value) in args {
                 match value {
                     Value::Identifier(ident) => {
-                        let object = self.ctx.get(ident).unwrap();
+                        let object = self.ctx.get(ident)?;
                         f_args.insert(key.clone(), object.clone());
                     }
                     Value::String(s) => {
@@ -374,7 +374,21 @@ impl Visitor for PandocBuilder {
                 }
             }
 
-            let f = self.ctx.call(ident).unwrap();
+            if let Some(enclosed) = content {
+                f_args.insert(
+                    "content".to_owned(),
+                    Object::List(
+                        enclosed
+                            .elements
+                            .0
+                            .iter()
+                            .map(|el| Object::Element(el.clone()))
+                            .collect(),
+                    ),
+                );
+            }
+
+            let f = self.ctx.call(ident)?;
             let result = f(f_args)?;
 
             match result {
@@ -383,16 +397,8 @@ impl Visitor for PandocBuilder {
                 // TODO error
                 _ => panic!("access calls must return block or element"),
             }
-
-            // let pos = self.stack.start(f(args));
-
-            // if let Some(enclosed) = content {
-            //     self.visit_enclosed(enclosed);
-            // }
-
-            // self.stack.fold(pos);
         } else {
-            let object = self.ctx.get(ident).unwrap().clone();
+            let object = self.ctx.get(ident)?.clone();
 
             match object {
                 Object::Block(block) => self.visit_block(&block)?,

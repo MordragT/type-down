@@ -479,7 +479,7 @@ impl From<cst::CallTail> for CallTail {
             .0
              .0
             .into_iter()
-            .map(|cst::Arg(ident, _, value)| (ident.0, value.into()))
+            .map(|cst::Arg(ident, _, _, value)| (ident.0, value.into()))
             .collect();
         let content = enclosed.map(Into::into);
 
