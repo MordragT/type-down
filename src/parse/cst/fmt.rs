@@ -17,10 +17,10 @@ impl fmt::Display for Block {
         match &self {
             Self::Raw(raw) => raw.fmt(f),
             Self::Heading(heading) => heading.fmt(f),
-            Self::List(list) => list.fmt(f),
+            Self::BulletList(bullet) => bullet.fmt(f),
             Self::OrderedList(ordered) => ordered.fmt(f),
             Self::Table(table) => table.fmt(f),
-            Self::Blockquote(blockquote) => blockquote.fmt(f),
+            Self::BlockQuote(block_quote) => block_quote.fmt(f),
             Self::Paragraph(paragraph) => paragraph.fmt(f),
         }
     }
@@ -57,7 +57,7 @@ impl fmt::Display for HeadingLevel {
     }
 }
 
-impl fmt::Display for List {
+impl fmt::Display for BulletList {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for (minus, line) in &self.0 .0 {
             write!(f, "{minus} {line}")?;
@@ -99,7 +99,7 @@ impl fmt::Display for TableRow {
     }
 }
 
-impl fmt::Display for Blockquote {
+impl fmt::Display for BlockQuote {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for (right_angle, line) in &self.0 .0 {
             write!(f, "{right_angle} {line}")?;
@@ -155,23 +155,15 @@ impl fmt::Display for Elements {
 impl fmt::Display for Element {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self {
-            Self::Inline(inline) => inline.fmt(f),
+            Self::Access(access) => access.fmt(f),
             Self::Quote(quote) => quote.fmt(f),
-            Self::Strikethrough(strikethrough) => strikethrough.fmt(f),
+            Self::Strikeout(strikeout) => strikeout.fmt(f),
             Self::Emphasis(emphasis) => emphasis.fmt(f),
             Self::Strong(strong) => strong.fmt(f),
             Self::Enclosed(enclosed) => enclosed.fmt(f),
             Self::Link(link) => link.fmt(f),
             Self::Escape(escape) => escape.fmt(f),
-            Self::Monospace(monospace) => monospace.fmt(f),
-            Self::Access(access) => access.fmt(f),
-        }
-    }
-}
-
-impl fmt::Display for Inline {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match &self {
+            Self::RawInline(raw_inline) => raw_inline.fmt(f),
             Self::Spacing(spacing) => spacing.fmt(f),
             Self::SubScript(script) => script.fmt(f),
             Self::SupScript(script) => script.fmt(f),
@@ -221,16 +213,19 @@ impl fmt::Display for Quote {
 impl fmt::Display for QuoteElement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self {
-            Self::Inline(inline) => inline.fmt(f),
-            Self::Strikethrough(strikethrough) => strikethrough.fmt(f),
+            Self::Access(access) => access.fmt(f),
+            Self::Strikeout(strikeout) => strikeout.fmt(f),
             Self::Emphasis(emphasis) => emphasis.fmt(f),
             Self::Strong(strong) => strong.fmt(f),
-            Self::Access(access) => access.fmt(f),
+            Self::Spacing(spacing) => spacing.fmt(f),
+            Self::SubScript(script) => script.fmt(f),
+            Self::SupScript(script) => script.fmt(f),
+            Self::Word(word) => word.fmt(f),
         }
     }
 }
 
-impl fmt::Display for Strikethrough {
+impl fmt::Display for Strikeout {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Self(l, content, r) = &self;
 
@@ -244,13 +239,16 @@ impl fmt::Display for Strikethrough {
     }
 }
 
-impl fmt::Display for StrikethroughElement {
+impl fmt::Display for StrikeoutElement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self {
-            Self::Inline(inline) => inline.fmt(f),
+            Self::Access(access) => access.fmt(f),
             Self::Emphasis(emphasis) => emphasis.fmt(f),
             Self::Strong(strong) => strong.fmt(f),
-            Self::Access(access) => access.fmt(f),
+            Self::Spacing(spacing) => spacing.fmt(f),
+            Self::SubScript(script) => script.fmt(f),
+            Self::SupScript(script) => script.fmt(f),
+            Self::Word(word) => word.fmt(f),
         }
     }
 }
@@ -261,8 +259,8 @@ impl fmt::Display for Emphasis {
 
         let mut output = String::new();
 
-        for inline in &content.0 {
-            write!(output, "{inline}")?;
+        for el in &content.0 {
+            write!(output, "{el}")?;
         }
 
         write!(f, "{l}{}{r}", output.trim())
@@ -275,11 +273,23 @@ impl fmt::Display for Strong {
 
         let mut output = String::new();
 
-        for inline in &content.0 {
-            write!(output, "{inline}")?;
+        for el in &content.0 {
+            write!(output, "{el}")?;
         }
 
         write!(f, "{l}{}{r}", output.trim())
+    }
+}
+
+impl fmt::Display for EmphasizedElement {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self {
+            Self::Access(access) => access.fmt(f),
+            Self::Spacing(spacing) => spacing.fmt(f),
+            Self::SubScript(script) => script.fmt(f),
+            Self::SupScript(script) => script.fmt(f),
+            Self::Word(word) => word.fmt(f),
+        }
     }
 }
 
@@ -313,7 +323,7 @@ impl fmt::Display for Escape {
     }
 }
 
-impl fmt::Display for Monospace {
+impl fmt::Display for RawInline {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Self(l, content, r) = &self;
 
@@ -381,7 +391,7 @@ impl fmt::Display for Value {
     }
 }
 
-impl fmt::Display for StringValue {
+impl fmt::Display for Str {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Self(l, content, r) = &self;
         write!(f, "{l}{content}{r}")

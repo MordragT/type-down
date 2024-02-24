@@ -6,11 +6,11 @@ use miette::Diagnostic;
 use thiserror::Error;
 
 use self::visitor::{
-    walk_blockquote, walk_call_tail, walk_emphasis, walk_enclosed, walk_heading, walk_paragraph,
-    walk_quote, walk_strikethrough, walk_strong, walk_table, Visitor,
+    walk_block_quote, walk_emphasis, walk_enclosed, walk_heading, walk_paragraph, walk_quote,
+    walk_strikeout, walk_strong, walk_table, Visitor,
 };
 
-use super::{Compiler, Context};
+use super::{Compiler, Context, Output};
 use crate::parse::ast::*;
 use std::{fs, io};
 
@@ -26,16 +26,17 @@ impl Compiler for HtmlCompiler {
     type Error = HtmlError;
     type Context = Context;
 
-    fn compile(ctx: Context, ast: &Ast) -> Result<(), Self::Error> {
-        let dest = ctx.dest.clone();
-
+    fn compile(ast: &Ast, ctx: Context, output: Output) -> Result<(), Self::Error> {
         let mut builder = HtmlBuilder::new(ctx);
         builder.visit_ast(ast);
 
         let doc = builder.build();
         let contents = doc.to_string();
 
-        fs::write(dest, contents)?;
+        match output {
+            Output::Stdout => println!("{contents}"),
+            Output::File(path) => fs::write(path, contents)?,
+        }
 
         Ok(())
     }
@@ -117,7 +118,7 @@ impl Visitor for HtmlBuilder {
         self.body.add_child(h);
     }
 
-    fn visit_list(&mut self, list: &List) {
+    fn visit_bullet_list(&mut self, list: &BulletList) {
         let pos = self.stack.start(HtmlElement::ul());
 
         for line in &list.lines {
@@ -170,10 +171,10 @@ impl Visitor for HtmlBuilder {
         self.stack.fold(pos);
     }
 
-    fn visit_blockquote(&mut self, blockquote: &Blockquote) {
+    fn visit_block_quote(&mut self, block_quote: &BlockQuote) {
         let pos = self.stack.start(HtmlElement::blockquote());
 
-        walk_blockquote(self, blockquote);
+        walk_block_quote(self, block_quote);
 
         let blqt = self.stack.end(pos);
         self.body.add_child(blqt)
@@ -196,10 +197,10 @@ impl Visitor for HtmlBuilder {
         self.stack.fold(pos);
     }
 
-    fn visit_strikethrough(&mut self, strikethrough: &Strikethrough) {
+    fn visit_strikeout(&mut self, strikeout: &Strikeout) {
         let pos = self.stack.start(HtmlElement::del());
 
-        walk_strikethrough(self, strikethrough);
+        walk_strikeout(self, strikeout);
 
         self.stack.fold(pos);
     }
@@ -246,9 +247,9 @@ impl Visitor for HtmlBuilder {
         self.stack.add_child(escape.0.to_string());
     }
 
-    fn visit_monospace(&mut self, monospace: &Monospace) {
+    fn visit_raw_inline(&mut self, raw_inline: &RawInline) {
         self.stack
-            .add_child(HtmlElement::code().child(monospace.0.to_owned()));
+            .add_child(HtmlElement::code().child(raw_inline.0.to_owned()));
     }
 
     fn visit_sub_script(&mut self, sub_script: &SubScript) {

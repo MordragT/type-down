@@ -46,7 +46,7 @@ pub struct TrTag;
 pub struct TdTag;
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct BlockquoteTag;
+pub struct BlockQuoteTag;
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PTag;
@@ -201,7 +201,7 @@ impl HtmlElement<TdTag> {
     }
 }
 
-impl HtmlElement<BlockquoteTag> {
+impl HtmlElement<BlockQuoteTag> {
     pub fn blockquote() -> Self {
         Self::init("blockquote")
     }

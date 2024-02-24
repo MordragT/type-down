@@ -15,8 +15,8 @@ pub trait Visitor {
         walk_heading(self, heading)
     }
 
-    fn visit_list(&mut self, list: &List) {
-        walk_list(self, list)
+    fn visit_bullet_list(&mut self, list: &BulletList) {
+        walk_bullet_list(self, list)
     }
 
     fn visit_ordered_list(&mut self, ordered_list: &OrderedList) {
@@ -31,8 +31,8 @@ pub trait Visitor {
         walk_table_row(self, table_row)
     }
 
-    fn visit_blockquote(&mut self, blockquote: &Blockquote) {
-        walk_blockquote(self, blockquote)
+    fn visit_block_quote(&mut self, block_quote: &BlockQuote) {
+        walk_block_quote(self, block_quote)
     }
 
     fn visit_paragraph(&mut self, paragraph: &Paragraph) {
@@ -53,16 +53,12 @@ pub trait Visitor {
         walk_element(self, element)
     }
 
-    fn visit_inline(&mut self, inline: &Inline) {
-        walk_inline(self, inline)
-    }
-
     fn visit_quote(&mut self, quote: &Quote) {
         walk_quote(self, quote)
     }
 
-    fn visit_strikethrough(&mut self, strikethrough: &Strikethrough) {
-        walk_strikethrough(self, strikethrough)
+    fn visit_strikeout(&mut self, strikeout: &Strikeout) {
+        walk_strikeout(self, strikeout)
     }
 
     fn visit_strong(&mut self, strong: &Strong) {
@@ -83,7 +79,7 @@ pub trait Visitor {
 
     fn visit_escape(&mut self, _escape: &Escape) {}
 
-    fn visit_monospace(&mut self, _monospace: &Monospace) {}
+    fn visit_raw_inline(&mut self, _raw_inline: &RawInline) {}
 
     fn visit_sub_script(&mut self, _sub_script: &SubScript) {}
 
@@ -112,10 +108,10 @@ pub fn walk_block<V: Visitor + ?Sized>(visitor: &mut V, block: &Block) {
     match block {
         Block::Raw(raw) => visitor.visit_raw(raw),
         Block::Heading(heading) => visitor.visit_heading(heading),
-        Block::List(list) => visitor.visit_list(list),
+        Block::BulletList(bullet) => visitor.visit_bullet_list(bullet),
         Block::OrderedList(ordered_list) => visitor.visit_ordered_list(ordered_list),
         Block::Table(table) => visitor.visit_table(table),
-        Block::Blockquote(blockquote) => visitor.visit_blockquote(blockquote),
+        Block::BlockQuote(block_quote) => visitor.visit_block_quote(block_quote),
         Block::Paragraph(paragraph) => visitor.visit_paragraph(paragraph),
     }
 }
@@ -124,7 +120,7 @@ pub fn walk_heading<V: Visitor + ?Sized>(visitor: &mut V, heading: &Heading) {
     visitor.visit_line(&heading.line)
 }
 
-pub fn walk_list<V: Visitor + ?Sized>(visitor: &mut V, list: &List) {
+pub fn walk_bullet_list<V: Visitor + ?Sized>(visitor: &mut V, list: &BulletList) {
     for line in &list.lines {
         visitor.visit_line(line)
     }
@@ -148,8 +144,8 @@ pub fn walk_table_row<V: Visitor + ?Sized>(visitor: &mut V, table_row: &TableRow
     }
 }
 
-pub fn walk_blockquote<V: Visitor + ?Sized>(visitor: &mut V, blockquote: &Blockquote) {
-    for line in &blockquote.lines {
+pub fn walk_block_quote<V: Visitor + ?Sized>(visitor: &mut V, block_quote: &BlockQuote) {
+    for line in &block_quote.lines {
         visitor.visit_line(line)
     }
 }
@@ -175,25 +171,19 @@ pub fn walk_elements<V: Visitor + ?Sized>(visitor: &mut V, elements: &Elements) 
 
 pub fn walk_element<V: Visitor + ?Sized>(visitor: &mut V, element: &Element) {
     match element {
-        Element::Inline(inline) => visitor.visit_inline(inline),
+        Element::Access(access) => visitor.visit_access(access),
         Element::Quote(quote) => visitor.visit_quote(quote),
-        Element::Strikethrough(strikethrough) => visitor.visit_strikethrough(strikethrough),
+        Element::Strikeout(strikeout) => visitor.visit_strikeout(strikeout),
         Element::Emphasis(emphasis) => visitor.visit_emphasis(emphasis),
         Element::Strong(strong) => visitor.visit_strong(strong),
         Element::Enclosed(enclosed) => visitor.visit_enclosed(enclosed),
         Element::Link(link) => visitor.visit_link(link),
         Element::Escape(escape) => visitor.visit_escape(escape),
-        Element::Monospace(monospace) => visitor.visit_monospace(monospace),
-        Element::Access(access) => visitor.visit_access(access),
-    }
-}
-
-pub fn walk_inline<V: Visitor + ?Sized>(visitor: &mut V, inline: &Inline) {
-    match inline {
-        Inline::SubScript(sub_script) => visitor.visit_sub_script(sub_script),
-        Inline::SupScript(sup_script) => visitor.visit_sup_script(sup_script),
-        Inline::Word(word) => visitor.visit_word(word),
-        Inline::Spacing(spacing) => visitor.visit_spacing(spacing),
+        Element::RawInline(raw_inline) => visitor.visit_raw_inline(raw_inline),
+        Element::SubScript(sub_script) => visitor.visit_sub_script(sub_script),
+        Element::SupScript(sup_script) => visitor.visit_sup_script(sup_script),
+        Element::Word(word) => visitor.visit_word(word),
+        Element::Spacing(spacing) => visitor.visit_spacing(spacing),
     }
 }
 
@@ -201,20 +191,16 @@ pub fn walk_quote<V: Visitor + ?Sized>(visitor: &mut V, quote: &Quote) {
     visitor.visit_elements(&quote.elements)
 }
 
-pub fn walk_strikethrough<V: Visitor + ?Sized>(visitor: &mut V, strikethrough: &Strikethrough) {
-    visitor.visit_elements(&strikethrough.elements)
+pub fn walk_strikeout<V: Visitor + ?Sized>(visitor: &mut V, strikeout: &Strikeout) {
+    visitor.visit_elements(&strikeout.elements)
 }
 
 pub fn walk_strong<V: Visitor + ?Sized>(visitor: &mut V, strong: &Strong) {
-    for inline in &strong.inlines {
-        visitor.visit_inline(inline)
-    }
+    visitor.visit_elements(&strong.elements)
 }
 
 pub fn walk_emphasis<V: Visitor + ?Sized>(visitor: &mut V, emphasis: &Emphasis) {
-    for inline in &emphasis.inlines {
-        visitor.visit_inline(inline)
-    }
+    visitor.visit_elements(&emphasis.elements)
 }
 
 pub fn walk_enclosed<V: Visitor + ?Sized>(visitor: &mut V, enclosed: &Enclosed) {

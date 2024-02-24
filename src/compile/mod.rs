@@ -5,12 +5,12 @@ use crate::parse::{
 use html_writer::{DynHtmlElement, HtmlElement};
 use miette::Diagnostic;
 use std::{collections::HashMap, path::PathBuf};
-use thiserror::Error;
 
 #[cfg(feature = "docx")]
 pub mod docx;
 #[cfg(feature = "html")]
 pub mod html;
+pub mod pandoc;
 #[cfg(feature = "pdf")]
 pub mod pdf;
 
@@ -18,52 +18,28 @@ pub trait Compiler {
     type Error: Diagnostic;
     type Context;
 
-    fn compile(ctx: Self::Context, ast: &Ast) -> Result<(), Self::Error>;
+    fn compile(ast: &Ast, ctx: Self::Context, output: Output) -> Result<(), Self::Error>;
 }
 
 // TODO font-family etc.
 
-#[derive(Debug, Error, Diagnostic, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
-#[diagnostic(code(type_down::compile::ContextBuilder))]
-pub enum ContextError {
-    #[error("Missing title")]
-    MissingTitle,
-    #[error("Missing source")]
-    MissingSource,
-    #[error("Missing destination")]
-    MissingDest,
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Output {
+    File(PathBuf),
+    Stdout,
 }
 
 pub struct ContextBuilder {
-    title: Option<String>,
-    source: Option<PathBuf>,
-    dest: Option<PathBuf>,
+    title: String,
     symbol_table: SymbolTable,
 }
 
 impl ContextBuilder {
-    pub fn new() -> Self {
+    pub fn new(title: String) -> Self {
         Self {
-            title: None,
-            source: None,
-            dest: None,
+            title,
             symbol_table: SymbolTable::new(),
         }
-    }
-
-    pub fn title(mut self, title: String) -> Self {
-        self.title = Some(title);
-        self
-    }
-
-    pub fn source(mut self, source: PathBuf) -> Self {
-        self.source = Some(source);
-        self
-    }
-
-    pub fn destination(mut self, dest: PathBuf) -> Self {
-        self.dest = Some(dest);
-        self
     }
 
     pub fn register_func(
@@ -75,31 +51,21 @@ impl ContextBuilder {
         self
     }
 
-    pub fn build(self) -> Result<Context, ContextError> {
+    pub fn build(self) -> Context {
         let Self {
             title,
-            source,
-            dest,
             symbol_table,
         } = self;
 
-        let title = title.ok_or(ContextError::MissingTitle)?;
-        let source = source.ok_or(ContextError::MissingSource)?;
-        let dest = dest.ok_or(ContextError::MissingDest)?;
-
-        Ok(Context {
+        Context {
             title,
-            source,
-            dest,
             symbol_table,
-        })
+        }
     }
 }
 
 pub struct Context {
     pub title: String,
-    pub source: PathBuf,
-    pub dest: PathBuf,
     pub symbol_table: SymbolTable,
 }
 
@@ -131,7 +97,7 @@ impl SymbolTable {
 
 pub fn image(args: &Args) -> DynHtmlElement {
     let src = match &args["src"] {
-        Value::StringValue(val) => val,
+        Value::String(val) => val,
         _ => todo!(),
     };
 

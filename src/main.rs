@@ -3,7 +3,8 @@ use std::path::PathBuf;
 use miette::Result;
 use type_down::{
     compile::{
-        docx::DocxCompiler, html::HtmlCompiler, image, pdf::PdfCompiler, Compiler, ContextBuilder,
+        docx::DocxCompiler, html::HtmlCompiler, image, pandoc::PandocCompiler, pdf::PdfCompiler,
+        Compiler, ContextBuilder, Output,
     },
     parse::{parse, Ast},
 };
@@ -24,18 +25,19 @@ pub enum Commands {
         path: PathBuf,
     },
     Compile {
-        compiler: CompilerBackend,
+        format: Format,
         input: PathBuf,
-        output: PathBuf,
+        output: Option<PathBuf>,
     },
 }
 
 #[derive(clap::ValueEnum, Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub enum CompilerBackend {
+pub enum Format {
     #[default]
     Html,
     Pdf,
     Docx,
+    Json,
 }
 
 fn main() -> Result<()> {
@@ -55,22 +57,25 @@ fn main() -> Result<()> {
         Commands::Compile {
             input,
             output,
-            compiler,
+            format,
         } => {
             let cst = parse(&input)?;
             let ast = Ast::from(cst);
 
-            let ctx = ContextBuilder::new()
-                .title("Testtitle".to_owned())
-                .source(input)
-                .destination(output)
+            let ctx = ContextBuilder::new("Testtitle".to_owned())
                 .register_func("image", image)
-                .build()?;
+                .build();
 
-            match compiler {
-                CompilerBackend::Html => HtmlCompiler::compile(ctx, &ast)?,
-                CompilerBackend::Pdf => PdfCompiler::compile(ctx, &ast)?,
-                CompilerBackend::Docx => DocxCompiler::compile(ctx, &ast)?,
+            let output = match output {
+                Some(path) => Output::File(path),
+                None => Output::Stdout,
+            };
+
+            match format {
+                Format::Html => HtmlCompiler::compile(&ast, ctx, output)?,
+                Format::Pdf => PdfCompiler::compile(&ast, ctx, output)?,
+                Format::Docx => DocxCompiler::compile(&ast, ctx, output)?,
+                Format::Json => PandocCompiler::compile(&ast, ctx, output)?,
             }
         }
     }

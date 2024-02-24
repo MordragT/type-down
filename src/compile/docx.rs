@@ -1,21 +1,22 @@
-use crate::parse::ast::*;
-use docx_rs::{DocumentChild, Docx, Paragraph, Run};
 use miette::Diagnostic;
-use std::{fs::File, io};
+use pandoc::{InputFormat, InputKind, OutputFormat, OutputKind, Pandoc};
+use std::io;
 use thiserror::Error;
 
-use self::visitor::Visitor;
-
-use super::{Compiler, Context};
+use super::{pandoc::PandocBuilder, Compiler, Context, Output};
+use crate::parse::{ast::visitor::Visitor, Ast};
 
 #[derive(Debug, Error, Diagnostic)]
 #[error(transparent)]
 #[diagnostic(code(type_down::compile::docx::DocxCompiler::compile))]
 pub enum DocxError {
+    #[error(transparent)]
     Io(#[from] io::Error),
-    Docx(#[from] docx_rs::DocxError),
+    #[error(transparent)]
+    Pandoc(#[from] pandoc::PandocError),
+    #[error("Stdout is unsupported for docx")]
+    StdoutUnsupported,
 }
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct DocxCompiler;
 
@@ -23,49 +24,28 @@ impl Compiler for DocxCompiler {
     type Error = DocxError;
     type Context = Context;
 
-    fn compile(ctx: Context, ast: &Ast) -> Result<(), Self::Error> {
-        let mut builder = DocxBuilder::new();
+    fn compile(ast: &Ast, ctx: Context, output: Output) -> Result<(), Self::Error> {
+        let dest = match output {
+            Output::File(path) => path,
+            Output::Stdout => return Err(DocxError::StdoutUnsupported),
+        };
+
+        let mut builder = PandocBuilder::new(ctx);
         builder.visit_ast(ast);
 
-        let docx = builder.build();
-        let file = File::create(&ctx.dest)?;
+        let pandoc = builder.build();
+        let contents = pandoc.to_json();
 
-        docx.build()
-            .pack(file)
-            .map_err(docx_rs::DocxError::ZipError)?;
+        let mut pandoc = Pandoc::new();
+
+        pandoc
+            .set_input_format(InputFormat::Json, Vec::new())
+            .set_input(InputKind::Pipe(contents))
+            .set_output_format(OutputFormat::Docx, Vec::new())
+            .set_output(OutputKind::File(dest));
+
+        pandoc.execute()?;
 
         Ok(())
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct DocxBuilder {
-    stack: Vec<DocumentChild>,
-}
-
-impl DocxBuilder {
-    pub fn new() -> Self {
-        Self { stack: Vec::new() }
-    }
-
-    pub fn build(self) -> Docx {
-        let mut docx = Docx::new();
-
-        for item in self.stack {
-            docx = match item {
-                DocumentChild::Paragraph(p) => docx.add_paragraph(*p),
-                DocumentChild::Table(table) => docx.add_table(*table),
-                _ => todo!(),
-            };
-        }
-
-        docx
-    }
-}
-
-impl Visitor for DocxBuilder {
-    fn visit_raw(&mut self, raw: &Raw) {
-        let p = Paragraph::new().add_run(Run::new().add_text(&raw.content));
-        self.stack.push(DocumentChild::Paragraph(Box::new(p)));
     }
 }

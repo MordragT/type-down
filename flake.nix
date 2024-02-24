@@ -92,6 +92,8 @@
             packages.parol
             #packages.parol-ls
             pkg-config
+            pandoc
+            typst
           ];
 
           # Specify the rust-src path (many editors rely on this)

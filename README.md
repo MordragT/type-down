@@ -1,7 +1,7 @@
 ## CLI
 
-- fmt
-- compile (pdf | html)
+1. fmt
+2. compile (pdf | html)
 
 ## Planned Outputs
 
@@ -12,6 +12,6 @@
 
 ## Planned templates
 
-- curriculum vitae
+- curriculum vitae `test`
 - calendar/todo (like markdown when ?)
 - presentation (reveal ?)

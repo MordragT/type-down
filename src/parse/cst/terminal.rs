@@ -296,15 +296,15 @@ impl Parseable<'static, char> for LinkContent {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Terminal)]
-pub struct MonospaceContent(pub String);
+pub struct RawInlineContent(pub String);
 
-impl fmt::Display for MonospaceContent {
+impl fmt::Display for RawInlineContent {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
     }
 }
 
-impl Parseable<'static, char> for MonospaceContent {
+impl Parseable<'static, char> for RawInlineContent {
     fn parser(
         ctx: &mut parasite::chumsky::Context,
     ) -> parasite::chumsky::prelude::BoxedParser<'static, char, Self, Self::Error> {
@@ -317,7 +317,7 @@ impl Parseable<'static, char> for MonospaceContent {
             .not()
             .repeated()
             .collect()
-            .map(MonospaceContent)
+            .map(RawInlineContent)
             .boxed()
     }
 }

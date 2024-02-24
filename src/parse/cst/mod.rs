@@ -11,16 +11,18 @@ pub mod terminal;
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
 pub struct Cst(pub NonEmptyVec<(Block, NonEmptyVec<NewLine>)>, pub End);
 
+// TODO NewLineBlock instead of NewLines in Line and Cst ?
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
 pub enum Block {
     Raw(Raw),
     Heading(Heading),
-    List(List),
+    BulletList(BulletList),
     OrderedList(OrderedList),
     Table(Table),
-    Blockquote(Blockquote),
+    BlockQuote(BlockQuote),
     Paragraph(Paragraph),
-    // Code(Code),
+    // Expr(Expr),
     // Math(Math),
 }
 
@@ -41,13 +43,13 @@ pub struct HeadingLevel(pub NonEmptyVec<Equals>);
 pub struct Heading(pub HeadingLevel, pub Line);
 
 // TODO enforce paragaph does not start with tab(4 spaces)
-// and use tab as indentation level for lists, blockquote
+// and use tab as indentation level for lists, block_quote
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
 pub struct Paragraph(pub NonEmptyVec<Line>);
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
-pub struct List(pub NonEmptyVec<(Minus, Line)>);
+pub struct BulletList(pub NonEmptyVec<(Minus, Line)>);
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
 pub struct OrderedList(pub NonEmptyVec<(Plus, Line)>);
@@ -60,7 +62,7 @@ pub struct TableRow(pub Pipe, pub NonEmptyVec<(Elements, Pipe)>, pub NewLine);
 
 // TODO allow multiple levels of Blockquote
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
-pub struct Blockquote(pub NonEmptyVec<(RightAngle, Line)>);
+pub struct BlockQuote(pub NonEmptyVec<(RightAngle, Line)>);
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
 pub struct Label(pub At, pub Identifier);
@@ -98,20 +100,15 @@ impl Parseable<'static, char> for Elements {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
 pub enum Element {
-    Inline(Inline),
+    Access(Access),
     Quote(Quote),
-    Strikethrough(Strikethrough),
+    Strikeout(Strikeout),
     Emphasis(Emphasis),
     Strong(Strong),
     Enclosed(Enclosed),
     Link(Link),
     Escape(Escape),
-    Monospace(Monospace),
-    Access(Access),
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
-pub enum Inline {
+    RawInline(RawInline),
     SubScript(SubScript),
     SupScript(SupScript),
     Word(Word),
@@ -136,29 +133,44 @@ pub struct Quote(
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
 pub enum QuoteElement {
-    Inline(Inline),
-    Strikethrough(Strikethrough),
+    Access(Access),
+    Strikeout(Strikeout),
     Emphasis(Emphasis),
     Strong(Strong),
-    Access(Access),
+    SubScript(SubScript),
+    SupScript(SupScript),
+    Word(Word),
+    Spacing(Spacing),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
-pub struct Strikethrough(pub Tilde, pub NonEmptyVec<StrikethroughElement>, pub Tilde);
+pub struct Strikeout(pub Tilde, pub NonEmptyVec<StrikeoutElement>, pub Tilde);
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
-pub enum StrikethroughElement {
-    Inline(Inline),
+pub enum StrikeoutElement {
+    Access(Access),
     Emphasis(Emphasis),
     Strong(Strong),
-    Access(Access),
+    SubScript(SubScript),
+    SupScript(SupScript),
+    Word(Word),
+    Spacing(Spacing),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
-pub struct Emphasis(pub Slash, pub NonEmptyVec<Inline>, pub Slash);
+pub struct Emphasis(pub Slash, pub NonEmptyVec<EmphasizedElement>, pub Slash);
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
-pub struct Strong(pub Star, pub NonEmptyVec<Inline>, pub Star);
+pub struct Strong(pub Star, pub NonEmptyVec<EmphasizedElement>, pub Star);
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
+pub enum EmphasizedElement {
+    Access(Access),
+    SubScript(SubScript),
+    SupScript(SupScript),
+    Word(Word),
+    Spacing(Spacing),
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
 pub struct Enclosed(pub LeftBracket, pub Rec<Elements>, pub RightBracket);
@@ -177,7 +189,7 @@ pub struct Link(
 pub struct Escape(pub BackSlash, pub Any);
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
-pub struct Monospace(pub BackTick, pub MonospaceContent, pub BackTick);
+pub struct RawInline(pub BackTick, pub RawInlineContent, pub BackTick);
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
 pub struct Access(pub Pound, pub Identifier, pub Option<CallTail>);
@@ -199,13 +211,13 @@ pub struct Arg(pub Identifier, pub Colon, pub Value);
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
 pub enum Value {
     Identifier(Identifier),
-    String(StringValue),
+    String(Str),
     // Number(Number),
     // Bool(Boolean),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
-pub struct StringValue(pub DoubleQuote, pub StringContent, pub DoubleQuote);
+pub struct Str(pub DoubleQuote, pub StringContent, pub DoubleQuote);
 
 // #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
 // pub enum Boolean {
