@@ -347,6 +347,7 @@ dependencies = [
 [[package]]
 name = "parasite"
 version = "0.1.0"
+source = "git+https://github.com/MordragT/parasite.git#e244e8da97ec3b2fe302574fdf88ba61f4fd2225"
 dependencies = [
  "parasite-core",
  "parasite-macros",
@@ -355,6 +356,7 @@ dependencies = [
 [[package]]
 name = "parasite-core"
 version = "0.1.0"
+source = "git+https://github.com/MordragT/parasite.git#e244e8da97ec3b2fe302574fdf88ba61f4fd2225"
 dependencies = [
  "anymap3",
  "chumsky",
@@ -364,6 +366,7 @@ dependencies = [
 [[package]]
 name = "parasite-macros"
 version = "0.1.0"
+source = "git+https://github.com/MordragT/parasite.git#e244e8da97ec3b2fe302574fdf88ba61f4fd2225"
 dependencies = [
  "parasite-core",
  "proc-macro2",
