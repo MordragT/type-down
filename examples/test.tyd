@@ -1,0 +1,10 @@
+= - bullet + ordered > block
+
+- > block
+
+
+maybe {} for labels ?
+
+== Labelled {label}
+
+cite with @label

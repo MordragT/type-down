@@ -291,7 +291,7 @@ impl Visitor for PandocBuilder {
         Ok(())
     }
 
-    fn visit_enclosed(&mut self, enclosed: &Enclosed) -> Result<(), Self::Error> {
+    fn visit_enclosed(&mut self, enclosed: &Content) -> Result<(), Self::Error> {
         walk_enclosed(self, enclosed)?;
 
         Ok(())

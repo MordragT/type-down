@@ -1,0 +1,26 @@
+use miette::Result;
+use tyd_syntax::{ast::Ast, cst::Cst};
+
+// use tyd_syntax::parse;
+
+// fn main() -> Result<()> {
+//     let cst = parse("../../examples/wip.tyd")?;
+
+//     println!("{cst:?}");
+
+//     Ok(())
+// }
+
+fn main() -> Result<()> {
+    let src = "
+a nice and juicy
+paragraph
+
+and some plain text";
+
+    let ast = Ast::parse(&src, "test")?;
+
+    println!("{ast:?}");
+
+    Ok(())
+}

@@ -49,6 +49,10 @@ pub trait Visitor {
         walk_paragraph(self, paragraph)
     }
 
+    fn visit_comment(&mut self, _comment: &Comment) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
     fn visit_image(&mut self, _image: &Image) -> Result<(), Self::Error> {
         Ok(())
     }
@@ -85,7 +89,7 @@ pub trait Visitor {
         walk_emphasis(self, emphasis)
     }
 
-    fn visit_enclosed(&mut self, enclosed: &Enclosed) -> Result<(), Self::Error> {
+    fn visit_enclosed(&mut self, enclosed: &Content) -> Result<(), Self::Error> {
         walk_enclosed(self, enclosed)
     }
 
@@ -147,6 +151,7 @@ pub fn walk_block<V: Visitor + ?Sized>(visitor: &mut V, block: &Block) -> Result
         Block::BlockQuote(block_quote) => visitor.visit_block_quote(block_quote),
         Block::Paragraph(paragraph) => visitor.visit_paragraph(paragraph),
         Block::Image(image) => visitor.visit_image(image),
+        Block::Comment(comment) => visitor.visit_comment(comment),
     }
 }
 
@@ -283,7 +288,7 @@ pub fn walk_emphasis<V: Visitor + ?Sized>(
 
 pub fn walk_enclosed<V: Visitor + ?Sized>(
     visitor: &mut V,
-    enclosed: &Enclosed,
+    enclosed: &Content,
 ) -> Result<(), V::Error> {
     visitor.visit_elements(&enclosed.elements)
 }

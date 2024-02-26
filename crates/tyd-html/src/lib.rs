@@ -46,3 +46,7 @@ impl Render for HtmlCompiler {
         Ok(())
     }
 }
+
+// TODO reuse pandoc html backend and expand from that onwards
+// would also allow better indentation for html renderer as
+// text elemments do not need to be considered anymore

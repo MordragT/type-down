@@ -1,36 +1,83 @@
-use parasite::chumsky::chain::Chain;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, VecDeque};
 
 use super::cst;
 
-pub mod visitor;
+// pub mod visitor;
 
 pub use cst::terminal::Word;
+use parasite::chumsky::chain::Chain;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Ast {
     pub blocks: Blocks,
 }
 
-impl From<cst::Cst> for Ast {
-    fn from(value: cst::Cst) -> Self {
-        let blocks = Blocks(
-            value
-                .0
-                 .0
-                .into_iter()
-                .map(|(block, _)| block.into())
-                .collect(),
-        );
+// impl From<cst::Cst> for Ast {
+//     fn from(value: cst::Cst) -> Self {
+//         let blocks = Blocks(
+//             value
+//                 .0
+//                  .0
+//                 .into_iter()
+//                 .map(|(block, _)| block.into())
+//                 .collect(),
+//         );
 
-        Self { blocks }
-    }
+//         Self { blocks }
+//     }
+// }
+
+fn get_label(nodes: &mut VecDeque<cst::Node>) -> Option<Label> {
+    let label = match nodes.pop_front() {
+        Some(cst::Node::Label(label)) => Some(label.into()),
+        Some(node) => {
+            nodes.push_front(node);
+            None
+        }
+        _ => None,
+    };
+    label
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Blocks(pub Vec<Block>);
 
-// TODO merge Block and MarkBlock to one
+impl From<cst::Nodes> for Blocks {
+    fn from(value: cst::Nodes) -> Self {
+        let mut blocks = Vec::new();
+        let mut nodes = VecDeque::from(value.0 .0);
+
+        while let Some(node) = nodes.pop_front() {
+            match node {
+                cst::Node::Heading(cst::Heading(level, _, content)) => {
+                    let label = get_label(&mut nodes);
+                    let level = level.0.len() as u8;
+                    let content = content.into();
+
+                    let heading = Heading {
+                        level,
+                        content,
+                        label,
+                    };
+                    blocks.push(Block::Heading(heading));
+                }
+                cst::Node::Raw(cst::Raw(_, content, _)) => {
+                    let label = get_label(&mut nodes);
+                    let content = content.0;
+
+                    let raw = Raw {
+                        lang: None,
+                        content,
+                        label,
+                    };
+                    blocks.push(Block::Raw(raw));
+                }
+            }
+        }
+
+        todo!()
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Block {
@@ -41,158 +88,178 @@ pub enum Block {
     Table(Table),
     BlockQuote(BlockQuote),
     Paragraph(Paragraph),
-    Image(Image),
+    LineBreak,
     // Expr(Expr),
     // Math(Math),
 }
 
-impl From<cst::Block> for Block {
-    fn from(value: cst::Block) -> Self {
-        match value {
-            cst::Block::Raw(raw_block) => Self::Raw(raw_block.into()),
-            cst::Block::Heading(heading) => Self::Heading(heading.into()),
-            cst::Block::BulletList(bullet) => Self::BulletList(bullet.into()),
-            cst::Block::OrderedList(ordered) => Self::OrderedList(ordered.into()),
-            cst::Block::Table(table) => Self::Table(table.into()),
-            cst::Block::BlockQuote(block_quote) => Self::BlockQuote(block_quote.into()),
-            cst::Block::Paragraph(paragraph) => Self::Paragraph(paragraph.into()),
-        }
-    }
-}
+// impl From<cst::Block> for Block {
+//     fn from(value: cst::Block) -> Self {
+//         match value {
+//             cst::Block::Raw(raw_block) => Self::Raw(raw_block.into()),
+//             cst::Block::Heading(heading) => Self::Heading(heading.into()),
+//             cst::Block::BulletList(bullet) => Self::BulletList(bullet.into()),
+//             cst::Block::OrderedList(ordered) => Self::OrderedList(ordered.into()),
+//             cst::Block::Table(table) => Self::Table(table.into()),
+//             cst::Block::BlockQuote(block_quote) => Self::BlockQuote(block_quote.into()),
+//             cst::Block::Paragraph(paragraph) => Self::Paragraph(paragraph.into()),
+//             cst::Block::Comment(comment) => Self::Comment(comment.into()),
+//             cst::Block::LineBreak(_) => Self::LineBreak,
+//         }
+//     }
+// }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Raw {
     pub lang: Option<String>,
     pub content: String,
+    pub label: Option<Label>,
 }
 
-impl From<cst::Raw> for Raw {
-    fn from(value: cst::Raw) -> Self {
-        let cst::Raw(_, lang, _, content, _, _) = value;
+// impl From<cst::Raw> for Raw {
+//     fn from(value: cst::Raw) -> Self {
+//         // let cst::Raw(_, lang, _, content, _, _) = value;
 
-        let lang = lang.map(|lang| lang.0 .0);
+//         // let lang = lang.map(|lang| lang.0 .0);
 
-        Self {
-            lang,
-            content: content.0,
-        }
-    }
-}
+//         let cst::Raw(_, content, _) = value;
+
+//         let lang = None;
+
+//         Self {
+//             lang,
+//             content: content.0,
+//         }
+//     }
+// }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Heading {
     pub level: u8,
-    pub line: Line,
+    pub content: Elements,
+    pub label: Option<Label>,
 }
 
-impl From<cst::Heading> for Heading {
-    fn from(value: cst::Heading) -> Self {
-        let cst::Heading(level, line) = value;
+// impl From<cst::Heading> for Heading {
+//     fn from(value: cst::Heading) -> Self {
+//         let cst::Heading(level, elements, label) = value;
 
-        let level = level.0.len() as u8;
+//         let level = level.0.len() as u8;
 
-        Self {
-            level,
-            line: line.into(),
-        }
-    }
-}
+//         Self {
+//             level,
+//             line: elements.into(),
+//             label: label.map(Into::into),
+//         }
+//     }
+// }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct BulletList {
-    pub lines: Vec<Line>,
+    pub list: Vec<Block>,
+    pub label: Option<Label>,
 }
 
-impl From<cst::BulletList> for BulletList {
-    fn from(value: cst::BulletList) -> Self {
-        let lines = value
-            .0
-             .0
-            .into_iter()
-            .map(|(_, line)| line.into())
-            .collect();
+// impl From<cst::BulletList> for BulletList {
+//     fn from(value: cst::BulletList) -> Self {
+//         let lines = value
+//             .0
+//              .0
+//             .into_iter()
+//             .map(|(_, line)| line.into())
+//             .collect();
 
-        Self { lines }
-    }
-}
+//         Self { lines }
+//     }
+// }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct OrderedList {
-    pub lines: Vec<Line>,
+    pub list: Vec<Block>,
+    pub label: Option<Label>,
 }
 
-impl From<cst::OrderedList> for OrderedList {
-    fn from(value: cst::OrderedList) -> Self {
-        let lines = value
-            .0
-             .0
-            .into_iter()
-            .map(|(_, line)| line.into())
-            .collect();
+// impl From<cst::OrderedList> for OrderedList {
+//     fn from(value: cst::OrderedList) -> Self {
+//         let lines = value
+//             .0
+//              .0
+//             .into_iter()
+//             .map(|(_, line)| line.into())
+//             .collect();
 
-        Self { lines }
-    }
-}
+//         Self { lines }
+//     }
+// }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Table {
     pub rows: Vec<TableRow>,
 }
 
-impl From<cst::Table> for Table {
-    fn from(value: cst::Table) -> Self {
-        let rows = value.0 .0.into_iter().map(Into::into).collect();
+// impl From<cst::Table> for Table {
+//     fn from(value: cst::Table) -> Self {
+//         let rows = value.0 .0.into_iter().map(Into::into).collect();
 
-        Self { rows }
-    }
-}
+//         Self { rows }
+//     }
+// }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TableRow {
-    pub cells: Vec<Elements>,
+    pub cells: Vec<Block>,
 }
 
-impl From<cst::TableRow> for TableRow {
-    fn from(value: cst::TableRow) -> Self {
-        let cells = value
-            .1
-             .0
-            .into_iter()
-            .map(|(elements, _)| elements.into())
-            .collect();
+// impl From<cst::TableRow> for TableRow {
+//     fn from(value: cst::TableRow) -> Self {
+//         let cells = value
+//             .1
+//              .0
+//             .into_iter()
+//             .map(|(elements, _)| elements.into())
+//             .collect();
 
-        Self { cells }
-    }
-}
+//         Self { cells }
+//     }
+// }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct BlockQuote {
-    pub lines: Vec<Line>,
+    pub quote: Vec<Block>,
 }
 
-impl From<cst::BlockQuote> for BlockQuote {
-    fn from(value: cst::BlockQuote) -> Self {
-        let lines = value
-            .0
-             .0
-            .into_iter()
-            .map(|(_, line)| line.into())
-            .collect();
+// impl From<cst::BlockQuote> for BlockQuote {
+//     fn from(value: cst::BlockQuote) -> Self {
+//         let lines = value
+//             .0
+//              .0
+//             .into_iter()
+//             .map(|(_, line)| line.into())
+//             .collect();
 
-        Self { lines }
-    }
-}
+//         Self { lines }
+//     }
+// }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Paragraph {
-    pub lines: Vec<Line>,
+    pub lines: Vec<Elements>,
 }
 
-impl From<cst::Paragraph> for Paragraph {
-    fn from(value: cst::Paragraph) -> Self {
-        let lines = value.0 .0.into_iter().map(Into::into).collect();
+// impl From<cst::Paragraph> for Paragraph {
+//     fn from(value: cst::Paragraph) -> Self {
+//         let lines = value.0 .0.into_iter().map(Into::into).collect();
 
-        Self { lines }
+//         Self { lines }
+//     }
+// }
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Comment(pub String);
+
+impl From<cst::Comment> for Comment {
+    fn from(value: cst::Comment) -> Self {
+        Self(value.1 .0)
     }
 }
 
@@ -200,26 +267,27 @@ impl From<cst::Paragraph> for Paragraph {
 pub struct Image {
     pub src: String,
     pub alt: Option<String>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Line {
-    pub elements: Elements,
     pub label: Option<Label>,
 }
 
-impl From<cst::Line> for Line {
-    fn from(value: cst::Line) -> Self {
-        let cst::Line(elements, label, _) = value;
+// #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+// pub struct Line {
+//     pub elements: Elements,
+//     pub label: Option<Label>,
+// }
 
-        let label = label.map(Into::into);
+// impl From<cst::Line> for Line {
+//     fn from(value: cst::Line) -> Self {
+//         let cst::Line(elements, label, _) = value;
 
-        Self {
-            elements: elements.into(),
-            label,
-        }
-    }
-}
+//         let label = label.map(Into::into);
+
+//         Self {
+//             elements: elements.into(),
+//             label,
+//         }
+//     }
+// }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Label(pub String);
@@ -243,12 +311,11 @@ impl From<cst::Elements> for Elements {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Element {
-    Access(Access),
+    Expr(Expr),
     Quote(Quote),
     Strikeout(Strikeout),
     Emphasis(Emphasis),
     Strong(Strong),
-    Enclosed(Enclosed),
     Link(Link),
     Escape(Escape),
     RawInline(RawInline),
@@ -256,23 +323,25 @@ pub enum Element {
     SupScript(SupScript),
     Word(Word),
     Spacing(Spacing),
+    Comment(Comment),
+    Image(Image),
 }
 
 impl From<cst::Element> for Element {
     fn from(value: cst::Element) -> Self {
         match value {
-            cst::Element::Access(access) => Self::Access(access.into()),
+            cst::Element::Code(code) => Self::Expr(code.1.into()),
             cst::Element::Quote(quote) => Self::Quote(quote.into()),
             cst::Element::Strikeout(strikeout) => Self::Strikeout(strikeout.into()),
             cst::Element::Emphasis(emphasis) => Self::Emphasis(emphasis.into()),
             cst::Element::Strong(strong) => Self::Strong(strong.into()),
             cst::Element::Link(link) => Self::Link(link.into()),
-            cst::Element::Enclosed(enclosed) => Self::Enclosed(enclosed.into()),
             cst::Element::Escape(escape) => Self::Escape(escape.into()),
             cst::Element::RawInline(raw_inline) => Self::RawInline(raw_inline.into()),
             cst::Element::SubScript(script) => Self::SubScript(script.into()),
             cst::Element::SupScript(script) => Self::SupScript(script.into()),
             cst::Element::Spacing(spacing) => Self::Spacing(spacing.into()),
+            cst::Element::Comment(comment) => Self::Comment(comment.into()),
             cst::Element::Word(word) => Self::Word(word),
         }
     }
@@ -281,7 +350,8 @@ impl From<cst::Element> for Element {
 impl From<cst::StrikeoutElement> for Element {
     fn from(value: cst::StrikeoutElement) -> Self {
         match value {
-            cst::StrikeoutElement::Access(access) => Self::Access(access.into()),
+            cst::StrikeoutElement::Code(code) => Self::Expr(code.1.into()),
+            cst::StrikeoutElement::Escape(escape) => Self::Escape(escape.into()),
             cst::StrikeoutElement::Emphasis(emphasis) => Self::Emphasis(emphasis.into()),
             cst::StrikeoutElement::Strong(strong) => Self::Strong(strong.into()),
             cst::StrikeoutElement::SubScript(script) => Self::SubScript(script.into()),
@@ -295,7 +365,8 @@ impl From<cst::StrikeoutElement> for Element {
 impl From<cst::QuoteElement> for Element {
     fn from(value: cst::QuoteElement) -> Self {
         match value {
-            cst::QuoteElement::Access(access) => Self::Access(access.into()),
+            cst::QuoteElement::Code(code) => Self::Expr(code.1.into()),
+            cst::QuoteElement::Escape(escape) => Self::Escape(escape.into()),
             cst::QuoteElement::Strikeout(strikeout) => Self::Strikeout(strikeout.into()),
             cst::QuoteElement::Emphasis(emphasis) => Self::Emphasis(emphasis.into()),
             cst::QuoteElement::Strong(strong) => Self::Strong(strong.into()),
@@ -310,7 +381,8 @@ impl From<cst::QuoteElement> for Element {
 impl From<cst::EmphasizedElement> for Element {
     fn from(value: cst::EmphasizedElement) -> Self {
         match value {
-            cst::EmphasizedElement::Access(access) => Self::Access(access.into()),
+            cst::EmphasizedElement::Code(code) => Self::Expr(code.1.into()),
+            cst::EmphasizedElement::Escape(escape) => Self::Escape(escape.into()),
             cst::EmphasizedElement::SubScript(script) => Self::SubScript(script.into()),
             cst::EmphasizedElement::SupScript(script) => Self::SupScript(script.into()),
             cst::EmphasizedElement::Spacing(spacing) => Self::Spacing(spacing.into()),
@@ -399,17 +471,17 @@ impl From<cst::Strong> for Strong {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Enclosed {
-    pub elements: Elements,
+pub struct Content {
+    pub blocks: Blocks,
 }
 
-impl From<cst::Enclosed> for Enclosed {
-    fn from(value: cst::Enclosed) -> Self {
-        let elements = Elements::from(*value.1 .0);
+// impl From<cst::Content> for Content {
+//     fn from(value: cst::Content) -> Self {
+//         let elements = Elements::from(*value.1 .0);
 
-        Self { elements }
-    }
-}
+//         Self { elements }
+//     }
+// }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Link {
@@ -447,6 +519,21 @@ impl From<cst::Escape> for Escape {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Expr {
+    Access(Access),
+    Content(Content),
+}
+
+impl From<cst::Expr> for Expr {
+    fn from(value: cst::Expr) -> Self {
+        match value {
+            cst::Expr::Access(access) => Self::Access(access.into()),
+            cst::Expr::Content(content) => Self::Content(content.into()),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Access {
     pub ident: String,
     pub tail: Option<CallTail>,
@@ -454,7 +541,7 @@ pub struct Access {
 
 impl From<cst::Access> for Access {
     fn from(value: cst::Access) -> Self {
-        let cst::Access(_, ident, tail) = value;
+        let cst::Access(ident, tail) = value;
 
         let ident = ident.0;
         let tail = tail.map(Into::into);
@@ -468,7 +555,7 @@ pub type Args = BTreeMap<String, Value>;
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct CallTail {
     pub args: BTreeMap<String, Value>,
-    pub content: Option<Enclosed>,
+    pub content: Option<Content>,
 }
 
 impl From<cst::CallTail> for CallTail {

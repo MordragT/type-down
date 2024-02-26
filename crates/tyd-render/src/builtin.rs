@@ -31,3 +31,4 @@ pub fn image(mut args: Args) -> Result<Object, ContextError> {
 
     Ok(object)
 }
+

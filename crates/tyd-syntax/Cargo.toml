@@ -6,6 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-parasite = { git = "https://github.com/MordragT/parasite.git" }
-miette = "7.1.0"
+# parasite = { git = "https://github.com/MordragT/parasite.git" }
+miette = { version = "7.1.0", features = ["fancy"] }
 thiserror = "1.0"
+chumsky = "=1.0.0-alpha.6"

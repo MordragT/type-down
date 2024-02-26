@@ -4,44 +4,58 @@ use super::*;
 
 impl fmt::Display for Cst {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for (block, _) in &self.0 .0 {
-            write!(f, "{block}\n")?;
-        }
-
-        Ok(())
+        self.0.fmt(f)
     }
 }
 
-impl fmt::Display for Block {
+impl fmt::Display for Nodes {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut buffer = String::new();
+
+        for node in &self.0 .0 {
+            buffer.push_str(&node.to_string());
+        }
+
+        buffer.fmt(f)
+    }
+}
+
+impl fmt::Display for Node {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self {
             Self::Raw(raw) => raw.fmt(f),
             Self::Heading(heading) => heading.fmt(f),
-            Self::BulletList(bullet) => bullet.fmt(f),
-            Self::OrderedList(ordered) => ordered.fmt(f),
-            Self::Table(table) => table.fmt(f),
             Self::BlockQuote(block_quote) => block_quote.fmt(f),
-            Self::Paragraph(paragraph) => paragraph.fmt(f),
+            Self::ListItem(item) => item.fmt(f),
+            Self::TableRow(row) => row.fmt(f),
+            Self::Label(label) => label.fmt(f),
+            Self::LineBreak(_) => "\n".fmt(f),
+            Self::Plain(elements) => elements.fmt(f),
         }
     }
 }
 
 impl fmt::Display for Raw {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let Self(l, lang, _, content, r, _) = &self;
+        // let Self(l, lang, _, content, r, _) = &self;
 
-        let lang = match lang {
-            Some(lang) => format!(" {}", lang.0 .0),
-            None => String::new(),
-        };
+        // let lang = match lang {
+        //     Some(lang) => format!(" {}", lang.0 .0),
+        //     None => String::new(),
+        // };
 
-        write!(f, "{l}{lang}\n{}{r}\n", content.0)
+        // write!(f, "{l}{lang}\n{}{r}\n", content.0)
+
+        let Self(l, content, r) = &self;
+
+        write!(f, "{l}{}{r}", content.0)
     }
 }
 
 impl fmt::Display for Heading {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} {}", self.0, self.1)
+        let Self(delim, space, elements) = &self;
+        write!(f, "{delim}{space}{elements}")
     }
 }
 
@@ -57,80 +71,146 @@ impl fmt::Display for HeadingLevel {
     }
 }
 
-impl fmt::Display for BulletList {
+impl fmt::Display for ListItem {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for (minus, line) in &self.0 .0 {
-            write!(f, "{minus} {line}")?;
+        let Self(indent, delim, space, content) = &self;
+
+        if let Some(indent) = indent {
+            indent.fmt(f)?;
         }
 
-        Ok(())
+        write!(f, "{delim}{space}{content}")
     }
 }
 
-impl fmt::Display for OrderedList {
+impl fmt::Display for ListItemDelim {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for (plus, line) in &self.0 .0 {
-            write!(f, "{plus} {line}")?;
+        match self {
+            Self::Minus(minus) => minus.fmt(f),
+            Self::Plus(plus) => plus.fmt(f),
         }
-
-        Ok(())
     }
 }
 
-impl fmt::Display for Table {
+impl fmt::Display for ListItemContent {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for row in &self.0 .0 {
-            row.fmt(f)?;
+        match self {
+            Self::BlockQuote(block_quote) => block_quote.0.fmt(f),
+            Self::Plain(elements) => elements.fmt(f),
         }
-
-        Ok(())
     }
 }
+
+// impl fmt::Display for BulletList {
+//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+//         for (minus, line) in &self.0 .0 {
+//             write!(f, "{minus} {line}")?;
+//         }
+
+//         Ok(())
+//     }
+// }
+
+// impl fmt::Display for OrderedList {
+//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+//         for (plus, line) in &self.0 .0 {
+//             write!(f, "{plus} {line}")?;
+//         }
+
+//         Ok(())
+//     }
+// }
+
+// impl fmt::Display for Table {
+//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+//         for row in &self.0 .0 {
+//             row.fmt(f)?;
+//         }
+
+//         Ok(())
+//     }
+// }
 
 impl fmt::Display for TableRow {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0.fmt(f)?;
 
-        for (elements, pipe) in &self.1 .0 {
-            write!(f, " {elements} {pipe}")?;
+        for (cell, pipe) in &self.1 .0 {
+            write!(f, "{cell}{pipe}")?;
         }
 
         write!(f, "\n")
     }
 }
 
+impl fmt::Display for TableCell {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::BlockQuote(block_quote) => block_quote.fmt(f),
+            Self::ListItem(item) => item.fmt(f),
+            Self::Plain(elements) => elements.fmt(f),
+        }
+    }
+}
+
 impl fmt::Display for BlockQuote {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for (right_angle, line) in &self.0 .0 {
-            write!(f, "{right_angle} {line}")?;
+        let Self(level, space, item) = &self;
+
+        write!(f, "{level}{space}{item}")
+    }
+}
+
+impl fmt::Display for BlockQuoteLevel {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut buffer = String::new();
+
+        for delim in &self.0 .0 {
+            buffer.push('>');
         }
 
-        Ok(())
+        buffer.fmt(f)
     }
 }
 
-impl fmt::Display for Paragraph {
+impl fmt::Display for BlockQuoteItem {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for line in &self.0 .0 {
-            line.fmt(f)?;
+        match self {
+            Self::ListItem(item) => item.fmt(f),
+            Self::Plain(elements) => elements.fmt(f),
         }
-
-        Ok(())
     }
 }
 
-impl fmt::Display for Line {
+// impl fmt::Display for Paragraph {
+//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+//         for line in &self.0 .0 {
+//             line.fmt(f)?;
+//         }
+
+//         Ok(())
+//     }
+// }
+
+impl fmt::Display for Comment {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let Self(elements, label, _) = &self;
-
-        let label = match label {
-            Some(label) => format!(" {label}"),
-            None => String::new(),
-        };
-
-        write!(f, "{elements}{label}\n")
+        let Self(delim, content) = &self;
+        write!(f, "{delim}{}", content.0)
     }
 }
+
+// impl fmt::Display for Line {
+//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+//         let Self(elements, label, _) = &self;
+
+//         let label = match label {
+//             Some(label) => format!(" {label}"),
+//             None => String::new(),
+//         };
+
+//         write!(f, "{elements}{label}\n")
+//     }
+// }
 
 impl fmt::Display for Label {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -155,18 +235,18 @@ impl fmt::Display for Elements {
 impl fmt::Display for Element {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self {
-            Self::Access(access) => access.fmt(f),
+            Self::Code(code) => code.fmt(f),
             Self::Quote(quote) => quote.fmt(f),
             Self::Strikeout(strikeout) => strikeout.fmt(f),
             Self::Emphasis(emphasis) => emphasis.fmt(f),
             Self::Strong(strong) => strong.fmt(f),
-            Self::Enclosed(enclosed) => enclosed.fmt(f),
             Self::Link(link) => link.fmt(f),
             Self::Escape(escape) => escape.fmt(f),
             Self::RawInline(raw_inline) => raw_inline.fmt(f),
             Self::Spacing(spacing) => spacing.fmt(f),
             Self::SubScript(script) => script.fmt(f),
             Self::SupScript(script) => script.fmt(f),
+            Self::Comment(comment) => comment.fmt(f),
             Self::Word(word) => word.fmt(f),
         }
     }
@@ -213,7 +293,8 @@ impl fmt::Display for Quote {
 impl fmt::Display for QuoteElement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self {
-            Self::Access(access) => access.fmt(f),
+            Self::Code(code) => code.fmt(f),
+            Self::Escape(escape) => escape.fmt(f),
             Self::Strikeout(strikeout) => strikeout.fmt(f),
             Self::Emphasis(emphasis) => emphasis.fmt(f),
             Self::Strong(strong) => strong.fmt(f),
@@ -242,7 +323,8 @@ impl fmt::Display for Strikeout {
 impl fmt::Display for StrikeoutElement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self {
-            Self::Access(access) => access.fmt(f),
+            Self::Code(code) => code.fmt(f),
+            Self::Escape(escape) => escape.fmt(f),
             Self::Emphasis(emphasis) => emphasis.fmt(f),
             Self::Strong(strong) => strong.fmt(f),
             Self::Spacing(spacing) => spacing.fmt(f),
@@ -284,7 +366,8 @@ impl fmt::Display for Strong {
 impl fmt::Display for EmphasizedElement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self {
-            Self::Access(access) => access.fmt(f),
+            Self::Code(code) => code.fmt(f),
+            Self::Escape(escape) => escape.fmt(f),
             Self::Spacing(spacing) => spacing.fmt(f),
             Self::SubScript(script) => script.fmt(f),
             Self::SupScript(script) => script.fmt(f),
@@ -293,11 +376,11 @@ impl fmt::Display for EmphasizedElement {
     }
 }
 
-impl fmt::Display for Enclosed {
+impl fmt::Display for Content {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let Self(l, elements, r) = &self;
+        let Self(l, nodes, r) = &self;
 
-        write!(f, "{l}{}{r}", elements.0)
+        write!(f, "{l}{}{r}", nodes.0)
     }
 }
 
@@ -331,11 +414,27 @@ impl fmt::Display for RawInline {
     }
 }
 
+impl fmt::Display for Code {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self(pound, expr) = &self;
+
+        write!(f, "{pound}{expr}")
+    }
+}
+
+impl fmt::Display for Expr {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Access(access) => access.fmt(f),
+            Self::Content(content) => content.fmt(f),
+        }
+    }
+}
+
 impl fmt::Display for Access {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let Self(pound, ident, call) = &self;
+        let Self(ident, call) = &self;
 
-        pound.fmt(f)?;
         ident.0.fmt(f)?;
 
         if let Some(call) = call {
@@ -377,8 +476,13 @@ impl fmt::Display for Args {
 
 impl fmt::Display for Arg {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let Self(ident, colon, _, value) = &self;
-        write!(f, "{}{colon} {value}", ident.0)
+        let Self(named, _, value) = &self;
+
+        if let Some((ident, colon)) = named {
+            write!(f, "{}{colon}", ident.0)?;
+        }
+
+        value.fmt(f)
     }
 }
 

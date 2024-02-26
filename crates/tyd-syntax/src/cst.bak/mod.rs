@@ -1,74 +1,178 @@
+use miette::NamedSource;
 use parasite::{
-    chumsky::{prelude::*, Parseable},
+    chumsky::{prelude::*, Context as ParseContext, Parseable},
     combinators::{Any, End, Identifier, NewLine, NonEmptyVec, PaddedBy, Rec, SeparatedBy},
     Parseable,
 };
+use std::{fs::File, io::Read, path::Path};
+
+use crate::error::{ParseError, TydError};
 use terminal::*;
 
 pub mod fmt;
 pub mod terminal;
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
-pub struct Cst(pub NonEmptyVec<(Block, NonEmptyVec<NewLine>)>, pub End);
+pub fn parse<P: AsRef<Path>>(path: P) -> Result<Cst, TydError> {
+    let name = path.as_ref().as_os_str().to_string_lossy().into_owned();
 
-// TODO NewLineBlock instead of NewLines in Line and Cst ?
+    let mut file = File::open(path)?;
+    let mut source = String::new();
+
+    file.read_to_string(&mut source)?;
+
+    // source = source.trim().to_owned();
+    // source.push('\n');
+    // source.push('\n');
+
+    let mut parse_ctx = ParseContext::new();
+    let parser = Cst::parser(&mut parse_ctx);
+
+    let cst = parser.parse(source.as_str()).map_err(|errs| ParseError {
+        src: NamedSource::new(name, source),
+        related: errs.into_iter().map(Into::into).collect(),
+    })?;
+
+    Ok(cst)
+}
+
+// TODO store span in cst elements
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
-pub enum Block {
-    Raw(Raw),
-    Heading(Heading),
-    BulletList(BulletList),
-    OrderedList(OrderedList),
-    Table(Table),
-    BlockQuote(BlockQuote),
-    Paragraph(Paragraph),
-    // Expr(Expr),
-    // Math(Math),
+pub struct Cst(pub Nodes, pub End);
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Nodes(pub NonEmptyVec<Node>);
+
+impl Parseable<'static, char> for Nodes {
+    fn parser(
+        ctx: &mut parasite::chumsky::Context,
+    ) -> BoxedParser<'static, char, Self, Self::Error> {
+        if !ctx.contains::<Recursive<'static, char, Self, Self::Error>>() {
+            let nodes: Recursive<'static, char, Self, Self::Error> = Recursive::declare();
+            ctx.insert(nodes);
+
+            let nodes = NonEmptyVec::parser(ctx).map(Nodes);
+
+            let parser = ctx
+                .get_mut::<Recursive<'static, char, Self, Self::Error>>()
+                .unwrap();
+            parser.define(nodes);
+
+            return parser.clone().boxed();
+        }
+
+        ctx.get::<Recursive<'static, char, Self, Self::Error>>()
+            .unwrap()
+            .clone()
+            .boxed()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
+pub enum Node {
+    Raw(Raw),
+    Heading(Heading),
+    BlockQuote(BlockQuote),
+    ListItem(ListItem),
+    TableRow(TableRow),
+    Label(Label),
+    LineBreak(NewLine),
+    Plain(Elements),
+    // Math(Math),
+}
+
+// TODO remove newlines from RAw
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
 pub struct Raw(
-    pub TripleBacktick,
-    pub Option<PaddedBy<Vec<Space>, Identifier>>,
-    pub NewLine,
+    pub TripleBackTick,
+    // pub Option<PaddedBy<Vec<Space>, Identifier>>,
+    // pub NewLine,
     pub RawContent,
-    pub TripleBacktick,
-    pub NewLine,
+    pub TripleBackTick,
+    // pub NewLine,
 );
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
 pub struct HeadingLevel(pub NonEmptyVec<Equals>);
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
-pub struct Heading(pub HeadingLevel, pub Line);
-
-// TODO enforce paragaph does not start with tab(4 spaces)
-// and use tab as indentation level for lists, block_quote
+pub struct Heading(pub HeadingLevel, pub Space, pub Elements);
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
-pub struct Paragraph(pub NonEmptyVec<Line>);
+pub struct ListItem(
+    pub Option<Indentation>,
+    pub ListItemDelim,
+    pub Space,
+    pub ListItemContent,
+);
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
-pub struct BulletList(pub NonEmptyVec<(Minus, Line)>);
+pub enum ListItemContent {
+    BlockQuote(Rec<BlockQuote>),
+    Plain(Elements),
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
-pub struct OrderedList(pub NonEmptyVec<(Plus, Line)>);
+pub enum ListItemDelim {
+    Minus(Minus),
+    Plus(Plus),
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
-pub struct Table(pub NonEmptyVec<TableRow>);
+pub struct TableRow(pub Pipe, pub NonEmptyVec<(TableCell, Pipe)>);
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
-pub struct TableRow(pub Pipe, pub NonEmptyVec<(Elements, Pipe)>, pub NewLine);
+pub enum TableCell {
+    ListItem(ListItem),
+    BlockQuote(BlockQuote),
+    Plain(Elements),
+}
 
-// TODO allow multiple levels of Blockquote
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
-pub struct BlockQuote(pub NonEmptyVec<(RightAngle, Line)>);
+pub struct BlockQuoteLevel(pub NonEmptyVec<RightAngle>);
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct BlockQuote(pub BlockQuoteLevel, pub Space, pub BlockQuoteItem);
+
+impl<'a> Parseable<'a, char> for BlockQuote {
+    fn parser(ctx: &mut parasite::chumsky::Context) -> BoxedParser<'a, char, Self, Self::Error> {
+        if !ctx.contains::<Recursive<'static, char, Self, Self::Error>>() {
+            let block_quote: Recursive<'static, char, Self, Self::Error> = Recursive::declare();
+            ctx.insert(block_quote);
+
+            let level = BlockQuoteLevel::parser(ctx);
+            let space = Space::parser(ctx);
+            let item = BlockQuoteItem::parser(ctx);
+
+            let block_quote = level
+                .then(space)
+                .then(item)
+                .map(|((level, space), item)| Self(level, space, item));
+
+            let parser = ctx
+                .get_mut::<Recursive<'static, char, Self, Self::Error>>()
+                .unwrap();
+            parser.define(block_quote);
+
+            return parser.clone().boxed();
+        }
+
+        ctx.get::<Recursive<'static, char, Self, Self::Error>>()
+            .unwrap()
+            .clone()
+            .boxed()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
+pub enum BlockQuoteItem {
+    ListItem(ListItem),
+    Plain(Elements),
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
 pub struct Label(pub At, pub Identifier);
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
-pub struct Line(pub Elements, pub Option<Label>, pub NewLine);
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Elements(pub NonEmptyVec<Element>);
@@ -100,12 +204,12 @@ impl Parseable<'static, char> for Elements {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
 pub enum Element {
-    Access(Access),
+    Code(Code),
     Quote(Quote),
     Strikeout(Strikeout),
     Emphasis(Emphasis),
     Strong(Strong),
-    Enclosed(Enclosed),
+    // Enclosed(Enclosed),
     Link(Link),
     Escape(Escape),
     RawInline(RawInline),
@@ -113,6 +217,7 @@ pub enum Element {
     SupScript(SupScript),
     Word(Word),
     Spacing(Spacing),
+    Comment(Comment),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
@@ -133,7 +238,8 @@ pub struct Quote(
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
 pub enum QuoteElement {
-    Access(Access),
+    Code(Code),
+    Escape(Escape),
     Strikeout(Strikeout),
     Emphasis(Emphasis),
     Strong(Strong),
@@ -148,7 +254,8 @@ pub struct Strikeout(pub Tilde, pub NonEmptyVec<StrikeoutElement>, pub Tilde);
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
 pub enum StrikeoutElement {
-    Access(Access),
+    Code(Code),
+    Escape(Escape),
     Emphasis(Emphasis),
     Strong(Strong),
     SubScript(SubScript),
@@ -165,7 +272,8 @@ pub struct Strong(pub Star, pub NonEmptyVec<EmphasizedElement>, pub Star);
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
 pub enum EmphasizedElement {
-    Access(Access),
+    Code(Code),
+    Escape(Escape),
     SubScript(SubScript),
     SupScript(SupScript),
     Word(Word),
@@ -173,14 +281,11 @@ pub enum EmphasizedElement {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
-pub struct Enclosed(pub LeftBracket, pub Rec<Elements>, pub RightBracket);
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
 pub struct Link(
     pub LeftAngle,
     pub LinkContent,
     pub RightAngle,
-    pub Option<Enclosed>,
+    pub Option<Content>,
 );
 
 // TODO escape body /[@ / blah blah]
@@ -192,21 +297,34 @@ pub struct Escape(pub BackSlash, pub Any);
 pub struct RawInline(pub BackTick, pub RawInlineContent, pub BackTick);
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
-pub struct Access(pub Pound, pub Identifier, pub Option<CallTail>);
+pub struct Comment(pub DoubleSlash, pub CommentContent);
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
-pub struct CallTail(
-    pub LeftParen,
-    pub Args,
-    pub RightParen,
-    pub Option<Enclosed>,
-);
+pub struct Code(pub Pound, pub Expr);
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
+pub enum Expr {
+    Access(Access),
+    Content(Content),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
+pub struct Access(pub Identifier, pub Option<CallTail>);
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
+pub struct Content(pub LeftBracket, pub Rec<Nodes>, pub RightBracket);
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
+pub struct CallTail(pub LeftParen, pub Args, pub RightParen, pub Option<Content>);
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
 pub struct Args(pub SeparatedBy<PaddedBy<Vec<Space>, Comma>, Arg>);
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
-pub struct Arg(pub Identifier, pub Colon, pub Vec<Space>, pub Value);
+pub struct Arg(pub Option<(Identifier, Colon)>, pub Vec<Space>, pub Value);
+
+// TODO make named argument optional
+// pub struct Arg(pub Option<(Identifier, Colon, Vec<Space>)>, pub Value);
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
 pub enum Value {

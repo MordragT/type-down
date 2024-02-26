@@ -1,0 +1,221 @@
+use chumsky::prelude::*;
+use chumsky::{error::Rich, extra, input::SpannedInput, select};
+use miette::NamedSource;
+
+use crate::cst::Cst;
+use crate::error::{ParseError, TydError};
+use crate::{
+    cst::{BlockQuoteItem, Div, EnumItem, Heading, Inline, ListItem, Node, Plain, Raw, TableRow},
+    Span,
+};
+
+pub type Extra<'tokens, 'src> = extra::Err<Rich<'tokens, Node<'src>, Span>>;
+pub type ParserInput<'tokens, 'src> = SpannedInput<Node<'src>, Span, &'tokens [(Node<'src>, Span)]>;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Ast<'src> {
+    pub blocks: Vec<Block<'src>>,
+}
+
+impl<'src> Ast<'src> {
+    pub fn parse<'tokens>(src: &'src str, name: impl AsRef<str>) -> Result<Ast<'src>, TydError> {
+        let nodes = Cst::parse_spanned(src, name.as_ref())?;
+        let input = nodes.as_slice().spanned((src.len()..src.len()).into());
+
+        let parser = ast_parser();
+        let ast = parser
+            .parse(input)
+            .into_result()
+            .map_err(|errs| ParseError {
+                src: NamedSource::new(name, src.to_owned()),
+                related: errs.into_iter().map(Into::into).collect(),
+            })?;
+
+        Ok(ast)
+    }
+}
+
+pub fn ast_parser<'tokens, 'src: 'tokens>(
+) -> impl Parser<'tokens, ParserInput<'tokens, 'src>, Ast<'src>, Extra<'tokens, 'src>> {
+    let block = select! {
+        Node::Div(div) => Block::Div(div),
+        Node::Raw(raw) => Block::Raw(raw),
+        Node::Heading(heading) => Block::Heading(heading),
+    };
+
+    // let plain = select! { Node::Plain(plain) => Block::Plain(plain) };
+    let paragraph = paragraph_parser().map(Block::Paragraph);
+
+    let nested = nested_parser().map(|nested| match nested {
+        Nested::List(list) => Block::List(*list),
+        Nested::Enum(en) => Block::Enum(*en),
+    });
+
+    let table = table_parser().map(Block::Table);
+
+    let blocks = block
+        .or(table)
+        .or(nested)
+        .or(paragraph)
+        // .or(plain)
+        .separated_by(just(Node::LineBreak).repeated().at_least(1))
+        .allow_leading()
+        .allow_trailing()
+        .at_least(1)
+        .collect();
+
+    blocks.map(|blocks| Ast { blocks })
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Block<'src> {
+    Div(Div<'src>),
+    Raw(Raw<'src>),
+    Table(Table<'src>),
+    List(List<'src>),
+    Enum(Enum<'src>),
+    BlockQuote(BlockQuote<'src>),
+    Heading(Heading<'src>),
+    Paragraph(Paragraph<'src>),
+    // Plain(Plain<'src>),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Table<'src> {
+    pub rows: Vec<TableRow<'src>>,
+    pub label: Option<&'src str>,
+    pub span: Span,
+}
+
+pub fn table_parser<'tokens, 'src: 'tokens>(
+) -> impl Parser<'tokens, ParserInput<'tokens, 'src>, Table<'src>, Extra<'tokens, 'src>> {
+    let table_row = select! { Node::TableRow(row) => row };
+
+    table_row
+        .separated_by(just(Node::LineBreak))
+        .at_least(1)
+        .collect()
+        .map_with(|rows, e| Table {
+            rows,
+            label: None,
+            span: e.span(),
+        })
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct List<'src> {
+    pub items: Vec<ListItem<'src>>,
+    pub body: Option<Nested<'src>>,
+    pub label: Option<&'src str>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Enum<'src> {
+    pub items: Vec<EnumItem<'src>>,
+    pub body: Option<Nested<'src>>,
+    pub label: Option<&'src str>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Nested<'src> {
+    List(Box<List<'src>>),
+    Enum(Box<Enum<'src>>),
+}
+
+pub fn nested_parser<'tokens, 'src: 'tokens>(
+) -> impl Parser<'tokens, ParserInput<'tokens, 'src>, Nested<'src>, Extra<'tokens, 'src>> {
+    let list_item = select! { Node::ListItem(item) => item };
+    let enum_item = select! { Node::EnumItem(item) => item };
+
+    let nested = recursive(|block| {
+        let indent = just(Node::Indentation)
+            .repeated()
+            .configure(|cfg, parent_indent| cfg.exactly(*parent_indent));
+
+        let list_items = indent
+            .clone()
+            .ignore_then(list_item)
+            .separated_by(just(Node::LineBreak))
+            .at_least(1)
+            .collect();
+
+        let enum_items = indent
+            .ignore_then(enum_item)
+            .separated_by(just(Node::LineBreak))
+            .at_least(1)
+            .collect();
+
+        let body = just(Node::LineBreak)
+            .ignore_then(
+                just(Node::Indentation)
+                    .repeated()
+                    .configure(|cfg, parent_indent| cfg.exactly(*parent_indent + 1))
+                    .count()
+                    .rewind()
+                    .ignore_with_ctx(block),
+            )
+            .or_not();
+
+        let list = list_items
+            .then(body.clone())
+            .map_with(|(items, body), e| List {
+                items,
+                body,
+                label: None,
+                span: e.span(),
+            });
+
+        let enumeration = enum_items.then(body).map_with(|(items, body), e| Enum {
+            items,
+            body,
+            label: None,
+            span: e.span(),
+        });
+
+        list.map(|list| Nested::List(Box::new(list)))
+            .or(enumeration.map(|en| Nested::Enum(Box::new(en))))
+    });
+
+    nested.with_ctx(0)
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BlockQuote<'src> {
+    pub level: u8,
+    pub items: Vec<BlockQuoteItem<'src>>,
+    pub label: Option<&'src str>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Paragraph<'src> {
+    pub content: Vec<Inline<'src>>,
+    pub span: Span,
+}
+
+pub fn paragraph_parser<'tokens, 'src: 'tokens>(
+) -> impl Parser<'tokens, ParserInput<'tokens, 'src>, Paragraph<'src>, Extra<'tokens, 'src>> {
+    let plain = select! { Node::Plain(plain) => plain };
+
+    plain
+        .separated_by(just(Node::LineBreak))
+        .collect()
+        .map(|contents: Vec<Plain<'_>>| {
+            contents
+                .into_iter()
+                .flat_map(|plain| {
+                    plain
+                        .content
+                        .into_iter()
+                        .chain(std::iter::once(Inline::SoftBreak))
+                })
+                .collect::<Vec<_>>()
+        })
+        // .then_ignore(just([Node::LineBreak, Node::LineBreak]))
+        .map_with(|content, e| Paragraph {
+            content,
+            span: e.span(),
+        })
+}

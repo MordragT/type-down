@@ -10,8 +10,8 @@ paragraph `monospace where @ | is ignored`
 - simple
 - list
 
-| table | columns |
-| a | b |
+// | table | columns |
+// | a | b |
 
 > blockquote <https://example.com>[Hier klicken]
 

@@ -230,7 +230,7 @@ impl Visitor for HtmlBuilder {
         Ok(())
     }
 
-    fn visit_enclosed(&mut self, enclosed: &Enclosed) -> Result<(), Self::Error> {
+    fn visit_enclosed(&mut self, enclosed: &Content) -> Result<(), Self::Error> {
         let pos = self.stack.start(HtmlElement::div());
 
         walk_enclosed(self, enclosed)?;

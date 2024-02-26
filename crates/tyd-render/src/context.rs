@@ -21,6 +21,14 @@ pub enum ContextError {
 }
 
 pub type Args = Map<String, Object>;
+
+// TODO create Function trait
+
+pub trait Function {
+    // maybe also expose which are required and wich are optionally(potentially with default params ?)
+    fn args() -> &'static [&'static str];
+}
+
 pub type Func = Box<dyn Fn(Args) -> Result<Object, ContextError>>;
 
 pub type SymbolTable = Map<String, Object>;
@@ -50,6 +58,8 @@ impl Context {
         self
     }
 
+    // TODO actually call the function insted of just returning it
+    // automate argument validation then in here
     pub fn call(&self, key: impl AsRef<str>) -> Result<&Func, ContextError> {
         self.function_table
             .get(key.as_ref())

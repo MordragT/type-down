@@ -1,7 +1,7 @@
 use std::fmt;
 
 use parasite::{
-    chumsky::{Parseable, Parser},
+    chumsky::{primitive::just, Parseable, Parser},
     combinators::{Just, NewLine},
     Parseable, Terminal,
 };
@@ -33,6 +33,32 @@ impl fmt::Display for Slash {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Terminal)]
+pub struct DoubleSlash;
+
+impl<'a> Parseable<'a, char> for DoubleSlash {
+    fn parser(
+        _ctx: &mut parasite::chumsky::Context,
+    ) -> parasite::chumsky::prelude::BoxedParser<'a, char, Self, Self::Error> {
+        just("//").to(Self).boxed()
+    }
+}
+
+impl fmt::Display for DoubleSlash {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "//")
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable, Terminal)]
+pub struct BackSlash(Just<'\\'>);
+
+impl fmt::Display for BackSlash {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "\\")
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable, Terminal)]
 pub struct Underscore(Just<'_'>);
 
@@ -52,15 +78,6 @@ impl fmt::Display for Caret {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable, Terminal)]
-pub struct BackSlash(Just<'\\'>);
-
-impl fmt::Display for BackSlash {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "\\")
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable, Terminal)]
 pub struct BackTick(Just<'`'>);
 
 impl fmt::Display for BackTick {
@@ -69,10 +86,18 @@ impl fmt::Display for BackTick {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable, Terminal)]
-pub struct TripleBacktick(BackTick, BackTick, BackTick);
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Terminal)]
+pub struct TripleBackTick;
 
-impl fmt::Display for TripleBacktick {
+impl<'a> Parseable<'a, char> for TripleBackTick {
+    fn parser(
+        ctx: &mut parasite::chumsky::Context,
+    ) -> parasite::chumsky::prelude::BoxedParser<'a, char, Self, Self::Error> {
+        just("```").to(Self).boxed()
+    }
+}
+
+impl fmt::Display for TripleBackTick {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "```")
     }
@@ -177,6 +202,23 @@ impl fmt::Display for Space {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Terminal)]
+pub struct Indentation;
+
+impl<'a> Parseable<'a, char> for Indentation {
+    fn parser(
+        _ctx: &mut parasite::chumsky::Context,
+    ) -> parasite::chumsky::prelude::BoxedParser<'a, char, Self, Self::Error> {
+        just("    ").to(Self).boxed()
+    }
+}
+
+impl fmt::Display for Indentation {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "    ")
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable, Terminal)]
 pub struct Plus(Just<'+'>);
 
@@ -223,6 +265,23 @@ impl fmt::Display for Colon {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Terminal)]
+pub struct CommentContent(pub String);
+
+impl<'a> Parseable<'a, char> for CommentContent {
+    fn parser(
+        ctx: &mut parasite::chumsky::Context,
+    ) -> parasite::chumsky::prelude::BoxedParser<'a, char, Self, Self::Error> {
+        NewLine::parser(ctx)
+            .ignored()
+            .not()
+            .repeated()
+            .collect()
+            .map(CommentContent)
+            .boxed()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Terminal)]
 pub struct StringContent(pub String);
 
 impl fmt::Display for StringContent {
@@ -258,39 +317,12 @@ impl Parseable<'static, char> for RawContent {
     fn parser(
         ctx: &mut parasite::chumsky::Context,
     ) -> parasite::chumsky::prelude::BoxedParser<'static, char, Self, Self::Error> {
-        TripleBacktick::parser(ctx)
+        TripleBackTick::parser(ctx)
             .ignored()
             .not()
             .repeated()
             .collect()
             .map(RawContent)
-            .boxed()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Terminal)]
-pub struct LinkContent(pub String);
-
-impl fmt::Display for LinkContent {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl Parseable<'static, char> for LinkContent {
-    fn parser(
-        ctx: &mut parasite::chumsky::Context,
-    ) -> parasite::chumsky::prelude::BoxedParser<'static, char, Self, Self::Error> {
-        let newline = NewLine::parser(ctx);
-        let right_angle = RightAngle::parser(ctx).ignored();
-
-        newline
-            .ignored()
-            .or(right_angle)
-            .not()
-            .repeated()
-            .collect()
-            .map(LinkContent)
             .boxed()
     }
 }
@@ -323,6 +355,75 @@ impl Parseable<'static, char> for RawInlineContent {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Terminal)]
+pub struct LinkContent(pub String);
+
+impl fmt::Display for LinkContent {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl Parseable<'static, char> for LinkContent {
+    fn parser(
+        ctx: &mut parasite::chumsky::Context,
+    ) -> parasite::chumsky::prelude::BoxedParser<'static, char, Self, Self::Error> {
+        let newline = NewLine::parser(ctx);
+        let right_angle = RightAngle::parser(ctx).ignored();
+
+        newline
+            .ignored()
+            .or(right_angle)
+            .not()
+            .repeated()
+            .collect()
+            .map(LinkContent)
+            .boxed()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
+pub enum Special {
+    NewLine(NewLine),
+    Space(Space),
+    At(At),
+    Pound(Pound),
+    Pipe(Pipe),
+    Underscore(Underscore),
+    Caret(Caret),
+    BackSlash(BackSlash),
+    Slash(Slash),
+    Star(Star),
+    Tilde(Tilde),
+    Minus(Minus),
+    Plus(Plus),
+    BackTick(BackTick),
+    DoubleQuote(DoubleQuote),
+    LeftAngle(LeftAngle),
+    RightAngle(RightAngle),
+    LeftBracket(LeftBracket),
+    RightBracket(RightBracket),
+    LeftParen(LeftParen),
+    RightParen(RightParen),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parseable)]
+pub enum SpecialInline {
+    Space(Space),
+    NewLine(NewLine),
+    At(At),
+    Pound(Pound),
+    Underscore(Underscore),
+    Caret(Caret),
+    BackSlash(BackSlash),
+    Slash(Slash),
+    Star(Star),
+    Tilde(Tilde),
+    BackTick(BackTick),
+    DoubleQuote(DoubleQuote),
+    LeftAngle(LeftAngle),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Terminal)]
 pub struct Character(pub char);
 
 impl fmt::Display for Character {
@@ -335,42 +436,9 @@ impl Parseable<'static, char> for Character {
     fn parser(
         ctx: &mut parasite::chumsky::Context,
     ) -> parasite::chumsky::prelude::BoxedParser<'static, char, Self, Self::Error> {
-        let newline = NewLine::parser(ctx).ignored();
-        let at = At::parser(ctx).ignored();
-        let pipe = Pipe::parser(ctx).ignored();
-        let back_tick = BackTick::parser(ctx).ignored();
-        let back_slash = BackSlash::parser(ctx).ignored();
-        let left_angle = LeftAngle::parser(ctx).ignored();
-        let space = Space::parser(ctx).ignored();
-        let underscore = Underscore::parser(ctx).ignored();
-        let caret = Caret::parser(ctx).ignored();
-        let star = Star::parser(ctx).ignored();
-        let slash = Slash::parser(ctx).ignored();
-        let tilde = Tilde::parser(ctx).ignored();
-        let double_quote = DoubleQuote::parser(ctx).ignored();
-        let left_bracket = LeftBracket::parser(ctx).ignored();
-        let right_bracket = RightBracket::parser(ctx).ignored();
-        let pound = Pound::parser(ctx).ignored();
+        let special = SpecialInline::parser(ctx);
 
-        newline
-            .or(at)
-            .or(pipe)
-            .or(back_tick)
-            .or(back_slash)
-            .or(left_angle)
-            .or(space)
-            .or(underscore)
-            .or(caret)
-            .or(star)
-            .or(slash)
-            .or(tilde)
-            .or(double_quote)
-            .or(left_bracket)
-            .or(right_bracket)
-            .or(pound)
-            .not()
-            .map(Character)
-            .boxed()
+        special.not().map(Character).boxed()
     }
 }
 
