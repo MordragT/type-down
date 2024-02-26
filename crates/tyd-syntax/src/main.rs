@@ -13,10 +13,13 @@ use tyd_syntax::{ast::Ast, cst::Cst};
 
 fn main() -> Result<()> {
     let src = "
-a nice and juicy
-paragraph
 
-and some plain text";
+[ warning {label}
+some text within div
+
+and a link <example.com>[click here]
+]
+";
 
     let ast = Ast::parse(&src, "test")?;
 

@@ -5,7 +5,7 @@ use miette::NamedSource;
 use crate::cst::Cst;
 use crate::error::{ParseError, TydError};
 use crate::{
-    cst::{BlockQuoteItem, Div, EnumItem, Heading, Inline, ListItem, Node, Plain, Raw, TableRow},
+    cst::{BlockQuoteItem, Div, EnumItem, Heading, Inline, ListItem, Node, Raw, TableRow, Text},
     Span,
 };
 
@@ -52,11 +52,9 @@ pub fn ast_parser<'tokens, 'src: 'tokens>(
     });
 
     let table = table_parser().map(Block::Table);
+    let block_quote = block_quote_parser().map(Block::BlockQuote);
 
-    let blocks = block
-        .or(table)
-        .or(nested)
-        .or(paragraph)
+    let blocks = choice((block, table, nested, block_quote, paragraph))
         // .or(plain)
         .separated_by(just(Node::LineBreak).repeated().at_least(1))
         .allow_leading()
@@ -82,6 +80,7 @@ pub enum Block<'src> {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Table<'src> {
+    pub col_count: usize,
     pub rows: Vec<TableRow<'src>>,
     pub label: Option<&'src str>,
     pub span: Span,
@@ -95,10 +94,25 @@ pub fn table_parser<'tokens, 'src: 'tokens>(
         .separated_by(just(Node::LineBreak))
         .at_least(1)
         .collect()
-        .map_with(|rows, e| Table {
-            rows,
-            label: None,
-            span: e.span(),
+        .map_with(|rows: Vec<TableRow<'_>>, e| {
+            let col_count = rows[0].cells.len();
+
+            let table = Table {
+                col_count,
+                rows,
+                label: None,
+                span: e.span(),
+            };
+            (table, col_count)
+        })
+        .validate(|(table, col_count), e, emitter| {
+            if table.rows.iter().any(|row| row.cells.len() != col_count) {
+                emitter.emit(Rich::custom(
+                    e.span(),
+                    "Adjacent table rows must contain equal number of cells.",
+                ))
+            }
+            table
         })
 }
 
@@ -189,6 +203,35 @@ pub struct BlockQuote<'src> {
     pub span: Span,
 }
 
+pub fn block_quote_parser<'tokens, 'src: 'tokens>(
+) -> impl Parser<'tokens, ParserInput<'tokens, 'src>, BlockQuote<'src>, Extra<'tokens, 'src>> {
+    let item = select! { Node::BlockQuoteItem(item) => item };
+
+    item.separated_by(just(Node::LineBreak))
+        .at_least(1)
+        .collect()
+        .map_with(|items: Vec<BlockQuoteItem<'_>>, e| {
+            let level = items[0].level;
+
+            let bq = BlockQuote {
+                items,
+                level,
+                label: None,
+                span: e.span(),
+            };
+            (bq, level)
+        })
+        .validate(|(bq, level), e, emitter| {
+            if bq.items.iter().any(|item| item.level != level) {
+                emitter.emit(Rich::custom(
+                    e.span(),
+                    "Adjacent BlockQuotes mut be of the same level.",
+                ))
+            }
+            bq
+        })
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Paragraph<'src> {
     pub content: Vec<Inline<'src>>,
@@ -197,12 +240,12 @@ pub struct Paragraph<'src> {
 
 pub fn paragraph_parser<'tokens, 'src: 'tokens>(
 ) -> impl Parser<'tokens, ParserInput<'tokens, 'src>, Paragraph<'src>, Extra<'tokens, 'src>> {
-    let plain = select! { Node::Plain(plain) => plain };
+    let plain = select! { Node::Text(plain) => plain };
 
     plain
         .separated_by(just(Node::LineBreak))
         .collect()
-        .map(|contents: Vec<Plain<'_>>| {
+        .map(|contents: Vec<Text<'_>>| {
             contents
                 .into_iter()
                 .flat_map(|plain| {
