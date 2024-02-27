@@ -40,8 +40,9 @@ impl<'src> Ast<'src> {
 pub fn ast_parser<'tokens, 'src: 'tokens>(
 ) -> impl Parser<'tokens, ParserInput<'tokens, 'src>, Ast<'src>, Extra<'tokens, 'src>> {
     let block = select! {
-        Node::Raw(raw) => Block::Raw(raw),
         Node::Heading(heading) => Block::Heading(heading),
+        Node::Raw(raw) => Block::Raw(raw),
+        Node::Div(div) => Block::Div(div)
     };
 
     // let plain = select! { Node::Plain(plain) => Block::Plain(plain) };

@@ -126,8 +126,8 @@ pub fn literal_parser<'src>() -> impl Parser<'src, &'src str, Literal<'src>, Ext
     let string = none_of("\"")
         .and_is(newline().not())
         .repeated()
-        .delimited_by(just("\""), just("\""))
         .to_slice()
+        .delimited_by(just("\""), just("\""))
         .map(Literal::Str);
 
     choice((boolean, int, string))

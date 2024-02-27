@@ -1,4 +1,4 @@
-% Run with cargo run ./test.tyd
+% Run with cargo run -- compile <html, pdf, docx, json> examples/reference.tyd
 = Heading
 
 Everything is evaluated to their raw functions.
@@ -18,25 +18,53 @@ These are links:
 - <http://example.com>[Click here]
 
 ```
-<protocol>:<content>
+- <mailto:contact@example.com>[Link]
+- <http://example.com>
+- <http://example.com>[Click here]
 ```
 
 == Images
 
-#image("example.png")[Alternative text]
+#image(src: "test.png") % TODO [Alternative text]
 
-% TODO !("example.png", width: 32px)[Alternative text]
+
+```typst
+#image(src: "test.png") % TODO [Alternative text]
+
+```
 
 == Labels
 
-Text can be labelled @label
-And labels can be referenced <label>
+Text cannot be labelled at the moment, but blocks and block items can.
+And labels can be referenced everywhere.
+
+- labelled list {list}
+
+Here is the reference @list
+
+```
+- labelled list {list}
+
+Here is the reference @list
+```
 
 == Blockqoute
 
 > This is a block quote
 
->> Nested
+>> Nested blockquote
+
+> - List inside blockquote
+> - over multiple lines
+
+```md
+> This is a block quote
+
+>> Nested blockquote
+
+> - List inside blockquote
+> - over multiple lines
+```
 
 == Lists
 
@@ -54,28 +82,65 @@ Lists can be numbered and unnumbered:
     + with
     + indentation
 
+- some
+- bullet
+    + and ordered
+- list
+
+```typst
+- some
+- bullet
+- list
+    - with
+    - indentation
+
++ some
++ numbered
++ list
+    + with
+    + indentation
+
+- some
+- bullet
+    + and ordered
+- list
+```
+
 == Tables
 
-| test | test |
+| one | row |
 
 | *Some column* | *Other column*    |
 | and content   | and more /stuff/  |
+| - a list Here | > - and a quote   |
+| - over lines  | something else    |
 
-% TODO
-% |
-%     - some
-%     - item
-%                 |      blah      |
+```md
+| one | row |
 
-% == Terms
+| *Some column* | *Other column*    |
+| and content   | and more /stuff/  |
+| - a list Here | > - and a quote   |
+| - over lines  | something else    |
 
-% / Term: description
+```
+
+== Divs
+
+[ warning {label}
+this is some text within a div ]
+
+```
+[ warning {label}
+this is some text within a div
+]
+```
 
 == Math
 
 Math mode is similar to typst
 
-%$ x = y ^ 10 / 200 * 20 $
+% $ x = y ^ 10 / 200 * 20 $
 
 == Raw
 
@@ -89,24 +154,44 @@ are also possible
 
 == Various
 
-% - Line break: \
-- Escape: tweet `\#ad`
-- Comment: `some comment`
-% - Symbols: //`~Epsilon // vielleicht eher :Episilon: ?`
-- Quoutes:
-    - "double"
-    - 'single'
+=== Escape
 
-%    // - commented
-%    // - out
-%    // - list
+To escape special characters use \\.
+
+=== Comments
+
+```
+% - commented
+% - out
+% - list
+```
+
+=== Quotes
+
+Single quotes are ignored and can be used freely:
+
+- I'm using a single quote
+
+Double quotes however must be closed in the line
+
+- "Here is a quote"
+
+```md
+- "Here is a quote"
+```
+
+% - Line break: \
+% - Symbols: vielleicht eher :Episilon:
+
 
 == Code
 
 - extensions use the `#function(arguments)[inner content]` syntax
-    - must evaluate to content
+    - must evaluate to content if used inline
     - allows for graceful handling if implementation does not support extension
 - besides functions there exist some more code expressions:
+
+*The following is highly experimental*:
 
 === Binding
 
