@@ -1,5 +1,7 @@
+use std::fs;
+
 use miette::Result;
-use tyd_syntax::{ast::Ast, cst::Cst};
+use tyd_syntax::ast::Ast;
 
 // use tyd_syntax::parse;
 
@@ -12,14 +14,7 @@ use tyd_syntax::{ast::Ast, cst::Cst};
 // }
 
 fn main() -> Result<()> {
-    let src = "
-
-[ warning {label}
-some text within div
-
-and a link <example.com>[click here]
-]
-";
+    let src = fs::read_to_string("../../examples/wip.tyd").unwrap();
 
     let ast = Ast::parse(&src, "test")?;
 

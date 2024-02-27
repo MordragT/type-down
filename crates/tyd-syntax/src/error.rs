@@ -3,7 +3,7 @@ use miette::{Diagnostic, NamedSource, SourceSpan};
 use std::io;
 use thiserror::Error;
 
-use crate::cst::Node;
+use crate::line::Node;
 
 #[derive(Debug, Error, Diagnostic)]
 pub enum TydError {

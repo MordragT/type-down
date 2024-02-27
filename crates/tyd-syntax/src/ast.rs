@@ -1,11 +1,13 @@
+// pub use crate::node::{Div, Heading, Raw};
+
 use chumsky::prelude::*;
 use chumsky::{error::Rich, extra, input::SpannedInput, select};
 use miette::NamedSource;
 
-use crate::cst::Cst;
-use crate::error::{ParseError, TydError};
+use crate::inline::Inline;
 use crate::{
-    cst::{BlockQuoteItem, Div, EnumItem, Heading, Inline, ListItem, Node, Raw, TableRow, Text},
+    error::{ParseError, TydError},
+    line::{self, BlockQuoteElement, Div, EnumItem, Heading, ListItem, Node, Raw, TableRow, Text},
     Span,
 };
 
@@ -19,7 +21,7 @@ pub struct Ast<'src> {
 
 impl<'src> Ast<'src> {
     pub fn parse<'tokens>(src: &'src str, name: impl AsRef<str>) -> Result<Ast<'src>, TydError> {
-        let nodes = Cst::parse_spanned(src, name.as_ref())?;
+        let nodes = line::parse_spanned(src, name.as_ref())?;
         let input = nodes.as_slice().spanned((src.len()..src.len()).into());
 
         let parser = ast_parser();
@@ -38,7 +40,6 @@ impl<'src> Ast<'src> {
 pub fn ast_parser<'tokens, 'src: 'tokens>(
 ) -> impl Parser<'tokens, ParserInput<'tokens, 'src>, Ast<'src>, Extra<'tokens, 'src>> {
     let block = select! {
-        Node::Div(div) => Block::Div(div),
         Node::Raw(raw) => Block::Raw(raw),
         Node::Heading(heading) => Block::Heading(heading),
     };
@@ -77,6 +78,30 @@ pub enum Block<'src> {
     Paragraph(Paragraph<'src>),
     // Plain(Plain<'src>),
 }
+
+// #[derive(Debug, Clone, PartialEq, Eq)]
+// pub struct Div<'src> {
+//     pub content: Vec<Block<'src>>,
+//     pub class: Option<&'src str>,
+//     pub label: Option<&'src str>,
+//     pub span: Span,
+// }
+
+// pub fn div_parser<'tokens, 'src: 'tokens, B>(
+//     blocks: B,
+// ) -> impl Parser<'tokens, ParserInput<'tokens, 'src>, Div<'src>, Extra<'tokens, 'src>>
+// where
+//     B: Parser<'tokens, ParserInput<'tokens, 'src>, Vec<Block<'src>>, Extra<'tokens, 'src>>,
+// {
+//     let nodes = select! { Node::Div(div) => div.content };
+
+//     blocks.nested_in(nodes).map_with(|content, e| Div {
+//         content,
+//         class: None,
+//         label: None,
+//         span: e.span(),
+//     })
+// }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Table<'src> {
@@ -118,7 +143,7 @@ pub fn table_parser<'tokens, 'src: 'tokens>(
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct List<'src> {
-    pub items: Vec<ListItem<'src>>,
+    pub head: Vec<ListItem<'src>>,
     pub body: Option<Nested<'src>>,
     pub label: Option<&'src str>,
     pub span: Span,
@@ -126,7 +151,7 @@ pub struct List<'src> {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Enum<'src> {
-    pub items: Vec<EnumItem<'src>>,
+    pub head: Vec<EnumItem<'src>>,
     pub body: Option<Nested<'src>>,
     pub label: Option<&'src str>,
     pub span: Span,
@@ -174,15 +199,15 @@ pub fn nested_parser<'tokens, 'src: 'tokens>(
 
         let list = list_items
             .then(body.clone())
-            .map_with(|(items, body), e| List {
-                items,
+            .map_with(|(head, body), e| List {
+                head,
                 body,
                 label: None,
                 span: e.span(),
             });
 
         let enumeration = enum_items.then(body).map_with(|(items, body), e| Enum {
-            items,
+            head: items,
             body,
             label: None,
             span: e.span(),
@@ -198,7 +223,7 @@ pub fn nested_parser<'tokens, 'src: 'tokens>(
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BlockQuote<'src> {
     pub level: u8,
-    pub items: Vec<BlockQuoteItem<'src>>,
+    pub content: Vec<BlockQuoteElement<'src>>,
     pub label: Option<&'src str>,
     pub span: Span,
 }
@@ -210,11 +235,11 @@ pub fn block_quote_parser<'tokens, 'src: 'tokens>(
     item.separated_by(just(Node::LineBreak))
         .at_least(1)
         .collect()
-        .map_with(|items: Vec<BlockQuoteItem<'_>>, e| {
-            let level = items[0].level;
+        .map_with(|content: Vec<BlockQuoteElement<'_>>, e| {
+            let level = content[0].level;
 
             let bq = BlockQuote {
-                items,
+                content,
                 level,
                 label: None,
                 span: e.span(),
@@ -222,7 +247,7 @@ pub fn block_quote_parser<'tokens, 'src: 'tokens>(
             (bq, level)
         })
         .validate(|(bq, level), e, emitter| {
-            if bq.items.iter().any(|item| item.level != level) {
+            if bq.content.iter().any(|item| item.level != level) {
                 emitter.emit(Rich::custom(
                     e.span(),
                     "Adjacent BlockQuotes mut be of the same level.",

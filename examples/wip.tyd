@@ -1,4 +1,4 @@
-// Run with cargo run ./test.tyd
+% Run with cargo run ./test.tyd
 = Heading
 
 Everything is evaluated to their raw functions.
@@ -25,7 +25,7 @@ These are links:
 
 #image("example.png")[Alternative text]
 
-// TODO !("example.png", width: 32px)[Alternative text]
+% TODO !("example.png", width: 32px)[Alternative text]
 
 == Labels
 
@@ -35,6 +35,7 @@ And labels can be referenced <label>
 == Blockqoute
 
 > This is a block quote
+
 >> Nested
 
 == Lists
@@ -60,21 +61,21 @@ Lists can be numbered and unnumbered:
 | *Some column* | *Other column*    |
 | and content   | and more /stuff/  |
 
-// TODO
-// |
-//     - some
-//     - item
-//                 |      blah      |
+% TODO
+% |
+%     - some
+%     - item
+%                 |      blah      |
 
-// == Terms
+% == Terms
 
-// / Term: description
+% / Term: description
 
 == Math
 
 Math mode is similar to typst
 
-//$ x = y ^ 10 / 200 * 20 $
+%$ x = y ^ 10 / 200 * 20 $
 
 == Raw
 
@@ -88,17 +89,17 @@ are also possible
 
 == Various
 
-// - Line break: \
+% - Line break: \
 - Escape: tweet `\#ad`
 - Comment: `some comment`
-// - Symbols: //`~Epsilon // vielleicht eher :Episilon: ?`
+% - Symbols: //`~Epsilon // vielleicht eher :Episilon: ?`
 - Quoutes:
     - "double"
     - 'single'
 
-    // - commented
-    // - out
-    // - list
+%    // - commented
+%    // - out
+%    // - list
 
 == Code
 
