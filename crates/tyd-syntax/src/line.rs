@@ -99,7 +99,7 @@ pub fn node_parser<'src>() -> impl Parser<'src, &'src str, Node<'src>, Extra<'sr
     let text = text_parser(inline).boxed();
     let list_item = list_item_parser(text.clone()).boxed();
     let enum_item = enum_item_parser(text.clone()).boxed();
-    let bq_item = block_quote_item_parser(text.clone(), enum_item.clone(), list_item.clone());
+    let bq_item = block_quote_element_parser(text.clone(), enum_item.clone(), list_item.clone());
 
     let heading = heading_parser(text.clone()).map(Node::Heading);
     // let label = label_parser().map(Node::Label);
@@ -245,12 +245,12 @@ pub fn table_row_parser<'src>() -> impl Parser<'src, &'src str, TableRow<'src>, 
     let text = text_parser(inline_parser(table_word_parser())).boxed();
     let list_item = list_item_parser(text.clone()).boxed();
     let enum_item = enum_item_parser(text.clone()).boxed();
-    let bq_item = block_quote_item_parser(text.clone(), enum_item.clone(), list_item.clone());
+    let bq_element = block_quote_element_parser(text.clone(), enum_item.clone(), list_item.clone());
 
     let cell = choice((
         list_item.map(TableCell::ListItem),
         enum_item.map(TableCell::EnumItem),
-        bq_item.map(TableCell::BlockQuoteItem),
+        bq_element.map(TableCell::BlockQuoteElement),
         text.map(TableCell::Text),
     ))
     .padded_by(just(" ").repeated());
@@ -271,7 +271,7 @@ pub fn table_row_parser<'src>() -> impl Parser<'src, &'src str, TableRow<'src>, 
 pub enum TableCell<'src> {
     ListItem(ListItem<'src>),
     EnumItem(EnumItem<'src>),
-    BlockQuoteItem(BlockQuoteElement<'src>),
+    BlockQuoteElement(BlockQuoteElement<'src>),
     Text(Text<'src>),
 }
 
@@ -358,7 +358,7 @@ pub struct BlockQuoteElement<'src> {
     pub span: Span,
 }
 
-pub fn block_quote_item_parser<'src, T, E, L>(
+pub fn block_quote_element_parser<'src, T, E, L>(
     text: T,
     enum_item: E,
     list_item: L,

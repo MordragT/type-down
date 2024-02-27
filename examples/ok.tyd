@@ -2,7 +2,7 @@
 
 paragraph `monospace where @ | is ignored`
 
--list H_2O ~strike *strong* /emphasis/ ~
+- list H_2O ~strike *strong* /emphasis/ ~
 
 + ordered
 + multi
@@ -10,17 +10,15 @@ paragraph `monospace where @ | is ignored`
 - simple
 - list
 
-// | table | columns |
-// | a | b |
+| table | columns |
+| a | b | {label}
 
 > blockquote <https://example.com>[Hier klicken]
 
 #image(src: "human.png", alt: "Human")
 
-labelled @label
-
 by labelling something it creates a invocable variable,
-which can then be cited by \#label
+which can then be cited by @label
 
 All labels are inside the global variable scope
 

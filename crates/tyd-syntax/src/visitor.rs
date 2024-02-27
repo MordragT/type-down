@@ -139,7 +139,7 @@ pub trait Visitor {
         Ok(())
     }
 
-    fn visit_linebreak(&mut self) -> Result<(), Self::Error> {
+    fn visit_softbreak(&mut self) -> Result<(), Self::Error> {
         Ok(())
     }
 
@@ -268,7 +268,7 @@ pub fn walk_table_cell<V: Visitor + ?Sized>(
     table_cell: &TableCell,
 ) -> Result<(), V::Error> {
     match table_cell {
-        TableCell::BlockQuoteItem(item) => visitor.visit_block_quote_element(item),
+        TableCell::BlockQuoteElement(item) => visitor.visit_block_quote_element(item),
         TableCell::EnumItem(item) => visitor.visit_enum_item(item),
         TableCell::ListItem(item) => visitor.visit_list_item(item),
         TableCell::Text(text) => visitor.visit_text(text),
@@ -338,7 +338,7 @@ pub fn walk_inline<V: Visitor + ?Sized>(visitor: &mut V, inline: &Inline) -> Res
         Inline::Escape(escape) => visitor.visit_escape(escape),
         Inline::Word(word) => visitor.visit_word(word),
         Inline::Spacing(spacing) => visitor.visit_spacing(spacing),
-        Inline::SoftBreak => visitor.visit_linebreak(),
+        Inline::SoftBreak => visitor.visit_softbreak(),
         Inline::Code(code) => visitor.visit_code(code),
     }
 }

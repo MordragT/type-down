@@ -4,10 +4,13 @@ use std::path::PathBuf;
 #[cfg(feature = "html")]
 use tyd_html::HtmlCompiler;
 #[cfg(not(feature = "html"))]
-use tyd_pandoc::html::HtmlCompiler;
-use tyd_pandoc::{docx::DocxCompiler, pandoc::PandocCompiler, pdf::PdfCompiler};
-use tyd_render::{builtin, Context, Object, Output, Render};
-use tyd_syntax::{parse, Ast};
+use tyd_pandoc::format::HtmlCompiler;
+use tyd_pandoc::{
+    builtin,
+    format::{DocxCompiler, PandocCompiler, PdfCompiler},
+};
+use tyd_render::{Context, Output, Render, Value};
+use tyd_syntax::{error::TydError, prelude::Ast};
 
 #[derive(Debug, clap::Parser)]
 #[command(author, version, about, long_about = None)]
@@ -45,26 +48,32 @@ fn main() -> Result<()> {
 
     match args.command {
         Commands::Check { path } => {
-            let cst = parse(path)?;
+            let name = path.file_name().unwrap().to_string_lossy();
+            let src = std::fs::read_to_string(&path).map_err(TydError::Io)?;
 
-            println!("{cst:?}");
+            let ast = Ast::parse(&src, name)?;
+
+            println!("{ast:?}");
         }
         Commands::Format { path } => {
-            let cst = parse(path)?;
+            // let cst = parse(path)?;
 
-            println!("{cst}");
+            // println!("{cst}");
+            todo!()
         }
         Commands::Compile {
             input,
             output,
             format,
         } => {
-            let cst = parse(&input)?;
-            let ast = Ast::from(cst);
+            let name = input.file_name().unwrap().to_string_lossy();
+            let src = std::fs::read_to_string(&input).map_err(TydError::Io)?;
+
+            let ast = Ast::parse(&src, name)?;
 
             let ctx = Context::new()
                 .symbol("title", "Default title")
-                .symbol("author", vec![Object::from("Max Mustermann")])
+                .symbol("author", vec![Value::from("Max Mustermann")])
                 .function("image", builtin::image);
 
             let output = match output {

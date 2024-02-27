@@ -103,8 +103,8 @@ pub struct Arg<'src> {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Literal<'src> {
     Boolean(bool),
-    Int(i32),
-    // Float(f32),
+    Int(i64),
+    // Float(f64),
     Str(&'src str),
 }
 

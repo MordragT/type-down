@@ -11,7 +11,7 @@
 // use super::{Compiler, Context, Output};
 // use crate::parse::ast::*;
 
-use tyd_render::{Args, Context, Object};
+use tyd_render::{Args, Context, Value};
 use tyd_syntax::ast::{
     visitor::{
         walk_block_quote, walk_emphasis, walk_enclosed, walk_heading, walk_paragraph, walk_quote,
@@ -302,7 +302,7 @@ impl Visitor for HtmlBuilder {
                         f_args.insert(key.clone(), object.clone());
                     }
                     Value::String(s) => {
-                        f_args.insert(key.clone(), Object::Str(s.clone()));
+                        f_args.insert(key.clone(), Value::Str(s.clone()));
                     }
                 }
             }
@@ -311,8 +311,8 @@ impl Visitor for HtmlBuilder {
             let result = f(f_args)?;
 
             match result {
-                Object::Block(block) => self.visit_block(&block)?,
-                Object::Element(el) => self.visit_element(&el)?,
+                Value::Block(block) => self.visit_block(&block)?,
+                Value::Element(el) => self.visit_element(&el)?,
                 // TODO error
                 _ => panic!("access calls must return block or element"),
             }
@@ -328,8 +328,8 @@ impl Visitor for HtmlBuilder {
             let object = self.ctx.get(ident).unwrap().clone();
 
             match object {
-                Object::Block(block) => self.visit_block(&block)?,
-                Object::Element(el) => self.visit_element(&el)?,
+                Value::Block(block) => self.visit_block(&block)?,
+                Value::Element(el) => self.visit_element(&el)?,
                 // TODO error
                 _ => panic!("access calls must return block or element"),
             }

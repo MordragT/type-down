@@ -2,11 +2,11 @@ use miette::Diagnostic;
 use pandoc::{InputFormat, InputKind, OutputFormat, OutputKind, Pandoc, PandocOption};
 use std::io;
 use thiserror::Error;
+use tyd_render::{Output, Render};
+use tyd_syntax::{ast::Ast, visitor::Visitor};
 
-use tyd_render::{Context, Output, Render};
-use tyd_syntax::ast::{visitor::Visitor, Ast};
+use crate::{builder::PandocBuilder, Content, Context};
 
-use super::pandoc::PandocBuilder;
 #[derive(Debug, Error, Diagnostic)]
 #[diagnostic(code(type_down::compile::pdf::PdfCompiler::compile))]
 pub enum PdfError {
@@ -15,7 +15,7 @@ pub enum PdfError {
     #[error(transparent)]
     PandocExec(#[from] pandoc::PandocError),
     #[error(transparent)]
-    Pandoc(#[from] super::pandoc::PandocError),
+    Pandoc(#[from] crate::error::PandocError),
     #[error("Stdout is unsupported for pdf")]
     StdoutUnsupported,
 }
@@ -25,6 +25,7 @@ pub struct PdfCompiler;
 
 impl Render for PdfCompiler {
     type Error = PdfError;
+    type Content = Content;
 
     fn render(ast: &Ast, ctx: Context, output: Output) -> Result<(), Self::Error> {
         let dest = match output {

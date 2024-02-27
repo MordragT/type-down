@@ -15,7 +15,10 @@ pub mod prelude {
         Cite, Comment, Emphasis, Escape, Link, Quote, RawInline, Spacing, Strikeout, Strong,
         Subscript, Supscript, Word,
     };
-    pub use crate::line::{BlockQuoteElement, Div, EnumItem, Heading, ListItem, Raw, TableRow};
+    pub use crate::line::{
+        BlockQuoteElement, BlockQuoteItem, Div, EnumItem, Heading, ListItem, Raw, TableCell,
+        TableRow,
+    };
     pub use crate::visitor::*;
 }
 

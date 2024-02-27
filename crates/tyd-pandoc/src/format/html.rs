@@ -5,11 +5,10 @@ use pandoc::{
 };
 use std::io;
 use thiserror::Error;
+use tyd_render::{Output, Render};
+use tyd_syntax::{ast::Ast, visitor::Visitor};
 
-use tyd_render::{Context, Output, Render};
-use tyd_syntax::ast::{visitor::Visitor, Ast};
-
-use super::pandoc::PandocBuilder;
+use crate::{builder::PandocBuilder, Content, Context};
 
 #[derive(Debug, Error, Diagnostic)]
 #[error(transparent)]
@@ -20,13 +19,14 @@ pub enum HtmlError {
     #[error(transparent)]
     PandocExec(#[from] pandoc::PandocError),
     #[error(transparent)]
-    Pandoc(#[from] super::pandoc::PandocError),
+    Pandoc(#[from] crate::error::PandocError),
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct HtmlCompiler;
 
 impl Render for HtmlCompiler {
     type Error = HtmlError;
+    type Content = Content;
 
     fn render(ast: &Ast, ctx: Context, output: Output) -> Result<(), Self::Error> {
         let mut builder = PandocBuilder::new(ctx);

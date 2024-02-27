@@ -1,17 +1,19 @@
 use miette::Diagnostic;
-use std::{collections::BTreeMap, path::PathBuf};
+use std::path::PathBuf;
 use tyd_syntax::ast::Ast;
 
 pub use context::*;
-pub use object::*;
+pub use value::*;
 
-pub mod builtin;
 mod context;
-mod object;
+pub mod error;
+mod value;
+
 pub trait Render {
     type Error: Diagnostic;
+    type Content;
 
-    fn render(ast: &Ast, ctx: Context, output: Output) -> Result<(), Self::Error>;
+    fn render(ast: &Ast, ctx: Context<Self::Content>, output: Output) -> Result<(), Self::Error>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -19,5 +21,3 @@ pub enum Output {
     File(PathBuf),
     Stdout,
 }
-
-pub type Map<K, V> = BTreeMap<K, V>;

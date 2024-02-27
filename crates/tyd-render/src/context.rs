@@ -1,47 +1,29 @@
-use miette::Diagnostic;
-use thiserror::Error;
+use std::collections::BTreeMap;
 
-use crate::{Map, Object, ObjectKind};
+use tyd_syntax::{
+    code::{Arg, Call, Expr},
+    inline::Inline,
+};
 
-#[derive(Error, Debug, Diagnostic)]
-#[diagnostic(code(tyd_render::Context::call))]
-pub enum ContextError {
-    #[error("{0}")]
-    Message(String),
-    #[error("Missing Argument {0}")]
-    MissingArgument(String),
-    #[error("Wrong Type for argument {arg}. Expected {expected}")]
-    WrongArgType { arg: String, expected: ObjectKind },
-    #[error("Wrong Arguments")]
-    WrongArguments,
-    #[error("Function '{0}' not found")]
-    FunctionNotFound(String),
-    #[error("Symbol '{0}' not found")]
-    SymbolNotFound(String),
-}
-
-pub type Args = Map<String, Object>;
+use crate::{error::ContextError, Value};
 
 // TODO create Function trait
 
-pub trait Function {
-    // maybe also expose which are required and wich are optionally(potentially with default params ?)
-    fn args() -> &'static [&'static str];
-}
+type Map<K, V> = BTreeMap<K, V>;
+pub type Args<C> = Map<String, Value<C>>;
+pub type Func<C> = Box<dyn Fn(Args<C>) -> Result<Value<C>, ContextError>>;
 
-pub type Func = Box<dyn Fn(Args) -> Result<Object, ContextError>>;
-
-pub type SymbolTable = Map<String, Object>;
-pub type FunctionTable = Map<String, Func>;
+pub type SymbolTable<C> = Map<String, Value<C>>;
+pub type FunctionTable<C> = Map<String, Func<C>>;
 
 // TODO font-family etc.
 
-pub struct Context {
-    function_table: FunctionTable,
-    symbol_table: SymbolTable,
+pub struct Context<C> {
+    function_table: FunctionTable<C>,
+    symbol_table: SymbolTable<C>,
 }
 
-impl Context {
+impl<C: Clone> Context<C> {
     pub fn new() -> Self {
         Self {
             function_table: FunctionTable::new(),
@@ -52,28 +34,71 @@ impl Context {
     pub fn function(
         mut self,
         key: impl Into<String>,
-        f: impl Fn(Args) -> Result<Object, ContextError> + 'static,
+        f: impl Fn(Args<C>) -> Result<Value<C>, ContextError> + 'static,
     ) -> Self {
         self.function_table.insert(key.into(), Box::new(f));
         self
     }
 
-    // TODO actually call the function insted of just returning it
-    // automate argument validation then in here
-    pub fn call(&self, key: impl AsRef<str>) -> Result<&Func, ContextError> {
-        self.function_table
-            .get(key.as_ref())
-            .ok_or(ContextError::FunctionNotFound(key.as_ref().to_owned()))
-    }
-
-    pub fn symbol(mut self, key: impl Into<String>, value: impl Into<Object>) -> Self {
+    pub fn symbol(mut self, key: impl Into<String>, value: impl Into<Value<C>>) -> Self {
         self.symbol_table.insert(key.into(), value.into());
         self
     }
 
-    pub fn get(&self, key: impl AsRef<str>) -> Result<&Object, ContextError> {
+    pub fn eval(&self, expr: &Expr) -> Result<Value<C>, ContextError> {
+        match expr {
+            Expr::Block(block) => todo!(),
+            Expr::Call(call) => self.eval_call(call),
+            Expr::Ident(ident) => self.eval_symbol(ident),
+            Expr::Literal(literal) => Ok(Value::from(literal.to_owned())),
+        }
+    }
+
+    pub fn eval_symbol(&self, key: impl AsRef<str>) -> Result<Value<C>, ContextError> {
         self.symbol_table
             .get(key.as_ref())
+            .cloned()
             .ok_or(ContextError::SymbolNotFound(key.as_ref().to_owned()))
+    }
+
+    pub fn eval_call(&self, call: &Call) -> Result<Value<C>, ContextError> {
+        let Call {
+            ident,
+            args,
+            content,
+        } = call;
+
+        let f = self
+            .function_table
+            .get(*ident)
+            .ok_or(ContextError::FunctionNotFound(ident.to_string()))?;
+
+        let args = self.eval_args(args, content)?;
+
+        f(args)
+    }
+
+    pub fn eval_args(
+        &self,
+        args: &Vec<Arg>,
+        content: &Option<Vec<Inline>>,
+    ) -> Result<Args<C>, ContextError> {
+        let mut evaluated = Args::new();
+
+        for arg in args {
+            // TODO use the position of the arg and a Function trait wich has a method args -> &[&str] where
+            // the args are shown in correct order to get the name if not specified.
+            let name = arg.name.unwrap();
+            let value = self.eval(&arg.value)?;
+
+            evaluated.insert(name.to_owned(), value);
+        }
+
+        if let Some(content) = content {
+            todo!()
+            // needs some kind of callback to evaluate the content
+        }
+
+        Ok(evaluated)
     }
 }
