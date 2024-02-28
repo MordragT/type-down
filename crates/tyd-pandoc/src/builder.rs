@@ -163,7 +163,7 @@ impl Visitor for PandocBuilder {
             let mut cells: Vec<Cell> = Vec::new();
 
             for td in &tr.cells {
-                self.visit_table_cell(td)?;
+                self.visit_block(td)?;
 
                 let blocks = vec![self.pop_block()];
 
@@ -187,53 +187,11 @@ impl Visitor for PandocBuilder {
         Ok(())
     }
 
-    fn visit_table_cell(&mut self, table_cell: &TableCell) -> Result<(), Self::Error> {
-        let block = match table_cell {
-            TableCell::BlockQuoteElement(element) => {
-                let start = self.start();
-
-                self.visit_block_quote_element(element)?;
-
-                let end = PandocBlock::Plain(self.end(start).collect());
-                PandocBlock::BlockQuote(vec![end])
-            }
-            TableCell::EnumItem(item) => {
-                let start = self.start();
-
-                self.visit_enum_item(item)?;
-
-                let end = PandocBlock::Plain(self.end(start).collect());
-                PandocBlock::OrderedList(
-                    (1, ListNumberStyle::Decimal, ListNumberDelim::Period),
-                    vec![vec![end]],
-                )
-            }
-            TableCell::ListItem(item) => {
-                let start = self.start();
-
-                self.visit_list_item(item)?;
-
-                let end = PandocBlock::Plain(self.end(start).collect());
-                PandocBlock::BulletList(vec![vec![end]])
-            }
-            TableCell::Text(text) => {
-                let start = self.start();
-
-                self.visit_text(text)?;
-
-                PandocBlock::Plain(self.end(start).collect())
-            }
-        };
-
-        self.add_block(block);
-        Ok(())
-    }
-
     fn visit_block_quote(&mut self, block_quote: &BlockQuote) -> Result<(), Self::Error> {
         let mut quote = Vec::new();
 
         for el in &block_quote.content {
-            self.visit_block_quote_element(el)?;
+            self.visit_block_quote_item(el)?;
 
             quote.push(self.pop_block());
         }
@@ -241,40 +199,6 @@ impl Visitor for PandocBuilder {
         let block = PandocBlock::BlockQuote(quote);
         self.add_block(block);
 
-        Ok(())
-    }
-
-    fn visit_block_quote_item(&mut self, item: &BlockQuoteItem) -> Result<(), Self::Error> {
-        let block = match item {
-            BlockQuoteItem::EnumItem(item) => {
-                let start = self.start();
-
-                self.visit_enum_item(item)?;
-
-                let end = PandocBlock::Plain(self.end(start).collect());
-                PandocBlock::OrderedList(
-                    (1, ListNumberStyle::Decimal, ListNumberDelim::Period),
-                    vec![vec![end]],
-                )
-            }
-            BlockQuoteItem::ListItem(item) => {
-                let start = self.start();
-
-                self.visit_list_item(item)?;
-
-                let end = PandocBlock::Plain(self.end(start).collect());
-                PandocBlock::BulletList(vec![vec![end]])
-            }
-            BlockQuoteItem::Text(text) => {
-                let start = self.start();
-
-                self.visit_text(text)?;
-
-                PandocBlock::Plain(self.end(start).collect())
-            }
-        };
-
-        self.add_block(block);
         Ok(())
     }
 

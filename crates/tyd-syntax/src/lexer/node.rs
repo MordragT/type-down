@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::Span;
+use crate::{prelude::Block, Span};
 
 use super::code::Code;
 
@@ -12,7 +12,7 @@ pub enum Node<'src> {
     TableRow(TableRow<'src>),
     ListItem(ListItem<'src>),
     EnumItem(EnumItem<'src>),
-    BlockQuoteItem(BlockQuoteElement<'src>),
+    BlockQuoteItem(BlockQuoteItem<'src>),
     Text(Text<'src>),
     // Label(&'src str),
     LineBreak,
@@ -62,17 +62,17 @@ pub struct Heading<'src> {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TableRow<'src> {
-    pub cells: Vec<TableCell<'src>>,
+    pub cells: Vec<Block<'src>>,
     pub label: Option<&'src str>,
     pub span: Span,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum TableCell<'src> {
-    ListItem(ListItem<'src>),
-    EnumItem(EnumItem<'src>),
-    BlockQuoteElement(BlockQuoteElement<'src>),
-    Text(Text<'src>),
+pub struct BlockQuoteItem<'src> {
+    pub level: u8,
+    pub item: Block<'src>,
+    pub label: Option<&'src str>,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -89,20 +89,12 @@ pub struct EnumItem<'src> {
     pub span: Span,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BlockQuoteElement<'src> {
-    pub level: u8,
-    pub item: BlockQuoteItem<'src>,
-    pub label: Option<&'src str>,
-    pub span: Span,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum BlockQuoteItem<'src> {
-    ListItem(ListItem<'src>),
-    EnumItem(EnumItem<'src>),
-    Text(Text<'src>),
-}
+// #[derive(Debug, Clone, PartialEq, Eq)]
+// pub enum BlockQuoteItem<'src> {
+//     ListItem(ListItem<'src>),
+//     EnumItem(EnumItem<'src>),
+//     Text(Text<'src>),
+// }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Text<'src> {
@@ -169,7 +161,7 @@ pub struct Supscript<'src> {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Link<'src> {
     pub href: &'src str,
-    pub content: Option<Vec<Inline<'src>>>,
+    pub content: Option<Vec<Block<'src>>>,
     pub span: Span,
 }
 

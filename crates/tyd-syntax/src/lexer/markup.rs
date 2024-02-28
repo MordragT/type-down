@@ -4,10 +4,13 @@ use chumsky::{
 };
 
 use super::{code::code_parser, node::*};
-use crate::Span;
+use crate::{
+    prelude::{Block, List, Paragraph},
+    Span,
+};
 
 type Extra<'src> = extra::Err<Rich<'src, char, Span>>;
-const SPECIAL: &str = " \\\n\"{}[]/*~_^@#`%";
+const SPECIAL: &str = " \\\n\"{}[]/*~_^@#`%|";
 
 pub fn nodes_parser<'src>() -> impl Parser<'src, &'src str, Vec<Node<'src>>, Extra<'src>> {
     let node = node_parser();
@@ -26,13 +29,11 @@ pub fn nodes_spanned_parser<'src>(
 }
 
 pub fn node_parser<'src>() -> impl Parser<'src, &'src str, Node<'src>, Extra<'src>> {
-    // recursive(|node| {
-    let inline = inline_parser(word_parser());
-
-    let text = text_parser(inline).boxed();
+    let text = text_parser().boxed();
     let list_item = list_item_parser(text.clone()).boxed();
     let enum_item = enum_item_parser(text.clone()).boxed();
-    let bq_item = block_quote_element_parser(text.clone(), enum_item.clone(), list_item.clone());
+    let bq_item = block_quote_item_parser(text.clone(), enum_item.clone(), list_item.clone());
+    let table_row = table_row_parser(text.clone(), enum_item.clone(), list_item.clone());
 
     let heading = heading_parser(text.clone()).map(Node::Heading);
     // let label = label_parser().map(Node::Label);
@@ -41,7 +42,7 @@ pub fn node_parser<'src>() -> impl Parser<'src, &'src str, Node<'src>, Extra<'sr
         heading,
         div_parser(text.clone()).map(Node::Div),
         raw_parser().map(Node::Raw),
-        table_row_parser().map(Node::TableRow),
+        table_row.map(Node::TableRow),
         list_item.map(Node::ListItem),
         enum_item.map(Node::EnumItem),
         bq_item.map(Node::BlockQuoteItem),
@@ -49,8 +50,6 @@ pub fn node_parser<'src>() -> impl Parser<'src, &'src str, Node<'src>, Extra<'sr
         just("    ").to(Node::Indentation),
         text.map(Node::Text),
     ))
-    // .boxed()
-    // })
 }
 
 // div start
@@ -120,6 +119,72 @@ pub fn raw_parser<'src>() -> impl Parser<'src, &'src str, Raw<'src>, Extra<'src>
         })
 }
 
+pub fn table_row_parser<'src, T, E, L>(
+    text: T,
+    enum_item: E,
+    list_item: L,
+) -> impl Parser<'src, &'src str, TableRow<'src>, Extra<'src>>
+where
+    T: Parser<'src, &'src str, Text<'src>, Extra<'src>>,
+    E: Parser<'src, &'src str, EnumItem<'src>, Extra<'src>>,
+    L: Parser<'src, &'src str, ListItem<'src>, Extra<'src>>,
+{
+    let delim = just("|");
+    let label = label_parser();
+
+    let cell = choice((
+        list_item.map(|item| Block::List(item.into())),
+        enum_item.map(|item| Block::Enum(item.into())),
+        text.map(|text| Block::Paragraph(text.into())),
+    ))
+    .padded_by(just(" ").repeated());
+
+    cell.separated_by(delim)
+        .at_least(1)
+        .collect()
+        .delimited_by(delim, delim)
+        .then(just(" ").ignore_then(label).or_not())
+        .map_with(|(cells, label), e| TableRow {
+            cells,
+            label,
+            span: e.span(),
+        })
+}
+
+pub fn block_quote_item_parser<'src, T, E, L>(
+    text: T,
+    enum_item: E,
+    list_item: L,
+) -> impl Parser<'src, &'src str, BlockQuoteItem<'src>, Extra<'src>>
+where
+    T: Parser<'src, &'src str, Text<'src>, Extra<'src>>,
+    E: Parser<'src, &'src str, EnumItem<'src>, Extra<'src>>,
+    L: Parser<'src, &'src str, ListItem<'src>, Extra<'src>>,
+{
+    let label = label_parser();
+
+    let item = choice((
+        list_item.map(|item| Block::List(item.into())),
+        enum_item.map(|item| Block::Enum(item.into())),
+        text.map(|text| Block::Paragraph(text.into())),
+    ));
+
+    just(">")
+        .repeated()
+        .at_least(1)
+        .at_most(6)
+        .to_slice()
+        .then_ignore(just(" "))
+        .then(item)
+        .then(label.or_not())
+        .map_with(|((level, item), label), e| BlockQuoteItem {
+            level: level.len() as u8,
+            item,
+            label,
+            span: e.span(),
+        })
+}
+
 pub fn heading_parser<'src, T>(text: T) -> impl Parser<'src, &'src str, Heading<'src>, Extra<'src>>
 where
     T: Parser<'src, &'src str, Text<'src>, Extra<'src>> + 'src,
@@ -140,36 +205,6 @@ where
         })
 }
 
-pub fn table_row_parser<'src>() -> impl Parser<'src, &'src str, TableRow<'src>, Extra<'src>> {
-    let delim = just("|");
-    let label = label_parser();
-
-    let text = text_parser(inline_parser(table_word_parser())).boxed();
-    let list_item = list_item_parser(text.clone()).boxed();
-    let enum_item = enum_item_parser(text.clone()).boxed();
-    // TOOD disallow blockquote in table
-    let bq_element = block_quote_element_parser(text.clone(), enum_item.clone(), list_item.clone());
-
-    let cell = choice((
-        list_item.map(TableCell::ListItem),
-        enum_item.map(TableCell::EnumItem),
-        bq_element.map(TableCell::BlockQuoteElement),
-        text.map(TableCell::Text),
-    ))
-    .padded_by(just(" ").repeated());
-
-    cell.separated_by(delim)
-        .at_least(1)
-        .collect()
-        .delimited_by(delim, delim)
-        .then(just(" ").ignore_then(label).or_not())
-        .map_with(|(cells, label), e| TableRow {
-            cells,
-            label,
-            span: e.span(),
-        })
-}
-
 pub fn list_item_parser<'src, T>(
     text: T,
 ) -> impl Parser<'src, &'src str, ListItem<'src>, Extra<'src>>
@@ -177,9 +212,6 @@ where
     T: Parser<'src, &'src str, Text<'src>, Extra<'src>> + 'src,
 {
     let label = label_parser();
-
-    // let text = text.map(Node::text);
-    // let item = text;
 
     just("- ")
         .ignore_then(text)
@@ -199,61 +231,11 @@ where
 {
     let label = label_parser();
 
-    // let text = text.map(Node::text);
-    // let item = text;
-
     just("+ ")
         .ignore_then(text)
         .then(label.or_not())
         .map_with(|(content, label), e| EnumItem {
             content,
-            label,
-            span: e.span(),
-        })
-}
-
-pub fn text_parser<'src>(
-    inline: impl Parser<'src, &'src str, Inline<'src>, Extra<'src>>,
-) -> impl Parser<'src, &'src str, Text<'src>, Extra<'src>> {
-    inline
-        .repeated()
-        .at_least(1)
-        .collect()
-        .map_with(|content, e| Text {
-            content,
-            span: e.span(),
-        })
-}
-
-pub fn block_quote_element_parser<'src, T, E, L>(
-    text: T,
-    enum_item: E,
-    list_item: L,
-) -> impl Parser<'src, &'src str, BlockQuoteElement<'src>, Extra<'src>>
-where
-    T: Parser<'src, &'src str, Text<'src>, Extra<'src>>,
-    E: Parser<'src, &'src str, EnumItem<'src>, Extra<'src>>,
-    L: Parser<'src, &'src str, ListItem<'src>, Extra<'src>>,
-{
-    let label = label_parser();
-
-    let item = choice((
-        list_item.map(BlockQuoteItem::ListItem),
-        enum_item.map(BlockQuoteItem::EnumItem),
-        text.map(BlockQuoteItem::Text),
-    ));
-
-    just(">")
-        .repeated()
-        .at_least(1)
-        .at_most(6)
-        .to_slice()
-        .then_ignore(just(" "))
-        .then(item)
-        .then(label.or_not())
-        .map_with(|((level, item), label), e| BlockQuoteElement {
-            level: level.len() as u8,
-            item,
             label,
             span: e.span(),
         })
@@ -266,12 +248,18 @@ pub fn label_parser<'src>() -> impl Parser<'src, &'src str, &'src str, Extra<'sr
     ascii::ident().to_slice().delimited_by(just("{"), just("}"))
 }
 
-pub fn inline_parser<'src, W>(
-    word: W,
-) -> impl Parser<'src, &'src str, Inline<'src>, Extra<'src>> + Clone
-where
-    W: Parser<'src, &'src str, Word<'src>, Extra<'src>> + 'src,
-{
+pub fn text_parser<'src>() -> impl Parser<'src, &'src str, Text<'src>, Extra<'src>> {
+    inline_parser()
+        .repeated()
+        .at_least(1)
+        .collect()
+        .map_with(|content, e| Text {
+            content,
+            span: e.span(),
+        })
+}
+
+pub fn inline_parser<'src>() -> impl Parser<'src, &'src str, Inline<'src>, Extra<'src>> + Clone {
     recursive(|inline| {
         choice((
             code_parser(inline.clone()).map(Inline::Code),
@@ -287,7 +275,7 @@ where
             comment_parser().map(Inline::Comment),
             escape_parser().map(Inline::Escape),
             spacing_parser().map(Inline::Spacing),
-            word.map(Inline::Word),
+            word_parser().map(Inline::Word),
         ))
         .boxed()
     })
@@ -413,16 +401,15 @@ where
         .at_least(1)
         .to_slice();
 
-    let content = inline
-        .repeated()
-        .collect()
-        .delimited_by(just("["), just("]"));
+    // let content = inline
+    //     .repeated()
+    //     .collect()
+    //     .delimited_by(just("["), just("]"));
 
     href.delimited_by(just("<"), just(">"))
-        .then(content.or_not())
-        .map_with(|(href, content), e| Link {
+        .map_with(|href, e| Link {
             href,
-            content,
+            content: None,
             span: e.span(),
         })
 }
@@ -448,7 +435,7 @@ pub fn escape_parser<'src>() -> impl Parser<'src, &'src str, Escape<'src>, Extra
 pub fn raw_inline_parser<'src>() -> impl Parser<'src, &'src str, RawInline<'src>, Extra<'src>> {
     let delim = "`";
 
-    let content = none_of("`")
+    let content = none_of(delim)
         .and_is(newline().not())
         .repeated()
         .at_least(1)
@@ -479,17 +466,6 @@ pub fn comment_parser<'src>() -> impl Parser<'src, &'src str, Comment<'src>, Ext
 
 pub fn word_parser<'src>() -> impl Parser<'src, &'src str, Word<'src>, Extra<'src>> {
     none_of(SPECIAL)
-        .repeated()
-        .at_least(1)
-        .to_slice()
-        .map_with(|content, e| Word {
-            content,
-            span: e.span(),
-        })
-}
-
-pub fn table_word_parser<'src>() -> impl Parser<'src, &'src str, Word<'src>, Extra<'src>> {
-    none_of(format!("|{SPECIAL}"))
         .repeated()
         .at_least(1)
         .to_slice()

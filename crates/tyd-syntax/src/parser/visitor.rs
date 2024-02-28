@@ -54,23 +54,12 @@ pub trait Visitor {
         walk_table_row(self, table_row)
     }
 
-    fn visit_table_cell(&mut self, table_cell: &TableCell) -> Result<(), Self::Error> {
-        walk_table_cell(self, table_cell)
-    }
-
     fn visit_block_quote(&mut self, block_quote: &BlockQuote) -> Result<(), Self::Error> {
         walk_block_quote(self, block_quote)
     }
 
-    fn visit_block_quote_element(
-        &mut self,
-        element: &BlockQuoteElement,
-    ) -> Result<(), Self::Error> {
-        walk_block_quote_element(self, element)
-    }
-
-    fn visit_block_quote_item(&mut self, item: &BlockQuoteItem) -> Result<(), Self::Error> {
-        walk_block_quote_item(self, item)
+    fn visit_block_quote_item(&mut self, element: &BlockQuoteItem) -> Result<(), Self::Error> {
+        walk_block_quote_item(self, element)
     }
 
     fn visit_paragraph(&mut self, paragraph: &Paragraph) -> Result<(), Self::Error> {
@@ -255,22 +244,10 @@ pub fn walk_table_row<V: Visitor + ?Sized>(
     table_row: &TableRow,
 ) -> Result<(), V::Error> {
     for cell in &table_row.cells {
-        visitor.visit_table_cell(cell)?;
+        visitor.visit_block(cell)?;
     }
 
     Ok(())
-}
-
-pub fn walk_table_cell<V: Visitor + ?Sized>(
-    visitor: &mut V,
-    table_cell: &TableCell,
-) -> Result<(), V::Error> {
-    match table_cell {
-        TableCell::BlockQuoteElement(item) => visitor.visit_block_quote_element(item),
-        TableCell::EnumItem(item) => visitor.visit_enum_item(item),
-        TableCell::ListItem(item) => visitor.visit_list_item(item),
-        TableCell::Text(text) => visitor.visit_text(text),
-    }
 }
 
 pub fn walk_block_quote<V: Visitor + ?Sized>(
@@ -278,28 +255,17 @@ pub fn walk_block_quote<V: Visitor + ?Sized>(
     block_quote: &BlockQuote,
 ) -> Result<(), V::Error> {
     for item in &block_quote.content {
-        visitor.visit_block_quote_element(item)?;
+        visitor.visit_block_quote_item(item)?;
     }
 
     Ok(())
 }
 
-pub fn walk_block_quote_element<V: Visitor + ?Sized>(
-    visitor: &mut V,
-    element: &BlockQuoteElement,
-) -> Result<(), V::Error> {
-    visitor.visit_block_quote_item(&element.item)
-}
-
 pub fn walk_block_quote_item<V: Visitor + ?Sized>(
     visitor: &mut V,
-    item: &BlockQuoteItem,
+    element: &BlockQuoteItem,
 ) -> Result<(), V::Error> {
-    match item {
-        BlockQuoteItem::EnumItem(item) => visitor.visit_enum_item(item),
-        BlockQuoteItem::ListItem(item) => visitor.visit_list_item(item),
-        BlockQuoteItem::Text(text) => visitor.visit_text(text),
-    }
+    visitor.visit_block(&element.item)
 }
 
 pub fn walk_paragraph<V: Visitor + ?Sized>(
@@ -403,8 +369,8 @@ pub fn walk_supscript<V: Visitor + ?Sized>(
 
 pub fn walk_link<V: Visitor + ?Sized>(visitor: &mut V, link: &Link) -> Result<(), V::Error> {
     if let Some(content) = &link.content {
-        for inline in content {
-            visitor.visit_inline(inline)?;
+        for block in content {
+            visitor.visit_block(block)?;
         }
     }
     Ok(())

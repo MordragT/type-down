@@ -149,12 +149,48 @@ pub struct List<'src> {
     pub span: Span,
 }
 
+impl<'src> From<ListItem<'src>> for List<'src> {
+    fn from(value: ListItem<'src>) -> Self {
+        let head = vec![value.clone()];
+        let ListItem {
+            content: _,
+            label,
+            span,
+        } = value;
+
+        Self {
+            head,
+            body: None,
+            label,
+            span,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Enum<'src> {
     pub head: Vec<EnumItem<'src>>,
     pub body: Option<Nested<'src>>,
     pub label: Option<&'src str>,
     pub span: Span,
+}
+
+impl<'src> From<EnumItem<'src>> for Enum<'src> {
+    fn from(value: EnumItem<'src>) -> Self {
+        let head = vec![value.clone()];
+        let EnumItem {
+            content: _,
+            label,
+            span,
+        } = value;
+
+        Self {
+            head,
+            body: None,
+            label,
+            span,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -223,7 +259,7 @@ pub fn nested_parser<'tokens, 'src: 'tokens>(
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BlockQuote<'src> {
     pub level: u8,
-    pub content: Vec<BlockQuoteElement<'src>>,
+    pub content: Vec<BlockQuoteItem<'src>>,
     pub label: Option<&'src str>,
     pub span: Span,
 }
@@ -235,7 +271,7 @@ pub fn block_quote_parser<'tokens, 'src: 'tokens>(
     item.separated_by(just(Node::LineBreak))
         .at_least(1)
         .collect()
-        .map_with(|content: Vec<BlockQuoteElement<'_>>, e| {
+        .map_with(|content: Vec<BlockQuoteItem<'_>>, e| {
             let level = content[0].level;
 
             let bq = BlockQuote {
@@ -261,6 +297,14 @@ pub fn block_quote_parser<'tokens, 'src: 'tokens>(
 pub struct Paragraph<'src> {
     pub content: Vec<Inline<'src>>,
     pub span: Span,
+}
+
+impl<'src> From<Text<'src>> for Paragraph<'src> {
+    fn from(value: Text<'src>) -> Self {
+        let Text { content, span } = value;
+
+        Self { content, span }
+    }
 }
 
 pub fn paragraph_parser<'tokens, 'src: 'tokens>(
