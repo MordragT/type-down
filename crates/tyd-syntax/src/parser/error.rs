@@ -1,23 +1,8 @@
-use std::io;
-
 use chumsky::error::Rich;
 use miette::{Diagnostic, NamedSource, SourceSpan};
 use thiserror::Error;
 
-use crate::lexer::{error::LexErrors, node::Node};
-
-#[derive(Debug, Error, Diagnostic)]
-pub enum SyntaxError {
-    #[diagnostic(transparent)]
-    #[error(transparent)]
-    Parse(#[from] ParseErrors),
-    #[diagnostic(transparent)]
-    #[error(transparent)]
-    Lex(#[from] LexErrors),
-    #[error(transparent)]
-    #[diagnostic(code(type_down::TydError::Io))]
-    Io(#[from] io::Error),
-}
+use crate::lexer::Node;
 
 #[derive(Error, Debug, Diagnostic)]
 #[error("Parsing failed with the following errors:")]

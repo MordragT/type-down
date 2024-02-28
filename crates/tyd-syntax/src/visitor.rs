@@ -1,7 +1,6 @@
 use miette::Diagnostic;
 
-use crate::lexer::{code::*, node::*};
-use crate::parser::ast::*;
+use crate::ast::*;
 
 pub trait Visitor {
     type Error: Diagnostic;
@@ -54,12 +53,12 @@ pub trait Visitor {
         walk_table_row(self, table_row)
     }
 
-    fn visit_block_quote(&mut self, block_quote: &BlockQuote) -> Result<(), Self::Error> {
-        walk_block_quote(self, block_quote)
+    fn visit_term(&mut self, term: &Term) -> Result<(), Self::Error> {
+        walk_block_quote(self, term)
     }
 
-    fn visit_block_quote_item(&mut self, element: &BlockQuoteItem) -> Result<(), Self::Error> {
-        walk_block_quote_item(self, element)
+    fn visit_term_item(&mut self, item: &TermItem) -> Result<(), Self::Error> {
+        walk_term_item(self, item)
     }
 
     fn visit_paragraph(&mut self, paragraph: &Paragraph) -> Result<(), Self::Error> {
@@ -169,7 +168,7 @@ pub fn walk_block<V: Visitor + ?Sized>(visitor: &mut V, block: &Block) -> Result
         Block::Table(table) => visitor.visit_table(table),
         Block::List(list) => visitor.visit_list(list),
         Block::Enum(enumeration) => visitor.visit_enum(enumeration),
-        Block::BlockQuote(block_quote) => visitor.visit_block_quote(block_quote),
+        Block::Term(block_quote) => visitor.visit_term(block_quote),
         Block::Heading(heading) => visitor.visit_heading(heading),
         Block::Paragraph(paragraph) => visitor.visit_paragraph(paragraph),
     }
@@ -252,20 +251,21 @@ pub fn walk_table_row<V: Visitor + ?Sized>(
 
 pub fn walk_block_quote<V: Visitor + ?Sized>(
     visitor: &mut V,
-    block_quote: &BlockQuote,
+    block_quote: &Term,
 ) -> Result<(), V::Error> {
     for item in &block_quote.content {
-        visitor.visit_block_quote_item(item)?;
+        visitor.visit_term_item(item)?;
     }
 
     Ok(())
 }
 
-pub fn walk_block_quote_item<V: Visitor + ?Sized>(
+pub fn walk_term_item<V: Visitor + ?Sized>(
     visitor: &mut V,
-    element: &BlockQuoteItem,
+    item: &TermItem,
 ) -> Result<(), V::Error> {
-    visitor.visit_block(&element.item)
+    visitor.visit_text(&item.term)?;
+    visitor.visit_text(&item.content)
 }
 
 pub fn walk_paragraph<V: Visitor + ?Sized>(

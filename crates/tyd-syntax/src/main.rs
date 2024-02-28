@@ -1,7 +1,7 @@
 use std::fs;
 
 use miette::Result;
-use tyd_syntax::parser::ast::Ast;
+use tyd_syntax::parser::parse;
 
 // use tyd_syntax::parse;
 
@@ -16,7 +16,7 @@ use tyd_syntax::parser::ast::Ast;
 fn main() -> Result<()> {
     let src = fs::read_to_string("../../examples/wip.tyd").unwrap();
 
-    let ast = Ast::parse(&src, "test")?;
+    let ast = parse(&src, "test")?;
 
     println!("{ast:?}");
 

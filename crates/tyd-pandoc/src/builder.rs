@@ -187,16 +187,22 @@ impl Visitor for PandocBuilder {
         Ok(())
     }
 
-    fn visit_block_quote(&mut self, block_quote: &BlockQuote) -> Result<(), Self::Error> {
-        let mut quote = Vec::new();
+    fn visit_term(&mut self, term: &Term) -> Result<(), Self::Error> {
+        let mut definition_list = Vec::new();
 
-        for el in &block_quote.content {
-            self.visit_block_quote_item(el)?;
+        for item in &term.content {
+            let start = self.start();
+            self.visit_text(&item.term)?;
+            let definition = self.end(start).collect();
 
-            quote.push(self.pop_block());
+            let start = self.start();
+            self.visit_text(&item.content)?;
+            let body = vec![vec![PandocBlock::Plain(self.end(start).collect())]];
+
+            definition_list.push((definition, body));
         }
 
-        let block = PandocBlock::BlockQuote(quote);
+        let block = PandocBlock::DefinitionList(definition_list);
         self.add_block(block);
 
         Ok(())

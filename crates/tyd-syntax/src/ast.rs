@@ -1,38 +1,106 @@
-use std::fmt;
-
-use crate::{prelude::Block, Span};
-
-use super::code::Code;
+use crate::Span;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Node<'src> {
-    Heading(Heading<'src>),
-    Div(Div<'src>),
-    Raw(Raw<'src>),
-    TableRow(TableRow<'src>),
-    ListItem(ListItem<'src>),
-    EnumItem(EnumItem<'src>),
-    BlockQuoteItem(BlockQuoteItem<'src>),
-    Text(Text<'src>),
-    // Label(&'src str),
-    LineBreak,
-    Indentation,
+pub struct Ast<'src> {
+    pub blocks: Vec<Block<'src>>,
 }
 
-impl<'src> fmt::Display for Node<'src> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Heading(_) => f.write_str("Heading"),
-            Self::Div(_) => f.write_str("Div"),
-            Self::Raw(_) => f.write_str("Raw"),
-            Self::TableRow(_) => f.write_str("TableRow"),
-            Self::ListItem(_) => f.write_str("ListItem"),
-            Self::EnumItem(_) => f.write_str("EnumItem"),
-            Self::BlockQuoteItem(_) => f.write_str("BlockQuoteItem"),
-            Self::Text(_) => f.write_str("Text"),
-            Self::LineBreak => f.write_str("LineBreak"),
-            Self::Indentation => f.write_str("Indentation"),
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Block<'src> {
+    Div(Div<'src>),
+    Raw(Raw<'src>),
+    Table(Table<'src>),
+    List(List<'src>),
+    Enum(Enum<'src>),
+    Term(Term<'src>),
+    Heading(Heading<'src>),
+    Paragraph(Paragraph<'src>),
+    // Plain(Plain<'src>),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Table<'src> {
+    pub col_count: usize,
+    pub rows: Vec<TableRow<'src>>,
+    pub label: Option<&'src str>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct List<'src> {
+    pub head: Vec<ListItem<'src>>,
+    pub body: Option<Nested<'src>>,
+    pub label: Option<&'src str>,
+    pub span: Span,
+}
+
+impl<'src> From<ListItem<'src>> for List<'src> {
+    fn from(value: ListItem<'src>) -> Self {
+        let head = vec![value.clone()];
+        let ListItem {
+            content: _,
+            label,
+            span,
+        } = value;
+
+        Self {
+            head,
+            body: None,
+            label,
+            span,
         }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Enum<'src> {
+    pub head: Vec<EnumItem<'src>>,
+    pub body: Option<Nested<'src>>,
+    pub label: Option<&'src str>,
+    pub span: Span,
+}
+impl<'src> From<EnumItem<'src>> for Enum<'src> {
+    fn from(value: EnumItem<'src>) -> Self {
+        let head = vec![value.clone()];
+        let EnumItem {
+            content: _,
+            label,
+            span,
+        } = value;
+
+        Self {
+            head,
+            body: None,
+            label,
+            span,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Nested<'src> {
+    List(Box<List<'src>>),
+    Enum(Box<Enum<'src>>),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Term<'src> {
+    pub content: Vec<TermItem<'src>>,
+    pub label: Option<&'src str>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Paragraph<'src> {
+    pub content: Vec<Inline<'src>>,
+    pub span: Span,
+}
+
+impl<'src> From<Text<'src>> for Paragraph<'src> {
+    fn from(value: Text<'src>) -> Self {
+        let Text { content, span } = value;
+
+        Self { content, span }
     }
 }
 
@@ -68,9 +136,9 @@ pub struct TableRow<'src> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BlockQuoteItem<'src> {
-    pub level: u8,
-    pub item: Block<'src>,
+pub struct TermItem<'src> {
+    pub term: Text<'src>,
+    pub content: Text<'src>,
     pub label: Option<&'src str>,
     pub span: Span,
 }
@@ -88,13 +156,6 @@ pub struct EnumItem<'src> {
     pub label: Option<&'src str>,
     pub span: Span,
 }
-
-// #[derive(Debug, Clone, PartialEq, Eq)]
-// pub enum BlockQuoteItem<'src> {
-//     ListItem(ListItem<'src>),
-//     EnumItem(EnumItem<'src>),
-//     Text(Text<'src>),
-// }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Text<'src> {
@@ -199,4 +260,41 @@ pub struct Word<'src> {
 pub struct Spacing<'src> {
     pub content: &'src str,
     pub span: Span,
+}
+
+// Code
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Code<'src> {
+    pub expr: Expr<'src>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Expr<'src> {
+    Ident(&'src str),
+    Call(Call<'src>),
+    Literal(Literal<'src>),
+    Block(Vec<Expr<'src>>),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Call<'src> {
+    pub ident: &'src str,
+    pub args: Vec<Arg<'src>>,
+    pub content: Option<Vec<Inline<'src>>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Arg<'src> {
+    pub name: Option<&'src str>,
+    pub value: Expr<'src>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Literal<'src> {
+    Boolean(bool),
+    Int(i64),
+    // Float(f64),
+    Str(&'src str),
 }

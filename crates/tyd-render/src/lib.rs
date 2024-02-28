@@ -1,6 +1,6 @@
 use miette::Diagnostic;
 use std::path::PathBuf;
-use tyd_syntax::parser::ast::Ast;
+use tyd_syntax::ast::Ast;
 
 pub use context::*;
 pub use value::*;

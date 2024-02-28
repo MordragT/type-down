@@ -2,15 +2,14 @@ use chumsky::{
     prelude::*,
     text::{ascii, newline},
 };
+use constcat::concat_slices;
 
-use super::{code::code_parser, node::*};
-use crate::{
-    prelude::{Block, List, Paragraph},
-    Span,
-};
+use super::{code::code_parser, Extra, Node};
+use crate::{ast::*, Span};
 
-type Extra<'src> = extra::Err<Rich<'src, char, Span>>;
-const SPECIAL: &str = " \\\n\"{}[]/*~_^@#`%|";
+pub const SPECIAL: &[char] = &[
+    ' ', '\\', '\n', '"', '{', '}', '[', ']', '/', '*', '~', '_', '^', '@', '#', '`', '%', '|',
+];
 
 pub fn nodes_parser<'src>() -> impl Parser<'src, &'src str, Vec<Node<'src>>, Extra<'src>> {
     let node = node_parser();
@@ -29,10 +28,10 @@ pub fn nodes_spanned_parser<'src>(
 }
 
 pub fn node_parser<'src>() -> impl Parser<'src, &'src str, Node<'src>, Extra<'src>> {
-    let text = text_parser().boxed();
+    let text = text_parser(SPECIAL).boxed();
     let list_item = list_item_parser(text.clone()).boxed();
     let enum_item = enum_item_parser(text.clone()).boxed();
-    let bq_item = block_quote_item_parser(text.clone(), enum_item.clone(), list_item.clone());
+    let term_item = term_item(text.clone());
     let table_row = table_row_parser(text.clone(), enum_item.clone(), list_item.clone());
 
     let heading = heading_parser(text.clone()).map(Node::Heading);
@@ -45,7 +44,7 @@ pub fn node_parser<'src>() -> impl Parser<'src, &'src str, Node<'src>, Extra<'sr
         table_row.map(Node::TableRow),
         list_item.map(Node::ListItem),
         enum_item.map(Node::EnumItem),
-        bq_item.map(Node::BlockQuoteItem),
+        term_item.map(Node::TermItem),
         newline().to(Node::LineBreak),
         just("    ").to(Node::Indentation),
         text.map(Node::Text),
@@ -151,35 +150,23 @@ where
         })
 }
 
-pub fn block_quote_item_parser<'src, T, E, L>(
-    text: T,
-    enum_item: E,
-    list_item: L,
-) -> impl Parser<'src, &'src str, BlockQuoteItem<'src>, Extra<'src>>
+const TERM_SPECIAL: &[char] = concat_slices!([char]: SPECIAL, &[':']);
+
+pub fn term_item<'src, T>(text: T) -> impl Parser<'src, &'src str, TermItem<'src>, Extra<'src>>
 where
     T: Parser<'src, &'src str, Text<'src>, Extra<'src>>,
-    E: Parser<'src, &'src str, EnumItem<'src>, Extra<'src>>,
-    L: Parser<'src, &'src str, ListItem<'src>, Extra<'src>>,
 {
     let label = label_parser();
+    let term = text_parser(TERM_SPECIAL);
 
-    let item = choice((
-        list_item.map(|item| Block::List(item.into())),
-        enum_item.map(|item| Block::Enum(item.into())),
-        text.map(|text| Block::Paragraph(text.into())),
-    ));
-
-    just(">")
-        .repeated()
-        .at_least(1)
-        .at_most(6)
-        .to_slice()
-        .then_ignore(just(" "))
-        .then(item)
+    just("> ")
+        .ignore_then(term)
+        .then_ignore(just(": "))
+        .then(text)
         .then(label.or_not())
-        .map_with(|((level, item), label), e| BlockQuoteItem {
-            level: level.len() as u8,
-            item,
+        .map_with(|((term, content), label), e| TermItem {
+            term,
+            content,
             label,
             span: e.span(),
         })
@@ -248,8 +235,10 @@ pub fn label_parser<'src>() -> impl Parser<'src, &'src str, &'src str, Extra<'sr
     ascii::ident().to_slice().delimited_by(just("{"), just("}"))
 }
 
-pub fn text_parser<'src>() -> impl Parser<'src, &'src str, Text<'src>, Extra<'src>> {
-    inline_parser()
+pub fn text_parser<'src>(
+    special: &'src [char],
+) -> impl Parser<'src, &'src str, Text<'src>, Extra<'src>> {
+    inline_parser(special)
         .repeated()
         .at_least(1)
         .collect()
@@ -259,7 +248,9 @@ pub fn text_parser<'src>() -> impl Parser<'src, &'src str, Text<'src>, Extra<'sr
         })
 }
 
-pub fn inline_parser<'src>() -> impl Parser<'src, &'src str, Inline<'src>, Extra<'src>> + Clone {
+pub fn inline_parser<'src>(
+    special: &'src [char],
+) -> impl Parser<'src, &'src str, Inline<'src>, Extra<'src>> + Clone {
     recursive(|inline| {
         choice((
             code_parser(inline.clone()).map(Inline::Code),
@@ -275,7 +266,7 @@ pub fn inline_parser<'src>() -> impl Parser<'src, &'src str, Inline<'src>, Extra
             comment_parser().map(Inline::Comment),
             escape_parser().map(Inline::Escape),
             spacing_parser().map(Inline::Spacing),
-            word_parser().map(Inline::Word),
+            word_parser(special).map(Inline::Word),
         ))
         .boxed()
     })
@@ -464,8 +455,10 @@ pub fn comment_parser<'src>() -> impl Parser<'src, &'src str, Comment<'src>, Ext
         })
 }
 
-pub fn word_parser<'src>() -> impl Parser<'src, &'src str, Word<'src>, Extra<'src>> {
-    none_of(SPECIAL)
+pub fn word_parser<'src>(
+    special: &'src [char],
+) -> impl Parser<'src, &'src str, Word<'src>, Extra<'src>> {
+    none_of(special)
         .repeated()
         .at_least(1)
         .to_slice()

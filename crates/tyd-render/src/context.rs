@@ -1,9 +1,6 @@
 use std::collections::BTreeMap;
 
-use tyd_syntax::{
-    lexer::code::{Arg, Call, Expr},
-    lexer::node::Inline,
-};
+use tyd_syntax::ast::{Arg, Call, Expr, Inline};
 
 use crate::{error::ContextError, Value};
 

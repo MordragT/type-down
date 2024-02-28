@@ -3,16 +3,8 @@ use chumsky::{
     text::{ascii, digits, newline},
 };
 
-use super::node::Inline;
-use crate::Span;
-
-type Extra<'src> = extra::Err<Rich<'src, char, Span>>;
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Code<'src> {
-    pub expr: Expr<'src>,
-    pub span: Span,
-}
+use super::Extra;
+use crate::ast::*;
 
 pub fn code_parser<'src, I>(inline: I) -> impl Parser<'src, &'src str, Code<'src>, Extra<'src>>
 where
@@ -24,14 +16,6 @@ where
             expr,
             span: e.span(),
         })
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Expr<'src> {
-    Ident(&'src str),
-    Call(Call<'src>),
-    Literal(Literal<'src>),
-    Block(Vec<Expr<'src>>),
 }
 
 pub fn expr_parser<'src, I>(inline: I) -> impl Parser<'src, &'src str, Expr<'src>, Extra<'src>>
@@ -71,13 +55,6 @@ where
     })
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Call<'src> {
-    pub ident: &'src str,
-    pub args: Vec<Arg<'src>>,
-    pub content: Option<Vec<Inline<'src>>>,
-}
-
 pub fn args_parser<'src, E>(expr: E) -> impl Parser<'src, &'src str, Vec<Arg<'src>>, Extra<'src>>
 where
     E: Parser<'src, &'src str, Expr<'src>, Extra<'src>>,
@@ -93,20 +70,6 @@ where
         .collect()
         .padded()
         .delimited_by(just("("), just(")"))
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Arg<'src> {
-    pub name: Option<&'src str>,
-    pub value: Expr<'src>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Literal<'src> {
-    Boolean(bool),
-    Int(i64),
-    // Float(f64),
-    Str(&'src str),
 }
 
 pub fn literal_parser<'src>() -> impl Parser<'src, &'src str, Literal<'src>, Extra<'src>> {

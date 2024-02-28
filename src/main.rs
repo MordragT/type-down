@@ -10,7 +10,7 @@ use tyd_pandoc::{
     format::{DocxCompiler, PandocCompiler, PdfCompiler},
 };
 use tyd_render::{Context, Output, Render, Value};
-use tyd_syntax::{parser::error::SyntaxError, prelude::Ast};
+use tyd_syntax::prelude::*;
 
 #[derive(Debug, clap::Parser)]
 #[command(author, version, about, long_about = None)]
@@ -50,7 +50,7 @@ fn main() -> Result<()> {
             let name = path.file_name().unwrap().to_string_lossy();
             let src = std::fs::read_to_string(&path).map_err(SyntaxError::Io)?;
 
-            let ast = Ast::parse(&src, name)?;
+            let ast = parse(&src, name)?;
 
             println!("{ast:?}");
         }
@@ -68,7 +68,7 @@ fn main() -> Result<()> {
             let name = input.file_name().unwrap().to_string_lossy();
             let src = std::fs::read_to_string(&input).map_err(SyntaxError::Io)?;
 
-            let ast = Ast::parse(&src, name)?;
+            let ast = parse(&src, name)?;
 
             let ctx = Context::new()
                 .symbol("title", "Default title")
