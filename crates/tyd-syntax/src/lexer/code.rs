@@ -3,7 +3,8 @@ use chumsky::{
     text::{ascii, digits, newline},
 };
 
-use crate::{inline::Inline, Span};
+use super::node::Inline;
+use crate::Span;
 
 type Extra<'src> = extra::Err<Rich<'src, char, Span>>;
 

@@ -6,7 +6,7 @@ use pandoc::{
 use std::io;
 use thiserror::Error;
 use tyd_render::{Output, Render};
-use tyd_syntax::{ast::Ast, visitor::Visitor};
+use tyd_syntax::parser::{ast::Ast, visitor::Visitor};
 
 use crate::{builder::PandocBuilder, Content, Context};
 

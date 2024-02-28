@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, fmt};
 
-use tyd_syntax::code::Literal;
+use tyd_syntax::lexer::code::Literal;
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum Value<C> {

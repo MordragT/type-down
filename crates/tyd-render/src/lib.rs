@@ -1,6 +1,6 @@
 use miette::Diagnostic;
 use std::path::PathBuf;
-use tyd_syntax::ast::Ast;
+use tyd_syntax::parser::ast::Ast;
 
 pub use context::*;
 pub use value::*;
@@ -21,3 +21,6 @@ pub enum Output {
     File(PathBuf),
     Stdout,
 }
+
+// TODO create Event based ast visitor with evaluation code already inside in here
+// maybe merge tyd pandoc and tyd render ? And then expose funcitonality to further

@@ -112,11 +112,14 @@ impl Visitor for PandocBuilder {
             bullet_list.push(vec![plain]);
         }
 
+        let tail = bullet_list.last_mut().unwrap();
+
         if let Some(nested) = &list.body {
             self.visit_nested(nested)?;
 
             let block = self.pop_block();
-            bullet_list.push(vec![block]);
+            // bullet_list.push(vec![block]);
+            tail.push(block);
         }
 
         let block = PandocBlock::BulletList(bullet_list);

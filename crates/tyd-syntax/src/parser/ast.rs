@@ -4,10 +4,9 @@ use chumsky::prelude::*;
 use chumsky::{error::Rich, extra, input::SpannedInput, select};
 use miette::NamedSource;
 
-use crate::inline::Inline;
+use super::error::{ParseErrors, SyntaxError};
 use crate::{
-    error::{ParseError, TydError},
-    line::{self, BlockQuoteElement, Div, EnumItem, Heading, ListItem, Node, Raw, TableRow, Text},
+    lexer::{lex_spanned, node::*},
     Span,
 };
 
@@ -20,15 +19,15 @@ pub struct Ast<'src> {
 }
 
 impl<'src> Ast<'src> {
-    pub fn parse<'tokens>(src: &'src str, name: impl AsRef<str>) -> Result<Ast<'src>, TydError> {
-        let nodes = line::parse_spanned(src, name.as_ref())?;
+    pub fn parse<'tokens>(src: &'src str, name: impl AsRef<str>) -> Result<Ast<'src>, SyntaxError> {
+        let nodes = lex_spanned(src, name.as_ref())?;
         let input = nodes.as_slice().spanned((src.len()..src.len()).into());
 
         let parser = ast_parser();
         let ast = parser
             .parse(input)
             .into_result()
-            .map_err(|errs| ParseError {
+            .map_err(|errs| ParseErrors {
                 src: NamedSource::new(name, src.to_owned()),
                 related: errs.into_iter().map(Into::into).collect(),
             })?;

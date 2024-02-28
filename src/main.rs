@@ -10,7 +10,7 @@ use tyd_pandoc::{
     format::{DocxCompiler, PandocCompiler, PdfCompiler},
 };
 use tyd_render::{Context, Output, Render, Value};
-use tyd_syntax::{error::TydError, prelude::Ast};
+use tyd_syntax::{parser::error::SyntaxError, prelude::Ast};
 
 #[derive(Debug, clap::Parser)]
 #[command(author, version, about, long_about = None)]
@@ -42,14 +42,13 @@ pub enum Format {
     Docx,
     Json,
 }
-
 fn main() -> Result<()> {
     let args: Args = clap::Parser::parse();
 
     match args.command {
         Commands::Check { path } => {
             let name = path.file_name().unwrap().to_string_lossy();
-            let src = std::fs::read_to_string(&path).map_err(TydError::Io)?;
+            let src = std::fs::read_to_string(&path).map_err(SyntaxError::Io)?;
 
             let ast = Ast::parse(&src, name)?;
 
@@ -67,7 +66,7 @@ fn main() -> Result<()> {
             format,
         } => {
             let name = input.file_name().unwrap().to_string_lossy();
-            let src = std::fs::read_to_string(&input).map_err(TydError::Io)?;
+            let src = std::fs::read_to_string(&input).map_err(SyntaxError::Io)?;
 
             let ast = Ast::parse(&src, name)?;
 

@@ -1,9 +1,7 @@
 use miette::Diagnostic;
 
-use crate::ast::*;
-use crate::code::*;
-use crate::inline::*;
-use crate::line::*;
+use crate::lexer::{code::*, node::*};
+use crate::parser::ast::*;
 
 pub trait Visitor {
     type Error: Diagnostic;

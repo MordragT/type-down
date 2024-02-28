@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
 use tyd_syntax::{
-    code::{Arg, Call, Expr},
-    inline::Inline,
+    lexer::code::{Arg, Call, Expr},
+    lexer::node::Inline,
 };
 
 use crate::{error::ContextError, Value};
