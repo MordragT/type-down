@@ -10,7 +10,7 @@ use super::{code::code_parser, node::*, Extra};
 use crate::{ast::*, Span};
 
 pub const SPECIAL: &[char] = &[
-    ' ', '\\', '\n', '"', '{', '}', '[', ']', '/', '*', '~', '_', '^', '@', '#', '`', '%', '|',
+    ' ', '\\', '\n', '"', '{', '}', '[', ']', '/', '*', '~', '_', '^', '@', '#', '`', '$', '%', '|',
 ];
 
 pub fn nodes_parser<'src>() -> impl Parser<'src, &'src str, Vec<Node<'src>>, Extra<'src>> {
@@ -248,6 +248,7 @@ pub fn inline_parser<'src>(
             link_parser(inline.clone()).map(Inline::Link),
             cite_parser().map(Inline::Cite),
             raw_inline_parser().map(Inline::RawInline),
+            math_inline_parser().map(Inline::MathInline),
             comment_parser().map(Inline::Comment),
             escape_parser().map(Inline::Escape),
             spacing_parser().map(Inline::Spacing),
@@ -375,7 +376,8 @@ where
         .and_is(newline().not())
         .repeated()
         .at_least(1)
-        .to_slice();
+        .to_slice()
+        .delimited_by(just("<"), just(">"));
 
     let content = inline
         .repeated()
@@ -383,7 +385,6 @@ where
         .delimited_by(just("["), just("]"));
 
     href.then(content.or_not())
-        .delimited_by(just("<"), just(">"))
         .map_with(|(href, content), e| Link {
             href,
             content,
@@ -421,6 +422,23 @@ pub fn raw_inline_parser<'src>() -> impl Parser<'src, &'src str, RawInline<'src>
     content
         .delimited_by(just(delim), just(delim))
         .map_with(|content, e| RawInline {
+            content,
+            span: e.span(),
+        })
+}
+
+pub fn math_inline_parser<'src>() -> impl Parser<'src, &'src str, MathInline<'src>, Extra<'src>> {
+    let delim = "$";
+
+    let content = none_of(delim)
+        .and_is(newline().not())
+        .repeated()
+        .at_least(1)
+        .to_slice();
+
+    content
+        .delimited_by(just(delim), just(delim))
+        .map_with(|content, e| MathInline {
             content,
             span: e.span(),
         })

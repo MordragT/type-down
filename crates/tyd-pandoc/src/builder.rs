@@ -1,7 +1,7 @@
 use miette::Result;
 use pandoc_ast::{
     Alignment, Block as PandocBlock, Cell, ColWidth, Inline, ListNumberDelim, ListNumberStyle,
-    MetaValue, Pandoc, QuoteType, Row,
+    MathType, MetaValue, Pandoc, QuoteType, Row,
 };
 use std::collections::BTreeMap;
 
@@ -291,22 +291,36 @@ impl Visitor for PandocBuilder {
         walk_link(self, link)?;
 
         let href = link.href.to_owned();
-        let inline = Inline::Link(
-            AttrBuilder::empty(),
-            self.end(pos).collect(),
-            (href.clone(), href),
-        );
+        let mut content = self.end(pos).collect::<Vec<_>>();
+
+        if content.is_empty() {
+            content.push(Inline::Str(href.clone()));
+        }
+
+        let inline = Inline::Link(AttrBuilder::empty(), content, (href, String::new()));
         self.stack.push(inline);
 
         Ok(())
     }
 
     fn visit_cite(&mut self, cite: &Cite) -> Result<(), Self::Error> {
+        let href = format!("#{}", cite.ident);
+        let content = vec![Inline::Str(cite.ident.to_owned())];
+
+        let inline = Inline::Link(AttrBuilder::empty(), content, (href, String::new()));
+        self.stack.push(inline);
         Ok(())
     }
 
     fn visit_raw_inline(&mut self, raw_inline: &RawInline) -> Result<(), Self::Error> {
         let inline = Inline::Code(AttrBuilder::empty(), raw_inline.content.to_owned());
+        self.stack.push(inline);
+
+        Ok(())
+    }
+
+    fn visit_math_inline(&mut self, math_inline: &MathInline) -> Result<(), Self::Error> {
+        let inline = Inline::Math(MathType::InlineMath, math_inline.content.to_owned());
         self.stack.push(inline);
 
         Ok(())

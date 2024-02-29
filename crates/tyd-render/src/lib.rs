@@ -5,6 +5,7 @@ use tyd_syntax::ast::Ast;
 pub use context::*;
 pub use value::*;
 
+pub mod builtin;
 mod context;
 pub mod error;
 mod value;

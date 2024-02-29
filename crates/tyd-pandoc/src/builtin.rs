@@ -7,6 +7,7 @@ pub type Args = tyd_render::Args<Content>;
 pub type Value = tyd_render::Value<Content>;
 
 pub fn image(mut args: Args) -> Result<Value, ContextError> {
+    // width, height key=value pairs in attrs
     use ContextError::*;
 
     let src = args
@@ -45,3 +46,6 @@ pub fn image(mut args: Args) -> Result<Value, ContextError> {
 
     Ok(Value::Content(vec![image]))
 }
+
+// raw/code .numberLines
+// highlight text: .mark

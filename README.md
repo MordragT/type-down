@@ -34,4 +34,3 @@ by default pandoc is required.
 ## Reference
 
 1. [Typst](https://typst.app/)
-

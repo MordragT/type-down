@@ -109,6 +109,10 @@ pub trait Visitor {
         Ok(())
     }
 
+    fn visit_math_inline(&mut self, _math_inline: &MathInline) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
     fn visit_comment(&mut self, _comment: &Comment) -> Result<(), Self::Error> {
         Ok(())
     }
@@ -299,6 +303,7 @@ pub fn walk_inline<V: Visitor + ?Sized>(visitor: &mut V, inline: &Inline) -> Res
         Inline::Link(link) => visitor.visit_link(link),
         Inline::Cite(cite) => visitor.visit_cite(cite),
         Inline::RawInline(raw_inline) => visitor.visit_raw_inline(raw_inline),
+        Inline::MathInline(math_inline) => visitor.visit_math_inline(math_inline),
         Inline::Comment(comment) => visitor.visit_comment(comment),
         Inline::Escape(escape) => visitor.visit_escape(escape),
         Inline::Word(word) => visitor.visit_word(word),

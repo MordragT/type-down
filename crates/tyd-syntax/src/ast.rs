@@ -162,6 +162,7 @@ pub enum Inline<'src> {
     Link(Link<'src>),
     Cite(Cite<'src>),
     RawInline(RawInline<'src>),
+    MathInline(MathInline<'src>),
     Comment(Comment<'src>),
     Escape(Escape<'src>),
     Word(Word<'src>),
@@ -228,6 +229,12 @@ pub struct Escape<'src> {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RawInline<'src> {
+    pub content: &'src str,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MathInline<'src> {
     pub content: &'src str,
     pub span: Span,
 }

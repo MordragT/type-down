@@ -1,30 +1,3 @@
-= Heading
+= Heading {heading}
 
-    indent
-    another
-
-
-dedent
-
-- a asidasoidmaosdimaosidmasidm
-    aosimdasodimasodmasodimasdoiam
-    asodmaosdimasoidmasiodm
-    aosmdaosdmasoidmasimd
-- c
-- a
-    - asdasd
-    - blah
-        + first
-        + second
-    - more
-    
-
-askdmaskmdasdm
-
-aslkmdaslkmd
-
-    asdasd
-
-asdasdasd
-
-    asdasdasd
+$ \forall x \in X, \quad \exists y \leq \epsilon $
