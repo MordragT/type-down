@@ -41,10 +41,6 @@ pub trait Visitor {
         walk_enum_item(self, item)
     }
 
-    fn visit_nested(&mut self, nested: &Nested) -> Result<(), Self::Error> {
-        walk_nested(self, nested)
-    }
-
     fn visit_table(&mut self, table: &Table) -> Result<(), Self::Error> {
         walk_table(self, table)
     }
@@ -54,7 +50,7 @@ pub trait Visitor {
     }
 
     fn visit_term(&mut self, term: &Term) -> Result<(), Self::Error> {
-        walk_block_quote(self, term)
+        walk_term(self, term)
     }
 
     fn visit_term_item(&mut self, item: &TermItem) -> Result<(), Self::Error> {
@@ -63,6 +59,10 @@ pub trait Visitor {
 
     fn visit_paragraph(&mut self, paragraph: &Paragraph) -> Result<(), Self::Error> {
         walk_paragraph(self, paragraph)
+    }
+
+    fn visit_plain(&mut self, plain: &Plain) -> Result<(), Self::Error> {
+        walk_plain(self, plain)
     }
 
     fn visit_text(&mut self, text: &Text) -> Result<(), Self::Error> {
@@ -171,11 +171,16 @@ pub fn walk_block<V: Visitor + ?Sized>(visitor: &mut V, block: &Block) -> Result
         Block::Term(block_quote) => visitor.visit_term(block_quote),
         Block::Heading(heading) => visitor.visit_heading(heading),
         Block::Paragraph(paragraph) => visitor.visit_paragraph(paragraph),
+        Block::Plain(plain) => visitor.visit_plain(plain),
     }
 }
 
 pub fn walk_div<V: Visitor + ?Sized>(visitor: &mut V, div: &Div) -> Result<(), V::Error> {
-    visitor.visit_text(&div.content)
+    for block in &div.content {
+        visitor.visit_block(block)?;
+    }
+
+    Ok(())
 }
 
 pub fn walk_heading<V: Visitor + ?Sized>(
@@ -186,12 +191,8 @@ pub fn walk_heading<V: Visitor + ?Sized>(
 }
 
 pub fn walk_list<V: Visitor + ?Sized>(visitor: &mut V, list: &List) -> Result<(), V::Error> {
-    for item in &list.head {
+    for item in &list.items {
         visitor.visit_list_item(item)?;
-    }
-
-    if let Some(nested) = &list.body {
-        visitor.visit_nested(nested)?;
     }
 
     Ok(())
@@ -201,16 +202,15 @@ pub fn walk_list_item<V: Visitor + ?Sized>(
     visitor: &mut V,
     item: &ListItem,
 ) -> Result<(), V::Error> {
-    visitor.visit_text(&item.content)
+    for block in &item.content {
+        visitor.visit_block(block)?;
+    }
+    Ok(())
 }
 
 pub fn walk_enum<V: Visitor + ?Sized>(visitor: &mut V, enumeration: &Enum) -> Result<(), V::Error> {
-    for item in &enumeration.head {
+    for item in &enumeration.items {
         visitor.visit_enum_item(item)?;
-    }
-
-    if let Some(nested) = &enumeration.body {
-        visitor.visit_nested(nested)?;
     }
 
     Ok(())
@@ -220,14 +220,10 @@ pub fn walk_enum_item<V: Visitor + ?Sized>(
     visitor: &mut V,
     item: &EnumItem,
 ) -> Result<(), V::Error> {
-    visitor.visit_text(&item.content)
-}
-
-pub fn walk_nested<V: Visitor + ?Sized>(visitor: &mut V, nested: &Nested) -> Result<(), V::Error> {
-    match nested {
-        Nested::Enum(enumeration) => visitor.visit_enum(enumeration),
-        Nested::List(list) => visitor.visit_list(list),
+    for block in &item.content {
+        visitor.visit_block(block)?;
     }
+    Ok(())
 }
 
 pub fn walk_table<V: Visitor + ?Sized>(visitor: &mut V, table: &Table) -> Result<(), V::Error> {
@@ -249,10 +245,7 @@ pub fn walk_table_row<V: Visitor + ?Sized>(
     Ok(())
 }
 
-pub fn walk_block_quote<V: Visitor + ?Sized>(
-    visitor: &mut V,
-    block_quote: &Term,
-) -> Result<(), V::Error> {
+pub fn walk_term<V: Visitor + ?Sized>(visitor: &mut V, block_quote: &Term) -> Result<(), V::Error> {
     for item in &block_quote.content {
         visitor.visit_term_item(item)?;
     }
@@ -273,6 +266,14 @@ pub fn walk_paragraph<V: Visitor + ?Sized>(
     paragraph: &Paragraph,
 ) -> Result<(), V::Error> {
     for inline in &paragraph.content {
+        visitor.visit_inline(inline)?;
+    }
+
+    Ok(())
+}
+
+pub fn walk_plain<V: Visitor + ?Sized>(visitor: &mut V, plain: &Plain) -> Result<(), V::Error> {
+    for inline in &plain.content {
         visitor.visit_inline(inline)?;
     }
 
@@ -369,8 +370,8 @@ pub fn walk_supscript<V: Visitor + ?Sized>(
 
 pub fn walk_link<V: Visitor + ?Sized>(visitor: &mut V, link: &Link) -> Result<(), V::Error> {
     if let Some(content) = &link.content {
-        for block in content {
-            visitor.visit_block(block)?;
+        for inline in content {
+            visitor.visit_inline(inline)?;
         }
     }
     Ok(())

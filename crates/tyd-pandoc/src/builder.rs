@@ -78,12 +78,19 @@ impl Visitor for PandocBuilder {
     }
 
     fn visit_div(&mut self, div: &Div) -> Result<(), Self::Error> {
+        let mut div_block = Vec::new();
+
+        for block in &div.content {
+            self.visit_block(block)?;
+            div_block.push(self.pop_block());
+        }
+
         let attr = AttrBuilder::new()
             .ident_opt(div.label)
             .class_opt(div.class)
             .build();
 
-        let block = PandocBlock::Div(attr, vec![PandocBlock::Plain(self.take_stack())]);
+        let block = PandocBlock::Div(attr, div_block);
         self.add_block(block);
 
         Ok(())
@@ -103,23 +110,14 @@ impl Visitor for PandocBuilder {
     fn visit_list(&mut self, list: &List) -> Result<(), Self::Error> {
         let mut bullet_list = Vec::new();
 
-        for item in &list.head {
-            let start = self.start();
-
-            self.visit_list_item(item)?;
-
-            let plain = PandocBlock::Plain(self.end(start).collect());
-            bullet_list.push(vec![plain]);
-        }
-
-        let tail = bullet_list.last_mut().unwrap();
-
-        if let Some(nested) = &list.body {
-            self.visit_nested(nested)?;
-
-            let block = self.pop_block();
-            // bullet_list.push(vec![block]);
-            tail.push(block);
+        for item in &list.items {
+            let mut bullet_point = Vec::new();
+            for block in &item.content {
+                self.visit_block(block)?;
+                let block = self.pop_block();
+                bullet_point.push(block);
+            }
+            bullet_list.push(bullet_point);
         }
 
         let block = PandocBlock::BulletList(bullet_list);
@@ -131,22 +129,15 @@ impl Visitor for PandocBuilder {
     fn visit_enum(&mut self, enumeration: &Enum) -> Result<(), Self::Error> {
         let mut ordered_list = Vec::new();
 
-        for item in &enumeration.head {
-            let start = self.start();
-
-            self.visit_enum_item(item)?;
-
-            let plain = PandocBlock::Plain(self.end(start).collect());
-            ordered_list.push(vec![plain]);
+        for item in &enumeration.items {
+            let mut ordered_point = Vec::new();
+            for block in &item.content {
+                self.visit_block(block)?;
+                let block = self.pop_block();
+                ordered_point.push(block);
+            }
+            ordered_list.push(ordered_point);
         }
-
-        if let Some(nested) = &enumeration.body {
-            self.visit_nested(nested)?;
-
-            let block = self.pop_block();
-            ordered_list.push(vec![block]);
-        }
-
         let attrs = (1, ListNumberStyle::Decimal, ListNumberDelim::Period);
         let block = PandocBlock::OrderedList(attrs, ordered_list);
         self.add_block(block);
@@ -217,23 +208,14 @@ impl Visitor for PandocBuilder {
         Ok(())
     }
 
-    // fn visit_image(&mut self, image: &Image) -> Result<(), Self::Error> {
-    //     let inlines = if let Some(alt) = &image.alt {
-    //         vec![Inline::Str(alt.to_owned())]
-    //     } else {
-    //         Vec::new()
-    //     };
+    fn visit_plain(&mut self, plain: &Plain) -> std::prelude::v1::Result<(), Self::Error> {
+        walk_plain(self, plain)?;
 
-    //     let image = Inline::Image(
-    //         PandocAttrBuilder::empty(),
-    //         inlines,
-    //         (image.src.to_owned(), String::new()),
-    //     );
-    //     let block = PandocBlock::Plain(vec![image]);
-    //     self.add_block(block);
+        let block = PandocBlock::Plain(self.take_stack());
+        self.add_block(block);
 
-    //     Ok(())
-    // }
+        Ok(())
+    }
 
     fn visit_quote(&mut self, quote: &Quote) -> Result<(), Self::Error> {
         let pos = self.start();

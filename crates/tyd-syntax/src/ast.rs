@@ -9,104 +9,18 @@ pub struct Ast<'src> {
 pub enum Block<'src> {
     Div(Div<'src>),
     Raw(Raw<'src>),
+    Heading(Heading<'src>),
     Table(Table<'src>),
     List(List<'src>),
     Enum(Enum<'src>),
     Term(Term<'src>),
-    Heading(Heading<'src>),
     Paragraph(Paragraph<'src>),
-    // Plain(Plain<'src>),
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Table<'src> {
-    pub col_count: usize,
-    pub rows: Vec<TableRow<'src>>,
-    pub label: Option<&'src str>,
-    pub span: Span,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct List<'src> {
-    pub head: Vec<ListItem<'src>>,
-    pub body: Option<Nested<'src>>,
-    pub label: Option<&'src str>,
-    pub span: Span,
-}
-
-impl<'src> From<ListItem<'src>> for List<'src> {
-    fn from(value: ListItem<'src>) -> Self {
-        let head = vec![value.clone()];
-        let ListItem {
-            content: _,
-            label,
-            span,
-        } = value;
-
-        Self {
-            head,
-            body: None,
-            label,
-            span,
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Enum<'src> {
-    pub head: Vec<EnumItem<'src>>,
-    pub body: Option<Nested<'src>>,
-    pub label: Option<&'src str>,
-    pub span: Span,
-}
-impl<'src> From<EnumItem<'src>> for Enum<'src> {
-    fn from(value: EnumItem<'src>) -> Self {
-        let head = vec![value.clone()];
-        let EnumItem {
-            content: _,
-            label,
-            span,
-        } = value;
-
-        Self {
-            head,
-            body: None,
-            label,
-            span,
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Nested<'src> {
-    List(Box<List<'src>>),
-    Enum(Box<Enum<'src>>),
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Term<'src> {
-    pub content: Vec<TermItem<'src>>,
-    pub label: Option<&'src str>,
-    pub span: Span,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Paragraph<'src> {
-    pub content: Vec<Inline<'src>>,
-    pub span: Span,
-}
-
-impl<'src> From<Text<'src>> for Paragraph<'src> {
-    fn from(value: Text<'src>) -> Self {
-        let Text { content, span } = value;
-
-        Self { content, span }
-    }
+    Plain(Plain<'src>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Div<'src> {
-    pub content: Text<'src>,
+    pub content: Vec<Block<'src>>,
     pub class: Option<&'src str>,
     pub label: Option<&'src str>,
     pub span: Span,
@@ -122,15 +36,82 @@ pub struct Raw<'src> {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Heading<'src> {
-    pub level: u8,
     pub content: Text<'src>,
     pub label: Option<&'src str>,
     pub span: Span,
+    pub level: u8,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Table<'src> {
+    pub rows: Vec<TableRow<'src>>,
+    pub label: Option<&'src str>,
+    pub span: Span,
+    pub col_count: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TableRow<'src> {
     pub cells: Vec<Block<'src>>,
+    pub label: Option<&'src str>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct List<'src> {
+    pub items: Vec<ListItem<'src>>,
+    pub label: Option<&'src str>,
+    pub span: Span,
+}
+
+impl<'src> From<ListItem<'src>> for List<'src> {
+    fn from(value: ListItem<'src>) -> Self {
+        let items = vec![value.clone()];
+        let ListItem {
+            content: _,
+            label,
+            span,
+        } = value;
+
+        Self { items, label, span }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ListItem<'src> {
+    pub content: Vec<Block<'src>>,
+    pub label: Option<&'src str>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Enum<'src> {
+    pub items: Vec<EnumItem<'src>>,
+    pub label: Option<&'src str>,
+    pub span: Span,
+}
+impl<'src> From<EnumItem<'src>> for Enum<'src> {
+    fn from(value: EnumItem<'src>) -> Self {
+        let items = vec![value.clone()];
+        let EnumItem {
+            content: _,
+            label,
+            span,
+        } = value;
+
+        Self { items, label, span }
+    }
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EnumItem<'src> {
+    pub content: Vec<Block<'src>>,
+    pub label: Option<&'src str>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Term<'src> {
+    pub content: Vec<TermItem<'src>>,
     pub label: Option<&'src str>,
     pub span: Span,
 }
@@ -144,17 +125,24 @@ pub struct TermItem<'src> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ListItem<'src> {
-    pub content: Text<'src>,
-    pub label: Option<&'src str>,
+pub struct Paragraph<'src> {
+    pub content: Vec<Inline<'src>>,
     pub span: Span,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EnumItem<'src> {
-    pub content: Text<'src>,
-    pub label: Option<&'src str>,
+
+pub struct Plain<'src> {
+    pub content: Vec<Inline<'src>>,
     pub span: Span,
+}
+
+impl<'src> From<Text<'src>> for Plain<'src> {
+    fn from(value: Text<'src>) -> Self {
+        let Text { content, span } = value;
+
+        Self { content, span }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -222,7 +210,7 @@ pub struct Supscript<'src> {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Link<'src> {
     pub href: &'src str,
-    pub content: Option<Vec<Block<'src>>>,
+    pub content: Option<Vec<Inline<'src>>>,
     pub span: Span,
 }
 

@@ -1,6 +1,30 @@
-| *important* | table |
-| - in here   | lies  |
-| + magic     | - mag |
+= Heading
 
-> Term: Some *important* definition
-> Another: very /important/ stuff 
+    indent
+    another
+
+
+dedent
+
+- a asidasoidmaosdimaosidmasidm
+    aosimdasodimasodmasodimasdoiam
+    asodmaosdimasoidmasiodm
+    aosmdaosdmasoidmasimd
+- c
+- a
+    - asdasd
+    - blah
+        + first
+        + second
+    - more
+    
+
+askdmaskmdasdm
+
+aslkmdaslkmd
+
+    asdasd
+
+asdasdasd
+
+    asdasdasd

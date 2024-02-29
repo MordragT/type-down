@@ -1,10 +1,12 @@
+use std::cmp::Ordering;
+
 use chumsky::{
     prelude::*,
     text::{ascii, newline},
 };
 use constcat::concat_slices;
 
-use super::{code::code_parser, Extra, Node};
+use super::{code::code_parser, node::*, Extra};
 use crate::{ast::*, Span};
 
 pub const SPECIAL: &[char] = &[
@@ -19,12 +21,9 @@ pub fn nodes_parser<'src>() -> impl Parser<'src, &'src str, Vec<Node<'src>>, Ext
 
 pub fn nodes_spanned_parser<'src>(
 ) -> impl Parser<'src, &'src str, Vec<(Node<'src>, Span)>, Extra<'src>> {
-    let node = node_parser();
+    let node = node_parser().map_with(|node, e| (node, e.span()));
 
-    node.map_with(|node, e| (node, e.span()))
-        .repeated()
-        .at_least(1)
-        .collect()
+    node.repeated().at_least(1).collect().then_ignore(end())
 }
 
 pub fn node_parser<'src>() -> impl Parser<'src, &'src str, Node<'src>, Extra<'src>> {
@@ -33,74 +32,60 @@ pub fn node_parser<'src>() -> impl Parser<'src, &'src str, Node<'src>, Extra<'sr
     let enum_item = enum_item_parser(text.clone()).boxed();
     let term_item = term_item(text.clone());
     let table_row = table_row_parser(text.clone(), enum_item.clone(), list_item.clone());
-
     let heading = heading_parser(text.clone()).map(Node::Heading);
     // let label = label_parser().map(Node::Label);
 
     choice((
         heading,
-        div_parser(text.clone()).map(Node::Div),
         raw_parser().map(Node::Raw),
         table_row.map(Node::TableRow),
         list_item.map(Node::ListItem),
         enum_item.map(Node::EnumItem),
         term_item.map(Node::TermItem),
-        newline().to(Node::LineBreak),
-        just("    ").to(Node::Indentation),
+        just("[").to(Node::ContentStart),
+        just("]").to(Node::ContentEnd),
+        // hard_break_parser(),
+        line_break_parser(),
         text.map(Node::Text),
     ))
 }
 
-// div start
+// pub fn hard_break_parser<'src>() -> impl Parser<'src, &'src str, Node<'src>, Extra<'src>> {
+//     newline().then(newline()).to(Node::HardBreak)
+// }
 
-pub fn div_parser<'src, T>(text: T) -> impl Parser<'src, &'src str, Div<'src>, Extra<'src>>
-where
-    T: Parser<'src, &'src str, Text<'src>, Extra<'src>>,
-{
-    let class = ascii::ident().to_slice();
-    let label = label_parser();
-    let body = just(" ")
-        .ignore_then(class)
-        .or_not()
-        .then(just(" ").ignore_then(label).or_not())
-        .then_ignore(newline())
-        .then(text);
-
-    body.delimited_by(just("["), just("]"))
-        .map_with(|((class, label), content), e| Div {
-            class,
-            content,
-            label,
-            span: e.span(),
+pub fn line_break_parser<'src>() -> impl Parser<'src, &'src str, Node<'src>, Extra<'src>> {
+    newline()
+        .to(Node::LineBreak)
+        .then(indentation_parser())
+        .map(|(lb, indent)| {
+            if let Some(indent) = indent {
+                indent
+            } else {
+                lb
+            }
         })
 }
 
-// pub fn div_parser<'src, N>(node: N) -> impl Parser<'src, &'src str, Div<'src>, Extra<'src>>
-// where
-//     N: Parser<'src, &'src str, Node<'src>, Extra<'src>>,
-// {
-//     let content = node.repeated().at_least(1).collect();
-//     let class = ascii::ident().to_slice();
-//     let label = label_parser();
-//     let body = just(" ")
-//         .ignore_then(class)
-//         .or_not()
-//         .then(just(" ").ignore_then(label).or_not())
-//         .then_ignore(newline())
-//         .then(content);
+pub fn indentation_parser<'src>() -> impl Parser<'src, &'src str, Option<Node<'src>>, Extra<'src>> {
+    let indent = just("    ").or(just("\t"));
 
-//     body.delimited_by(just("["), just("]"))
-//         .map_with(|((class, label), content), e| Div {
-//             class,
-//             content,
-//             label,
-//             span: e.span(),
-//         })
-// }
+    indent.repeated().count().map_with(|c, e| {
+        let cmp = c.cmp(e.state());
+        *e.state() = c;
+
+        match cmp {
+            Ordering::Equal => None,
+            Ordering::Greater => Some(Node::Indent),
+            Ordering::Less => Some(Node::Dedent),
+        }
+    })
+}
 
 pub fn raw_parser<'src>() -> impl Parser<'src, &'src str, Raw<'src>, Extra<'src>> {
     let delim = "```";
 
+    // TODO wrong none_of
     let content = none_of(delim).repeated().to_slice();
     let lang = ascii::ident().to_slice();
     let label = label_parser();
@@ -134,7 +119,7 @@ where
     let cell = choice((
         list_item.map(|item| Block::List(item.into())),
         enum_item.map(|item| Block::Enum(item.into())),
-        text.map(|text| Block::Paragraph(text.into())),
+        text.map(|text| Block::Plain(text.into())),
     ))
     .padded_by(just(" ").repeated());
 
@@ -204,7 +189,7 @@ where
         .ignore_then(text)
         .then(label.or_not())
         .map_with(|(content, label), e| ListItem {
-            content,
+            content: vec![Block::Plain(content.into())],
             label,
             span: e.span(),
         })
@@ -222,7 +207,7 @@ where
         .ignore_then(text)
         .then(label.or_not())
         .map_with(|(content, label), e| EnumItem {
-            content,
+            content: vec![Block::Plain(content.into())],
             label,
             span: e.span(),
         })
@@ -392,15 +377,16 @@ where
         .at_least(1)
         .to_slice();
 
-    // let content = inline
-    //     .repeated()
-    //     .collect()
-    //     .delimited_by(just("["), just("]"));
+    let content = inline
+        .repeated()
+        .collect()
+        .delimited_by(just("["), just("]"));
 
-    href.delimited_by(just("<"), just(">"))
-        .map_with(|href, e| Link {
+    href.then(content.or_not())
+        .delimited_by(just("<"), just(">"))
+        .map_with(|(href, content), e| Link {
             href,
-            content: None,
+            content,
             span: e.span(),
         })
 }

@@ -2,7 +2,7 @@ use chumsky::error::Rich;
 use miette::{Diagnostic, NamedSource, SourceSpan};
 use thiserror::Error;
 
-use crate::lexer::Node;
+use crate::lexer::node::Node;
 
 #[derive(Error, Debug, Diagnostic)]
 #[error("Parsing failed with the following errors:")]
