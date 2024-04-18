@@ -2,6 +2,12 @@
 
 $ \forall x \in X, \quad \exists y \leq \epsilon $
 
+#highlight(text: "Some highlighted text")
+
+#smallcaps(text: "This will be ALL small caps")
+
+#underline(text: "Underlined text")
+
 == heading \@
 
 paragraph `monospace where @ | is ignored`

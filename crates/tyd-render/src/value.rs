@@ -8,7 +8,7 @@ pub enum Value<C> {
     Map(BTreeMap<String, Value<C>>),
     List(Vec<Value<C>>),
     Bool(bool),
-    Str(EcoString),
+    Str(String),
     Float(f64),
     Int(i64),
     Content(C),
@@ -50,7 +50,7 @@ impl<C> Value<C> {
         }
     }
 
-    pub fn into_string(self) -> Option<EcoString> {
+    pub fn into_string(self) -> Option<String> {
         match self {
             Self::Str(s) => Some(s),
             _ => None,
@@ -104,15 +104,21 @@ impl fmt::Display for ValueKind {
     }
 }
 
+impl<C> From<EcoString> for Value<C> {
+    fn from(value: EcoString) -> Self {
+        Self::Str(String::from(value))
+    }
+}
+
 impl<C> From<String> for Value<C> {
     fn from(value: String) -> Self {
-        Self::Str(EcoString::from(value))
+        Self::Str(String::from(value))
     }
 }
 
 impl<'a, C> From<&'a str> for Value<C> {
     fn from(value: &'a str) -> Self {
-        Self::Str(EcoString::from(value))
+        Self::Str(String::from(value))
     }
 }
 
@@ -157,7 +163,7 @@ impl<'a, C> From<Literal> for Value<C> {
         match value {
             Literal::Boolean(b) => Self::Bool(b),
             Literal::Int(i) => Self::Int(i),
-            Literal::Str(s) => Self::Str(s),
+            Literal::Str(s) => Self::Str(s.to_string()),
         }
     }
 }

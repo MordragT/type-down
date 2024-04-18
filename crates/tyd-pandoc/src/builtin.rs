@@ -59,3 +59,75 @@ pub fn linebreak(args: Args) -> Result<Value, ContextError> {
 
     Ok(Value::Content(vec![Inline::LineBreak]))
 }
+
+pub fn highlight(mut args: Args) -> Result<Value, ContextError> {
+    use ContextError::*;
+
+    // TODO use content when able
+
+    let text = args
+        .remove("text")
+        .ok_or(MissingArgument("text".to_owned()))?;
+
+    let text = text.into_string().ok_or(WrongArgType {
+        arg: "text".to_owned(),
+        expected: ValueKind::Str,
+    })?;
+
+    if !args.is_empty() {
+        return Err(WrongArguments);
+    }
+
+    Ok(Value::Content(vec![Inline::Span(
+        AttrBuilder::new().class("mark").build(),
+        vec![Inline::Str(text)],
+    )]))
+}
+
+pub fn underline(mut args: Args) -> Result<Value, ContextError> {
+    use ContextError::*;
+
+    // TODO use content when able
+
+    let text = args
+        .remove("text")
+        .ok_or(MissingArgument("text".to_owned()))?;
+
+    let text = text.into_string().ok_or(WrongArgType {
+        arg: "text".to_owned(),
+        expected: ValueKind::Str,
+    })?;
+
+    if !args.is_empty() {
+        return Err(WrongArguments);
+    }
+
+    Ok(Value::Content(vec![Inline::Span(
+        AttrBuilder::new().class("underline").build(),
+        vec![Inline::Str(text)],
+    )]))
+}
+
+pub fn smallcaps(mut args: Args) -> Result<Value, ContextError> {
+    use ContextError::*;
+
+    // TODO use content when able
+
+    let text = args
+        .remove("text")
+        .ok_or(MissingArgument("text".to_owned()))?;
+
+    let text = text.into_string().ok_or(WrongArgType {
+        arg: "text".to_owned(),
+        expected: ValueKind::Str,
+    })?;
+
+    if !args.is_empty() {
+        return Err(WrongArguments);
+    }
+
+    Ok(Value::Content(vec![Inline::Span(
+        AttrBuilder::new().class("smallcaps").build(),
+        vec![Inline::Str(text)],
+    )]))
+}

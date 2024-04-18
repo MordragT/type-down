@@ -67,11 +67,17 @@ fn main() -> Result<()> {
 
             let ast = parse(&src, name)?;
 
+            // TODO highlight, smallcaps, underline only all working in html
+            // therefor only add them in html and add a default case
+            // which will throw a warning and skip the functions
             let ctx = Context::new()
                 .symbol("title", "Default title")
                 .symbol("author", vec![Value::from("Max Mustermann")])
                 .function("image", builtin::image)
-                .function("linebreak", builtin::linebreak);
+                .function("linebreak", builtin::linebreak)
+                .function("highlight", builtin::highlight)
+                .function("smallcaps", builtin::smallcaps)
+                .function("underline", builtin::underline);
 
             let output = match output {
                 Some(path) => Output::File(path),
