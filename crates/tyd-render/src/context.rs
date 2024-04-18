@@ -92,8 +92,10 @@ impl<C: Clone> Context<C> {
         }
 
         if let Some(content) = content {
+            // evaluated.insert("content".to_owned(), Value::Content(content));
+
+            // TODO need some kind of callback or virtual machine to evaluated the inline content
             todo!()
-            // needs some kind of callback to evaluate the content
         }
 
         Ok(evaluated)

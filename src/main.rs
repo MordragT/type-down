@@ -70,7 +70,8 @@ fn main() -> Result<()> {
             let ctx = Context::new()
                 .symbol("title", "Default title")
                 .symbol("author", vec![Value::from("Max Mustermann")])
-                .function("image", builtin::image);
+                .function("image", builtin::image)
+                .function("linebreak", builtin::linebreak);
 
             let output = match output {
                 Some(path) => Output::File(path),

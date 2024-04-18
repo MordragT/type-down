@@ -49,3 +49,13 @@ pub fn image(mut args: Args) -> Result<Value, ContextError> {
 
 // raw/code .numberLines
 // highlight text: .mark
+
+pub fn linebreak(args: Args) -> Result<Value, ContextError> {
+    use ContextError::*;
+
+    if !args.is_empty() {
+        return Err(WrongArguments);
+    }
+
+    Ok(Value::Content(vec![Inline::LineBreak]))
+}

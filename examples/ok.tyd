@@ -1,3 +1,7 @@
+== Math
+
+$ \forall x \in X, \quad \exists y \leq \epsilon $
+
 == heading \@
 
 paragraph `monospace where @ | is ignored`
@@ -6,9 +10,13 @@ paragraph `monospace where @ | is ignored`
 
 + ordered
 + multi
+    + with nesting
 
 - simple
 - list
+    - has
+        - nesting
+    - too
 
 | table | columns |
 | a | b | {label}
