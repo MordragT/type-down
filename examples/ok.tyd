@@ -13,12 +13,12 @@ paragraph `monospace where @ | is ignored`
 | table | columns |
 | a | b | {label}
 
-> blockquote <https://example.com>[Hier klicken]
+> term: Some definition of the term for more info <https://example.com>[Hier klicken]
 
 #image(src: "test.png", alt: "Human")
 
 by labelling something it creates a invocable variable,
-which can then be cited by @label
+which can then be cited by \@label
 
 All labels are inside the global variable scope
 

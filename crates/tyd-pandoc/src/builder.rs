@@ -23,7 +23,7 @@ impl PandocBuilder {
         let mut meta = BTreeMap::new();
 
         if let Ok(Value::Str(title)) = ctx.eval_symbol("title") {
-            meta.insert("title".to_owned(), MetaValue::MetaString(title.clone()));
+            meta.insert("title".to_owned(), MetaValue::MetaString(title.to_string()));
         }
 
         Self {
@@ -67,11 +67,11 @@ impl Visitor for PandocBuilder {
 
     fn visit_raw(&mut self, raw: &Raw) -> Result<(), Self::Error> {
         let attr = AttrBuilder::new()
-            .ident_opt(raw.label)
-            .class_opt(raw.lang)
+            .ident_opt(raw.label.as_ref())
+            .class_opt(raw.lang.as_ref())
             .build();
 
-        let block = PandocBlock::CodeBlock(attr, raw.content.to_owned());
+        let block = PandocBlock::CodeBlock(attr, raw.content.to_string());
         self.add_block(block);
 
         Ok(())
@@ -86,8 +86,8 @@ impl Visitor for PandocBuilder {
         }
 
         let attr = AttrBuilder::new()
-            .ident_opt(div.label)
-            .class_opt(div.class)
+            .ident_opt(div.label.as_ref())
+            .class_opt(div.class.as_ref())
             .build();
 
         let block = PandocBlock::Div(attr, div_block);
@@ -99,7 +99,7 @@ impl Visitor for PandocBuilder {
     fn visit_heading(&mut self, heading: &Heading) -> Result<(), Self::Error> {
         walk_heading(self, heading)?;
 
-        let attr = AttrBuilder::new().ident_opt(heading.label).build();
+        let attr = AttrBuilder::new().ident_opt(heading.label.as_ref()).build();
 
         let block = PandocBlock::Header(heading.level as i64, attr, self.take_stack());
         self.add_block(block);
@@ -290,7 +290,7 @@ impl Visitor for PandocBuilder {
 
         walk_link(self, link)?;
 
-        let href = link.href.to_owned();
+        let href = link.href.to_string();
         let mut content = self.end(pos).collect::<Vec<_>>();
 
         if content.is_empty() {
@@ -305,7 +305,7 @@ impl Visitor for PandocBuilder {
 
     fn visit_cite(&mut self, cite: &Cite) -> Result<(), Self::Error> {
         let href = format!("#{}", cite.ident);
-        let content = vec![Inline::Str(cite.ident.to_owned())];
+        let content = vec![Inline::Str(cite.ident.to_string())];
 
         let inline = Inline::Link(AttrBuilder::empty(), content, (href, String::new()));
         self.stack.push(inline);
@@ -313,14 +313,14 @@ impl Visitor for PandocBuilder {
     }
 
     fn visit_raw_inline(&mut self, raw_inline: &RawInline) -> Result<(), Self::Error> {
-        let inline = Inline::Code(AttrBuilder::empty(), raw_inline.content.to_owned());
+        let inline = Inline::Code(AttrBuilder::empty(), raw_inline.content.to_string());
         self.stack.push(inline);
 
         Ok(())
     }
 
     fn visit_math_inline(&mut self, math_inline: &MathInline) -> Result<(), Self::Error> {
-        let inline = Inline::Math(MathType::InlineMath, math_inline.content.to_owned());
+        let inline = Inline::Math(MathType::InlineMath, math_inline.content.to_string());
         self.stack.push(inline);
 
         Ok(())
@@ -331,14 +331,14 @@ impl Visitor for PandocBuilder {
     }
 
     fn visit_escape(&mut self, escape: &Escape) -> Result<(), Self::Error> {
-        let inline = Inline::Str(escape.content.to_owned());
+        let inline = Inline::Str(escape.content.to_string());
         self.stack.push(inline);
 
         Ok(())
     }
 
     fn visit_word(&mut self, word: &Word) -> Result<(), Self::Error> {
-        self.stack.push(Inline::Str(word.content.to_owned()));
+        self.stack.push(Inline::Str(word.content.to_string()));
 
         Ok(())
     }
@@ -363,7 +363,7 @@ impl Visitor for PandocBuilder {
             Value::Bool(b) => self.stack.push(Inline::Str(format!("{b}"))),
             Value::Float(f) => self.stack.push(Inline::Str(format!("{f}"))),
             Value::Int(i) => self.stack.push(Inline::Str(format!("{i}"))),
-            Value::Str(s) => self.stack.push(Inline::Str(s)),
+            Value::Str(s) => self.stack.push(Inline::Str(s.to_string())),
             Value::List(l) => self.stack.push(Inline::Str(format!("{l:?}"))),
             Value::Map(m) => self.stack.push(Inline::Str(format!("{m:?}"))),
         }

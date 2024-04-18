@@ -14,7 +14,7 @@ use tyd_syntax::parser::parse;
 // }
 
 fn main() -> Result<()> {
-    let src = fs::read_to_string("../../examples/wip.tyd").unwrap();
+    let src = fs::read_to_string("../../examples/test.tyd").unwrap();
 
     let ast = parse(&src, "test")?;
 

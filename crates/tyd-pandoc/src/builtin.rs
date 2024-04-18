@@ -34,14 +34,14 @@ pub fn image(mut args: Args) -> Result<Value, ContextError> {
             expected: ValueKind::Str,
         })?;
 
-        content.push(Inline::Str(alt));
+        content.push(Inline::Str(alt.to_string()));
     }
 
     if !args.is_empty() {
         return Err(WrongArguments);
     }
 
-    let target = (src, String::new());
+    let target = (src.to_string(), String::new());
     let image = Inline::Image(AttrBuilder::empty(), content, target);
 
     Ok(Value::Content(vec![image]))

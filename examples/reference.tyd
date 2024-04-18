@@ -33,6 +33,21 @@ These are links:
 
 ```
 
+`(lang="rust")
+asdasd
+asdasd
+as
+`
+
+[(id="test") Some more text]
+
+#image[
+    {src }
+    asdasd
+    asdasd
+    asdas
+]
+
 == Labels
 
 Text cannot be labelled at the moment, but blocks and block items can.

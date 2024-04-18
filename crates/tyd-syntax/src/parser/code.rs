@@ -3,12 +3,12 @@ use chumsky::{
     text::{ascii, digits, newline},
 };
 
-use super::Extra;
+use super::{Extra, ParserExt};
 use crate::ast::*;
 
-pub fn code_parser<'src, I>(inline: I) -> impl Parser<'src, &'src str, Code<'src>, Extra<'src>>
+pub fn code_parser<'src, I>(inline: I) -> impl Parser<'src, &'src str, Code, Extra<'src>>
 where
-    I: Parser<'src, &'src str, Inline<'src>, Extra<'src>> + 'src,
+    I: Parser<'src, &'src str, Inline, Extra<'src>> + 'src,
 {
     just("#")
         .ignore_then(expr_parser(inline))
@@ -18,12 +18,12 @@ where
         })
 }
 
-pub fn expr_parser<'src, I>(inline: I) -> impl Parser<'src, &'src str, Expr<'src>, Extra<'src>>
+pub fn expr_parser<'src, I>(inline: I) -> impl Parser<'src, &'src str, Expr, Extra<'src>>
 where
-    I: Parser<'src, &'src str, Inline<'src>, Extra<'src>> + 'src,
+    I: Parser<'src, &'src str, Inline, Extra<'src>> + 'src,
 {
     recursive(|expr| {
-        let ident = ascii::ident();
+        let ident = ascii::ident().to_ecow();
         let args = args_parser(expr.clone());
         let content = inline
             .repeated()
@@ -55,11 +55,12 @@ where
     })
 }
 
-pub fn args_parser<'src, E>(expr: E) -> impl Parser<'src, &'src str, Vec<Arg<'src>>, Extra<'src>>
+pub fn args_parser<'src, E>(expr: E) -> impl Parser<'src, &'src str, Vec<Arg>, Extra<'src>>
 where
-    E: Parser<'src, &'src str, Expr<'src>, Extra<'src>>,
+    E: Parser<'src, &'src str, Expr, Extra<'src>>,
 {
     let arg = ascii::ident()
+        .to_ecow()
         .then_ignore(just(": "))
         .or_not()
         .then(expr)
@@ -72,7 +73,7 @@ where
         .delimited_by(just("("), just(")"))
 }
 
-pub fn literal_parser<'src>() -> impl Parser<'src, &'src str, Literal<'src>, Extra<'src>> {
+pub fn literal_parser<'src>() -> impl Parser<'src, &'src str, Literal, Extra<'src>> {
     let boolean = just("true")
         .to(true)
         .or(just("false").to(false))
@@ -90,7 +91,7 @@ pub fn literal_parser<'src>() -> impl Parser<'src, &'src str, Literal<'src>, Ext
     let string = none_of("\"")
         .and_is(newline().not())
         .repeated()
-        .to_slice()
+        .to_ecow()
         .delimited_by(just("\""), just("\""))
         .map(Literal::Str);
 

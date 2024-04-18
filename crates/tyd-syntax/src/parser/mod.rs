@@ -1,47 +1,63 @@
-use chumsky::{error::Rich, input::Input, Parser};
+use chumsky::{
+    combinator::{Map, ToSlice},
+    prelude::*,
+    text::{newline, whitespace},
+};
+use ecow::EcoString;
 use miette::NamedSource;
 
 use crate::{
-    ast::Ast,
-    error::SyntaxError,
-    lexer::{lex_spanned, node::Node},
-    parser::{combinator::ast_parser, error::ParseErrors},
+    prelude::{Ast, Block},
     Span,
 };
 
-pub mod combinator;
+use self::{
+    error::{SyntaxErrors, SyntaxResult},
+    markup::{block_parser, hard_break_parser, paragraph_parser, text_parser, SPECIAL},
+};
+
+pub mod code;
 pub mod error;
+pub mod markup;
 
-pub fn parse<'src>(src: &'src str, name: impl AsRef<str>) -> Result<Ast<'src>, SyntaxError> {
-    let nodes = lex_spanned(src, name.as_ref())?;
-    let input = nodes.as_slice().spanned((src.len()..src.len()).into());
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct ParserState {}
 
-    let parser = ast_parser();
-    let ast = parser
-        .parse(input)
-        .into_result()
-        .map_err(|errs| ParseErrors {
-            src: NamedSource::new(name, src.to_owned()),
-            related: errs.into_iter().map(Into::into).collect(),
-        })?;
-
-    Ok(ast)
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Default)]
+pub struct ParserContext {
+    indent: usize,
 }
 
-pub fn parse_nodes<'src, 'tokens>(
-    input: &'src [(Node<'src>, Span)],
-    src: impl Into<String>,
-    name: impl AsRef<str>,
-) -> Result<Ast<'src>, SyntaxError> {
-    let src = src.into();
-    let input = input.spanned((src.len()..src.len()).into());
+type Extra<'src> = extra::Full<Rich<'src, char, Span>, ParserState, ParserContext>;
 
-    let parser = ast_parser();
+pub trait ParserExt<'src, T>: Parser<'src, &'src str, T, Extra<'src>> + Sized {
+    #[inline]
+    fn to_ecow(self) -> Map<ToSlice<Self, T>, &'src str, impl Fn(&'src str) -> EcoString> {
+        self.to_slice().map(EcoString::from)
+    }
+}
+
+impl<'src, T, P: Parser<'src, &'src str, T, Extra<'src>> + Sized> ParserExt<'src, T> for P {}
+
+pub fn ast<'src>() -> impl Parser<'src, &'src str, Ast, Extra<'src>> {
+    let ast = block_parser()
+        .separated_by(hard_break_parser())
+        .at_least(1)
+        .collect()
+        .map(|blocks| Ast { blocks });
+
+    whitespace().ignore_then(ast).then_ignore(whitespace())
+}
+
+pub fn parse<'src>(src: &'src str, name: impl AsRef<str>) -> SyntaxResult<Ast> {
+    let parser = ast();
+    let mut state = ParserState {};
+
     let ast = parser
-        .parse(input)
+        .parse_with_state(src, &mut state)
         .into_result()
-        .map_err(|errs| ParseErrors {
-            src: NamedSource::new(name, src),
+        .map_err(|errs| SyntaxErrors {
+            src: NamedSource::new(name, src.to_owned()),
             related: errs.into_iter().map(Into::into).collect(),
         })?;
 

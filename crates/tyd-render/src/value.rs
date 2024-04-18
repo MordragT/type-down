@@ -1,5 +1,6 @@
 use std::{collections::BTreeMap, fmt};
 
+use ecow::EcoString;
 use tyd_syntax::ast::Literal;
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
@@ -7,7 +8,7 @@ pub enum Value<C> {
     Map(BTreeMap<String, Value<C>>),
     List(Vec<Value<C>>),
     Bool(bool),
-    Str(String),
+    Str(EcoString),
     Float(f64),
     Int(i64),
     Content(C),
@@ -49,7 +50,7 @@ impl<C> Value<C> {
         }
     }
 
-    pub fn into_string(self) -> Option<String> {
+    pub fn into_string(self) -> Option<EcoString> {
         match self {
             Self::Str(s) => Some(s),
             _ => None,
@@ -105,13 +106,13 @@ impl fmt::Display for ValueKind {
 
 impl<C> From<String> for Value<C> {
     fn from(value: String) -> Self {
-        Self::Str(value)
+        Self::Str(EcoString::from(value))
     }
 }
 
 impl<'a, C> From<&'a str> for Value<C> {
     fn from(value: &'a str) -> Self {
-        Self::Str(value.to_owned())
+        Self::Str(EcoString::from(value))
     }
 }
 
@@ -151,12 +152,12 @@ impl<C> From<f64> for Value<C> {
 //     }
 // }
 
-impl<'a, C> From<Literal<'a>> for Value<C> {
-    fn from(value: Literal<'a>) -> Self {
+impl<'a, C> From<Literal> for Value<C> {
+    fn from(value: Literal) -> Self {
         match value {
             Literal::Boolean(b) => Self::Bool(b),
             Literal::Int(i) => Self::Int(i),
-            Literal::Str(s) => Self::Str(s.to_owned()),
+            Literal::Str(s) => Self::Str(s),
         }
     }
 }

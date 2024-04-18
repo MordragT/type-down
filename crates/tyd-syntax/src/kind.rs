@@ -1,0 +1,25 @@
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[repr(u8)]
+pub enum SyntaxKind {
+    Markup,
+    Content,
+    Comment,
+    Heading,
+    Math,
+    Label,
+    Link,
+    Raw,
+    MathInline,
+    RawInline,
+    Escape,
+    Reference,
+    Quote,
+    Strikeout,
+    Emphasis,
+    Strong,
+    Code,
+    CallExpr,
+    AccessExpr,
+    String,
+    Arg,
+}

@@ -1,4 +1,4 @@
-use miette::{NamedSource, Result};
+use miette::Result;
 use std::path::PathBuf;
 
 #[cfg(feature = "html")]
@@ -10,10 +10,7 @@ use tyd_pandoc::{
     format::{DocxCompiler, PandocCompiler, PdfCompiler},
 };
 use tyd_render::{Context, Output, Render, Value};
-use tyd_syntax::{
-    parser::{error::ParseErrors, parse_nodes},
-    prelude::*,
-};
+use tyd_syntax::prelude::*;
 
 #[derive(Debug, clap::Parser)]
 #[command(author, version, about, long_about = None)]
@@ -53,18 +50,11 @@ fn main() -> Result<()> {
             let name = path.file_name().unwrap().to_string_lossy();
             let src = std::fs::read_to_string(&path).map_err(SyntaxError::Io)?;
 
-            let nodes = lex_spanned(&src, &name)?;
-
-            println!("{nodes:?}");
-
-            let ast = parse_nodes(nodes.as_slice(), &src, name)?;
+            let ast = parse(&src, name)?;
 
             println!("{ast:?}");
         }
         Commands::Format { path } => {
-            // let cst = parse(path)?;
-
-            // println!("{cst}");
             todo!()
         }
         Commands::Compile {

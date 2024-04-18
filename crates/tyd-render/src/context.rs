@@ -67,7 +67,7 @@ impl<C: Clone> Context<C> {
 
         let f = self
             .function_table
-            .get(*ident)
+            .get(ident.as_str())
             .ok_or(ContextError::FunctionNotFound(ident.to_string()))?;
 
         let args = self.eval_args(args, content)?;
@@ -85,10 +85,10 @@ impl<C: Clone> Context<C> {
         for arg in args {
             // TODO use the position of the arg and a Function trait wich has a method args -> &[&str] where
             // the args are shown in correct order to get the name if not specified.
-            let name = arg.name.unwrap();
+            let name = arg.name.as_ref().unwrap().to_string();
             let value = self.eval(&arg.value)?;
 
-            evaluated.insert(name.to_owned(), value);
+            evaluated.insert(name, value);
         }
 
         if let Some(content) = content {
