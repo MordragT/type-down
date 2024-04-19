@@ -77,25 +77,6 @@ impl Visitor for PandocBuilder {
         Ok(())
     }
 
-    fn visit_div(&mut self, div: &Div) -> Result<(), Self::Error> {
-        let mut div_block = Vec::new();
-
-        for block in &div.content {
-            self.visit_block(block)?;
-            div_block.push(self.pop_block());
-        }
-
-        let attr = AttrBuilder::new()
-            .ident_opt(div.label.as_ref())
-            .class_opt(div.class.as_ref())
-            .build();
-
-        let block = PandocBlock::Div(attr, div_block);
-        self.add_block(block);
-
-        Ok(())
-    }
-
     fn visit_heading(&mut self, heading: &Heading) -> Result<(), Self::Error> {
         walk_heading(self, heading)?;
 

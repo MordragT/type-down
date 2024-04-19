@@ -1,19 +1,16 @@
 use chumsky::{
     combinator::{Map, ToSlice},
     prelude::*,
-    text::{newline, whitespace},
+    text::whitespace,
 };
 use ecow::EcoString;
 use miette::NamedSource;
 
-use crate::{
-    prelude::{Ast, Block},
-    Span,
-};
+use crate::{prelude::Ast, Span};
 
 use self::{
     error::{SyntaxErrors, SyntaxResult},
-    markup::{block_parser, hard_break_parser, paragraph_parser, text_parser, SPECIAL},
+    markup::{block_parser, hard_break_parser},
 };
 
 pub mod code;

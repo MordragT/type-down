@@ -20,93 +20,88 @@ pub fn hard_break_parser<'src>() -> impl Parser<'src, &'src str, (), Extra<'src>
     newline().repeated().at_least(2)
 }
 
-pub fn indent_parser<'src>() -> impl Parser<'src, &'src str, (), Extra<'src>> {
+pub fn level_parser<'src>() -> impl Parser<'src, &'src str, usize, Extra<'src>> {
     let indent = just("    ").or(just("\t"));
 
     soft_break_parser().ignore_then(
         indent
             .repeated()
-            .configure(|cfg, ctx: &ParserContext| cfg.exactly(ctx.indent)),
+            .configure(|cfg, ctx: &ParserContext| cfg.exactly(ctx.indent))
+            .count(),
     )
 }
 
-// pub fn dedent_parser<'src>() -> impl Parser<'src, &'src str, (), Extra<'src>> {
-//     let indent = just("    ").or(just("\t"));
+pub fn indent_parser<'src>() -> impl Parser<'src, &'src str, usize, Extra<'src>> {
+    let indent = just("    ").or(just("\t"));
 
-//     soft_break_parser()
-//         .ignore_then(
-//             indent
-//                 .repeated()
-//                 .configure(|cfg, ctx: &ParserContext| cfg.at_most(ctx.indent - 1)),
-//         )
-//         .or(hard_break_parser())
-// }
+    soft_break_parser().ignore_then(
+        indent
+            .repeated()
+            .configure(|cfg, ctx: &ParserContext| cfg.exactly(ctx.indent + 1))
+            .count(),
+    )
+}
 
 pub fn block_parser<'src>() -> impl Parser<'src, &'src str, Block, Extra<'src>> {
     let text = text_parser(SPECIAL).boxed();
-    // let div = div_parser(block).boxed();
+    let paragraph = paragraph_parser(text.clone()).boxed();
     let list_item = list_item_parser(text.clone()).boxed();
     let enum_item = enum_item_parser(text.clone()).boxed();
+    let term_item = term_item_parser(paragraph.clone());
+    let table_row = table_row_parser(text.clone(), enum_item.clone(), list_item.clone());
 
     choice((
-        heading_parser(text.clone()).map(Block::Heading),
-        // div.map(Block::Div),
-        table_parser(table_row_parser(
-            text.clone(),
-            enum_item.clone(),
-            list_item.clone(),
-        ))
-        .map(Block::Table),
-        term_parser(term_item_parser(text.clone())).map(Block::Term),
+        heading_parser(paragraph.clone()).map(Block::Heading),
+        table_parser(table_row).map(Block::Table),
+        term_parser(term_item).map(Block::Term),
         list_parser(list_item).map(Block::List),
         enum_parser(enum_item).map(Block::Enum),
         raw_parser().map(Block::Raw),
-        paragraph_parser(text.clone()).map(Block::Paragraph),
+        paragraph.map(Block::Paragraph),
     ))
     .with_ctx(ParserContext { indent: 0 })
 }
 
-// pub fn div_parser<'src, B>(block: B) -> impl Parser<'src, &'src str, Div, Extra<'src>>
-// where
-//     B: Parser<'src, &'src str, Block, Extra<'src>>,
-// {
-//     indent_parser()
-//         .ignore_then(block)
-//         .repeated()
-//         .at_least(1)
-//         .collect()
-//         .then_ignore(dedent_parser())
-//         .map_with(|content, e| Div {
-//             content,
-//             class: None,
-//             label: None,
-//             span: e.span(),
-//         })
-// }
-
 pub fn paragraph_parser<'src, T>(text: T) -> impl Parser<'src, &'src str, Paragraph, Extra<'src>>
 where
-    T: Parser<'src, &'src str, Text, Extra<'src>> + 'src,
+    T: Parser<'src, &'src str, Vec<Inline>, Extra<'src>> + 'src,
 {
-    text.map(|text| text.content)
-        .separated_by(soft_break_parser())
-        .at_least(1)
-        .collect()
-        .map_with(|mut content: Vec<Vec<_>>, e| {
-            for line in &mut content {
-                line.push(Inline::SoftBreak);
-            }
+    recursive(
+        |paragraph: Recursive<dyn Parser<&'src str, Paragraph, Extra<'src>>>| {
+            let nested = indent_parser()
+                .map(|indent| ParserContext { indent })
+                .ignore_with_ctx(paragraph);
 
-            Paragraph {
-                content: content.into_iter().flatten().collect(),
-                span: e.span(),
-            }
-        })
+            text.then(nested.or_not())
+                .map(|(mut text, nested)| {
+                    if let Some(mut nested) = nested {
+                        text.push(Inline::SoftBreak);
+                        text.append(&mut nested.content);
+                    }
+
+                    text
+                })
+                .separated_by(level_parser())
+                .at_least(1)
+                .collect()
+                .map_with(|mut content: Vec<Vec<_>>, e| {
+                    for line in &mut content {
+                        line.push(Inline::SoftBreak);
+                    }
+
+                    Paragraph {
+                        content: content.into_iter().flatten().collect(),
+                        span: e.span(),
+                    }
+                })
+                .boxed()
+        },
+    )
 }
 
-pub fn heading_parser<'src, T>(text: T) -> impl Parser<'src, &'src str, Heading, Extra<'src>>
+pub fn heading_parser<'src, T>(paragraph: T) -> impl Parser<'src, &'src str, Heading, Extra<'src>>
 where
-    T: Parser<'src, &'src str, Text, Extra<'src>> + 'src,
+    T: Parser<'src, &'src str, Paragraph, Extra<'src>> + 'src,
 {
     let marker = just("=")
         .repeated()
@@ -115,9 +110,14 @@ where
         .to_ecow()
         .then_ignore(just(" "));
 
-    group((marker, text, label_parser().or_not())).map_with(|(level, content, label), e| Heading {
+    group((
+        marker,
+        paragraph.with_ctx(ParserContext { indent: 1 }),
+        label_parser().or_not(),
+    ))
+    .map_with(|(level, par, label), e| Heading {
         level: level.len() as u8,
-        content,
+        content: par.content,
         label,
         span: e.span(),
     })
@@ -176,7 +176,7 @@ pub fn table_row_parser<'src, T, E, L>(
     list_item: L,
 ) -> impl Parser<'src, &'src str, TableRow, Extra<'src>>
 where
-    T: Parser<'src, &'src str, Text, Extra<'src>>,
+    T: Parser<'src, &'src str, Vec<Inline>, Extra<'src>>,
     E: Parser<'src, &'src str, EnumItem, Extra<'src>>,
     L: Parser<'src, &'src str, ListItem, Extra<'src>>,
 {
@@ -186,7 +186,12 @@ where
     let cell = choice((
         list_item.map(|item| Block::List(item.into())),
         enum_item.map(|item| Block::Enum(item.into())),
-        text.map(|text| Block::Plain(text.into())),
+        text.map_with(|content, e| {
+            Block::Plain(Plain {
+                content,
+                span: e.span(),
+            })
+        }),
     ))
     .padded_by(just(" ").repeated());
 
@@ -218,24 +223,25 @@ where
 
 const TERM_SPECIAL: &[char] = concat_slices!([char]: SPECIAL, &[':']);
 
-pub fn term_item_parser<'src, T>(text: T) -> impl Parser<'src, &'src str, TermItem, Extra<'src>>
+pub fn term_item_parser<'src, T>(
+    paragraph: T,
+) -> impl Parser<'src, &'src str, TermItem, Extra<'src>>
 where
-    T: Parser<'src, &'src str, Text, Extra<'src>>,
+    T: Parser<'src, &'src str, Paragraph, Extra<'src>>,
 {
-    let label = label_parser();
-    let term = text_parser(TERM_SPECIAL);
-
-    just("> ")
-        .ignore_then(term)
-        .then_ignore(just(": "))
-        .then(text)
-        .then(label.or_not())
-        .map_with(|((term, content), label), e| TermItem {
-            term,
-            content,
-            label,
-            span: e.span(),
-        })
+    group((
+        just("> ").ignored(),
+        text_parser(TERM_SPECIAL),
+        just(": ").ignored(),
+        paragraph.with_ctx(ParserContext { indent: 1 }),
+        label_parser().or_not(),
+    ))
+    .map_with(|((), term, (), par, label), e| TermItem {
+        term,
+        content: par.content,
+        label,
+        span: e.span(),
+    })
 }
 
 pub fn list_parser<'src, I>(list_item: I) -> impl Parser<'src, &'src str, List, Extra<'src>>
@@ -244,16 +250,9 @@ where
 {
     recursive(
         |list: Recursive<dyn Parser<&'src str, List, Extra<'src>>>| {
-            let indent = indent_parser();
-            let nested = soft_break_parser().ignore_then(
-                just("    ")
-                    .or(just("\t"))
-                    .repeated()
-                    .configure(|cfg, ctx: &ParserContext| cfg.exactly(ctx.indent + 1))
-                    .count()
-                    .map(|indent| ParserContext { indent })
-                    .ignore_with_ctx(list),
-            );
+            let nested = indent_parser()
+                .map(|indent| ParserContext { indent })
+                .ignore_with_ctx(list);
 
             let item = list_item.then(nested.or_not()).map(|(mut item, nested)| {
                 if let Some(nested) = nested {
@@ -263,7 +262,7 @@ where
                 item
             });
 
-            item.separated_by(indent)
+            item.separated_by(level_parser())
                 .at_least(1)
                 .collect()
                 .map_with(|items, e| List {
@@ -278,15 +277,18 @@ where
 
 pub fn list_item_parser<'src, T>(text: T) -> impl Parser<'src, &'src str, ListItem, Extra<'src>>
 where
-    T: Parser<'src, &'src str, Text, Extra<'src>> + 'src,
+    T: Parser<'src, &'src str, Vec<Inline>, Extra<'src>> + 'src,
 {
     let label = label_parser();
 
     just("- ")
-        .ignore_then(text)
+        .ignore_then(text.map_with(|content, e| Plain {
+            content,
+            span: e.span(),
+        }))
         .then(label.or_not())
         .map_with(|(content, label), e| ListItem {
-            content: vec![Block::Plain(content.into())],
+            content: vec![Block::Plain(content)],
             label,
             span: e.span(),
         })
@@ -298,16 +300,9 @@ where
 {
     recursive(
         |list: Recursive<dyn Parser<&'src str, Enum, Extra<'src>>>| {
-            let indent = indent_parser();
-            let nested = soft_break_parser().ignore_then(
-                just("    ")
-                    .or(just("\t"))
-                    .repeated()
-                    .configure(|cfg, ctx: &ParserContext| cfg.exactly(ctx.indent + 1))
-                    .count()
-                    .map(|indent| ParserContext { indent })
-                    .ignore_with_ctx(list),
-            );
+            let nested = indent_parser()
+                .map(|indent| ParserContext { indent })
+                .ignore_with_ctx(list);
 
             let item = enum_item.then(nested.or_not()).map(|(mut item, nested)| {
                 if let Some(nested) = nested {
@@ -317,7 +312,7 @@ where
                 item
             });
 
-            item.separated_by(indent)
+            item.separated_by(level_parser())
                 .at_least(1)
                 .collect()
                 .map_with(|items, e| Enum {
@@ -332,15 +327,18 @@ where
 
 pub fn enum_item_parser<'src, T>(text: T) -> impl Parser<'src, &'src str, EnumItem, Extra<'src>>
 where
-    T: Parser<'src, &'src str, Text, Extra<'src>> + 'src,
+    T: Parser<'src, &'src str, Vec<Inline>, Extra<'src>> + 'src,
 {
     let label = label_parser();
 
     just("+ ")
-        .ignore_then(text)
+        .ignore_then(text.map_with(|content, e| Plain {
+            content,
+            span: e.span(),
+        }))
         .then(label.or_not())
         .map_with(|(content, label), e| EnumItem {
-            content: vec![Block::Plain(content.into())],
+            content: vec![Block::Plain(content)],
             label,
             span: e.span(),
         })
@@ -352,17 +350,10 @@ pub fn label_parser<'src>() -> impl Parser<'src, &'src str, EcoString, Extra<'sr
     ascii::ident().to_ecow().delimited_by(just("{"), just("}"))
 }
 
-// TODO allow softbreak then indent in text_parser
-
-pub fn text_parser<'src>(special: &'src [char]) -> impl Parser<'src, &'src str, Text, Extra<'src>> {
-    inline_parser(special)
-        .repeated()
-        .at_least(1)
-        .collect()
-        .map_with(|content, e| Text {
-            content,
-            span: e.span(),
-        })
+pub fn text_parser<'src>(
+    special: &'src [char],
+) -> impl Parser<'src, &'src str, Vec<Inline>, Extra<'src>> {
+    inline_parser(special).repeated().at_least(1).collect()
 }
 
 pub fn inline_parser<'src>(

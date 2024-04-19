@@ -51,7 +51,7 @@ where
             .map(Expr::Block);
         let literal = literal_parser().map(Expr::Literal);
 
-        choice((access, block, literal)).boxed()
+        choice((literal, access, block)).boxed()
     })
 }
 

@@ -9,7 +9,6 @@ pub struct Ast {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Block {
-    Div(Div),
     Raw(Raw),
     Heading(Heading),
     Table(Table),
@@ -18,14 +17,6 @@ pub enum Block {
     Term(Term),
     Paragraph(Paragraph),
     Plain(Plain),
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Div {
-    pub content: Vec<Block>,
-    pub class: Option<EcoString>,
-    pub label: Option<EcoString>,
-    pub span: Span,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -38,7 +29,7 @@ pub struct Raw {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Heading {
-    pub content: Text,
+    pub content: Vec<Inline>,
     pub label: Option<EcoString>,
     pub span: Span,
     pub level: u8,
@@ -120,8 +111,8 @@ pub struct Term {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TermItem {
-    pub term: Text,
-    pub content: Text,
+    pub term: Vec<Inline>,
+    pub content: Vec<Inline>,
     pub label: Option<EcoString>,
     pub span: Span,
 }
@@ -132,30 +123,8 @@ pub struct Paragraph {
     pub span: Span,
 }
 
-impl From<Text> for Paragraph {
-    fn from(value: Text) -> Self {
-        let Text { content, span } = value;
-
-        Self { content, span }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Plain {
-    pub content: Vec<Inline>,
-    pub span: Span,
-}
-
-impl From<Text> for Plain {
-    fn from(value: Text) -> Self {
-        let Text { content, span } = value;
-
-        Self { content, span }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Text {
     pub content: Vec<Inline>,
     pub span: Span,
 }

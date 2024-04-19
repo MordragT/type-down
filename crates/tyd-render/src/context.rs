@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use tyd_syntax::ast::{Arg, Call, Expr, Inline};
 
-use crate::{error::ContextError, Value};
+use crate::{builtin, error::ContextError, Value};
 
 // TODO create Function trait
 
@@ -20,10 +20,15 @@ pub struct Context<C> {
     symbol_table: SymbolTable<C>,
 }
 
-impl<C: Clone> Context<C> {
+impl<C: Clone + 'static> Context<C> {
     pub fn new() -> Self {
+        let mut function_table = FunctionTable::new();
+
+        function_table.insert("dict".into(), Box::new(builtin::dict));
+        function_table.insert("list".into(), Box::new(builtin::list));
+
         Self {
-            function_table: FunctionTable::new(),
+            function_table,
             symbol_table: SymbolTable::new(),
         }
     }

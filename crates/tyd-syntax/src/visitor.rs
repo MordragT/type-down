@@ -17,10 +17,6 @@ pub trait Visitor {
         Ok(())
     }
 
-    fn visit_div(&mut self, div: &Div) -> Result<(), Self::Error> {
-        walk_div(self, div)
-    }
-
     fn visit_heading(&mut self, heading: &Heading) -> Result<(), Self::Error> {
         walk_heading(self, heading)
     }
@@ -65,7 +61,7 @@ pub trait Visitor {
         walk_plain(self, plain)
     }
 
-    fn visit_text(&mut self, text: &Text) -> Result<(), Self::Error> {
+    fn visit_text(&mut self, text: &Vec<Inline>) -> Result<(), Self::Error> {
         walk_text(self, text)
     }
 
@@ -167,7 +163,6 @@ pub fn walk_ast<V: Visitor + ?Sized>(visitor: &mut V, ast: &Ast) -> Result<(), V
 
 pub fn walk_block<V: Visitor + ?Sized>(visitor: &mut V, block: &Block) -> Result<(), V::Error> {
     match block {
-        Block::Div(div) => visitor.visit_div(div),
         Block::Raw(raw) => visitor.visit_raw(raw),
         Block::Table(table) => visitor.visit_table(table),
         Block::List(list) => visitor.visit_list(list),
@@ -177,14 +172,6 @@ pub fn walk_block<V: Visitor + ?Sized>(visitor: &mut V, block: &Block) -> Result
         Block::Paragraph(paragraph) => visitor.visit_paragraph(paragraph),
         Block::Plain(plain) => visitor.visit_plain(plain),
     }
-}
-
-pub fn walk_div<V: Visitor + ?Sized>(visitor: &mut V, div: &Div) -> Result<(), V::Error> {
-    for block in &div.content {
-        visitor.visit_block(block)?;
-    }
-
-    Ok(())
 }
 
 pub fn walk_heading<V: Visitor + ?Sized>(
@@ -284,8 +271,8 @@ pub fn walk_plain<V: Visitor + ?Sized>(visitor: &mut V, plain: &Plain) -> Result
     Ok(())
 }
 
-pub fn walk_text<V: Visitor + ?Sized>(visitor: &mut V, text: &Text) -> Result<(), V::Error> {
-    for inline in &text.content {
+pub fn walk_text<V: Visitor + ?Sized>(visitor: &mut V, text: &Vec<Inline>) -> Result<(), V::Error> {
+    for inline in text {
         visitor.visit_inline(inline)?;
     }
 
