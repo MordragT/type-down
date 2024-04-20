@@ -244,23 +244,43 @@ pub struct Code {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Expr {
-    Ident(EcoString),
+    Ident(Ident),
     Call(Call),
     Literal(Literal),
     Block(Vec<Expr>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Ident {
+    pub value: EcoString,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Call {
-    pub ident: EcoString,
+    pub ident: Ident,
+    pub args: Args,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Args {
     pub args: Vec<Arg>,
-    pub content: Option<Vec<Inline>>,
+    pub content: Option<Content>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Content {
+    pub content: Vec<Inline>,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Arg {
     pub name: Option<EcoString>,
     pub value: Expr,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

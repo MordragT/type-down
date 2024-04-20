@@ -49,6 +49,14 @@ impl AttrBuilder {
         self
     }
 
+    pub fn add_attr<K, V>(&mut self, key: K, value: V)
+    where
+        K: Into<String>,
+        V: Into<String>,
+    {
+        self.pairs.push((key.into(), value.into()));
+    }
+
     pub fn build(self) -> Attr {
         let Self {
             ident,

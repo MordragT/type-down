@@ -1,12 +1,15 @@
 use miette::Diagnostic;
 use std::io;
 use thiserror::Error;
-use tyd_render::error::ContextError;
+use tyd_render::error::{EngineError, EngineErrors};
 
 #[derive(Debug, Error, Diagnostic)]
-#[diagnostic(code(type_down::compile::pandoc::PandocCompiler::compile))]
 #[error(transparent)]
 pub enum PandocError {
+    #[diagnostic(code(type_down::compile::pandoc::PandocCompiler::compile))]
     Io(#[from] io::Error),
-    Call(#[from] ContextError),
+    #[diagnostic(code(type_down::compile::pandoc::PandocCompiler::compile))]
+    Engine(#[from] EngineError),
+    #[diagnostic(transparent)]
+    EngineMulti(#[from] EngineErrors),
 }

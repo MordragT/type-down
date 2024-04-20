@@ -6,9 +6,9 @@ use pandoc::{
 use std::io;
 use thiserror::Error;
 use tyd_render::{Output, Render};
-use tyd_syntax::{ast::Ast, visitor::Visitor};
+use tyd_syntax::ast::Ast;
 
-use crate::{builder::PandocBuilder, Content, Context};
+use crate::engine::{PandocEngine, PandocState};
 
 #[derive(Debug, Error, Diagnostic)]
 #[error(transparent)]
@@ -26,21 +26,19 @@ pub struct HtmlCompiler;
 
 impl Render for HtmlCompiler {
     type Error = HtmlError;
-    type Content = Content;
+    type Context = PandocState;
 
-    fn render(ast: &Ast, ctx: Context, output: Output) -> Result<(), Self::Error> {
-        let mut builder = PandocBuilder::new(ctx);
-        builder.visit_ast(ast)?;
-
-        let pandoc = builder.build();
-        let contents = pandoc.to_json();
-
-        let mut pandoc = Pandoc::new();
-
+    fn render(ast: &Ast, ctx: Self::Context, output: Output) -> Result<(), Self::Error> {
         let output_kind = match output {
             Output::File(path) => OutputKind::File(path),
             Output::Stdout => OutputKind::Pipe,
         };
+
+        let engine = PandocEngine::new();
+        let pandoc = engine.build(ctx, ast)?;
+        let contents = pandoc.to_json();
+
+        let mut pandoc = Pandoc::new();
 
         use MarkdownExtension::*;
 

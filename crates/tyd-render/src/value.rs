@@ -1,22 +1,25 @@
-use std::{collections::BTreeMap, fmt};
+use std::collections::BTreeMap;
 
 use ecow::EcoString;
 use tyd_syntax::ast::Literal;
 
+use crate::{Shape, Type};
+
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
-pub enum Value<C> {
-    Map(BTreeMap<String, Value<C>>),
-    List(Vec<Value<C>>),
+pub enum Value<S: Shape> {
+    Map(BTreeMap<String, Value<S>>),
+    List(Vec<Value<S>>),
     Bool(bool),
     Str(String),
     Float(f64),
     Int(i64),
-    Content(C),
+    Inline(S::Inline),
+    Block(S::Block),
 }
 
-impl<C> Value<C> {
-    pub fn kind(&self) -> ValueKind {
-        use ValueKind::*;
+impl<S: Shape> Value<S> {
+    pub fn ty(&self) -> Type {
+        use Type::*;
 
         match self {
             Self::Map(_) => Map,
@@ -25,18 +28,19 @@ impl<C> Value<C> {
             Self::Str(_) => Str,
             Self::Float(_) => Float,
             Self::Int(_) => Int,
-            Self::Content(_) => Content,
+            Self::Inline(_) => Inline,
+            Self::Block(_) => Block,
         }
     }
 
-    pub fn into_map(self) -> Option<BTreeMap<String, Value<C>>> {
+    pub fn into_map(self) -> Option<BTreeMap<String, Value<S>>> {
         match self {
             Self::Map(map) => Some(map),
             _ => None,
         }
     }
 
-    pub fn into_list(self) -> Option<Vec<Value<C>>> {
+    pub fn into_list(self) -> Option<Vec<Value<S>>> {
         match self {
             Self::List(list) => Some(list),
             _ => None,
@@ -71,94 +75,81 @@ impl<C> Value<C> {
         }
     }
 
-    pub fn into_content(self) -> Option<C> {
+    pub fn into_inline(self) -> Option<S::Inline> {
         match self {
-            Self::Content(c) => Some(c),
+            Self::Inline(c) => Some(c),
+            _ => None,
+        }
+    }
+
+    pub fn into_block(self) -> Option<S::Block> {
+        match self {
+            Self::Block(c) => Some(c),
             _ => None,
         }
     }
 }
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub enum ValueKind {
-    Map,
-    List,
-    Bool,
-    Str,
-    Float,
-    Int,
-    Content,
-}
-
-impl fmt::Display for ValueKind {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ValueKind::Map => write!(f, "Map"),
-            ValueKind::List => write!(f, "List"),
-            ValueKind::Bool => write!(f, "Bool"),
-            ValueKind::Str => write!(f, "Str"),
-            ValueKind::Float => write!(f, "Float"),
-            ValueKind::Int => write!(f, "Int"),
-            ValueKind::Content => write!(f, "Content"),
-        }
-    }
-}
-
-impl<C> From<EcoString> for Value<C> {
+impl<S: Shape> From<EcoString> for Value<S> {
     fn from(value: EcoString) -> Self {
         Self::Str(String::from(value))
     }
 }
 
-impl<C> From<String> for Value<C> {
+impl<S: Shape> From<String> for Value<S> {
     fn from(value: String) -> Self {
         Self::Str(String::from(value))
     }
 }
 
-impl<'a, C> From<&'a str> for Value<C> {
+impl<'a, S: Shape> From<&'a str> for Value<S> {
     fn from(value: &'a str) -> Self {
         Self::Str(String::from(value))
     }
 }
 
-impl<C> From<bool> for Value<C> {
+impl<S: Shape> From<bool> for Value<S> {
     fn from(value: bool) -> Self {
         Self::Bool(value)
     }
 }
 
-impl<C> From<Vec<Value<C>>> for Value<C> {
-    fn from(value: Vec<Value<C>>) -> Self {
+impl<S: Shape> From<Vec<Value<S>>> for Value<S> {
+    fn from(value: Vec<Value<S>>) -> Self {
         Self::List(value)
     }
 }
 
-impl<C> From<BTreeMap<String, Value<C>>> for Value<C> {
-    fn from(value: BTreeMap<String, Value<C>>) -> Self {
+impl<S: Shape> From<BTreeMap<String, Value<S>>> for Value<S> {
+    fn from(value: BTreeMap<String, Value<S>>) -> Self {
         Self::Map(value)
     }
 }
 
-impl<C> From<i64> for Value<C> {
+impl<S: Shape> From<i64> for Value<S> {
     fn from(value: i64) -> Self {
         Self::Int(value)
     }
 }
 
-impl<C> From<f64> for Value<C> {
+impl<S: Shape> From<f64> for Value<S> {
     fn from(value: f64) -> Self {
         Self::Float(value)
     }
 }
 
-// impl<C> From<C> for Value<C> {
-//     fn from(value: C) -> Self {
-//         Self::Content(value)
+// impl<S: ContentShape> From<S::Inline> for Value<S> {
+//     fn from(value: S::Inline) -> Self {
+//         Self::Inline(value)
 //     }
 // }
 
-impl<'a, C> From<Literal> for Value<C> {
+// impl<S: ContentShape> From<S::Block> for Value<S> {
+//     fn from(value: S::Block) -> Self {
+//         Self::Block(value)
+//     }
+// }
+
+impl<'a, S: Shape> From<Literal> for Value<S> {
     fn from(value: Literal) -> Self {
         match value {
             Literal::Boolean(b) => Self::Bool(b),

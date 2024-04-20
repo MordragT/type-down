@@ -7,9 +7,10 @@ use tyd_html::HtmlCompiler;
 use tyd_pandoc::format::HtmlCompiler;
 use tyd_pandoc::{
     builtin,
+    engine::PandocState,
     format::{DocxCompiler, PandocCompiler, PdfCompiler},
 };
-use tyd_render::{Context, Output, Render, Value};
+use tyd_render::{Output, Render, Value};
 use tyd_syntax::prelude::*;
 
 #[derive(Debug, clap::Parser)]
@@ -65,19 +66,19 @@ fn main() -> Result<()> {
             let name = input.file_name().unwrap().to_string_lossy();
             let src = std::fs::read_to_string(&input).map_err(SyntaxError::Io)?;
 
-            let ast = parse(&src, name)?;
+            let ast = parse(&src, name.clone())?;
 
             // TODO highlight, smallcaps, underline only all working in html
             // therefor only add them in html and add a default case
             // which will throw a warning and skip the functions
-            let ctx = Context::new()
-                .symbol("title", "Default title")
-                .symbol("author", vec![Value::from("Max Mustermann")])
-                .function("image", builtin::image)
-                .function("linebreak", builtin::linebreak)
-                .function("highlight", builtin::highlight)
-                .function("smallcaps", builtin::smallcaps)
-                .function("underline", builtin::underline);
+            let ctx = PandocState::new(src, name)
+                .insert("title", "Default title")
+                .insert("author", vec![Value::from("Max Mustermann")])
+                .register("image", builtin::Image);
+            // .function("linebreak", builtin::linebreak)
+            // .function("highlight", builtin::highlight)
+            // .function("smallcaps", builtin::smallcaps)
+            // .function("underline", builtin::underline);
 
             let output = match output {
                 Some(path) => Output::File(path),

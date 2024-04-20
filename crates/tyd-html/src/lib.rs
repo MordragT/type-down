@@ -3,7 +3,7 @@ use std::{fs, io};
 use builder::HtmlBuilder;
 use miette::Diagnostic;
 use thiserror::Error;
-use tyd_render::{Context, ContextError, Output, Render};
+use tyd_render::{ContextError, Engine, Output, Render};
 use tyd_syntax::{ast::visitor::Visitor, Ast};
 
 pub mod builder;
@@ -31,7 +31,7 @@ pub struct HtmlCompiler;
 impl Render for HtmlCompiler {
     type Error = HtmlError;
 
-    fn render(ast: &Ast, ctx: Context, output: Output) -> Result<(), Self::Error> {
+    fn render(ast: &Ast, ctx: Engine, output: Output) -> Result<(), Self::Error> {
         let mut builder = HtmlBuilder::new(ctx);
         builder.visit_ast(ast)?;
 

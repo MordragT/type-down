@@ -3,9 +3,9 @@ use pandoc::{InputFormat, InputKind, OutputFormat, OutputKind, Pandoc};
 use std::io;
 use thiserror::Error;
 use tyd_render::{Output, Render};
-use tyd_syntax::{ast::Ast, visitor::Visitor};
+use tyd_syntax::ast::Ast;
 
-use crate::{builder::PandocBuilder, Content, Context};
+use crate::engine::{PandocEngine, PandocState};
 
 #[derive(Debug, Error, Diagnostic)]
 #[error(transparent)]
@@ -25,18 +25,16 @@ pub struct DocxCompiler;
 
 impl Render for DocxCompiler {
     type Error = DocxError;
-    type Content = Content;
+    type Context = PandocState;
 
-    fn render(ast: &Ast, ctx: Context, output: Output) -> Result<(), Self::Error> {
+    fn render(ast: &Ast, ctx: Self::Context, output: Output) -> Result<(), Self::Error> {
         let dest = match output {
             Output::File(path) => path,
             Output::Stdout => return Err(DocxError::StdoutUnsupported),
         };
 
-        let mut builder = PandocBuilder::new(ctx);
-        builder.visit_ast(ast)?;
-
-        let pandoc = builder.build();
+        let engine = PandocEngine::new();
+        let pandoc = engine.build(ctx, ast)?;
         let contents = pandoc.to_json();
 
         let mut pandoc = Pandoc::new();

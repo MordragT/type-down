@@ -3,19 +3,22 @@ use pandoc::{InputFormat, InputKind, OutputFormat, OutputKind, Pandoc, PandocOpt
 use std::io;
 use thiserror::Error;
 use tyd_render::{Output, Render};
-use tyd_syntax::{ast::Ast, visitor::Visitor};
+use tyd_syntax::ast::Ast;
 
-use crate::{builder::PandocBuilder, Content, Context};
+use crate::engine::{PandocEngine, PandocState};
 
 #[derive(Debug, Error, Diagnostic)]
-#[diagnostic(code(type_down::compile::pdf::PdfCompiler::compile))]
 pub enum PdfError {
+    #[diagnostic(code(type_down::compile::pdf::PdfCompiler::compile))]
     #[error(transparent)]
     Io(#[from] io::Error),
+    #[diagnostic(code(type_down::compile::pdf::PdfCompiler::compile))]
     #[error(transparent)]
     PandocExec(#[from] pandoc::PandocError),
+    #[diagnostic(transparent)]
     #[error(transparent)]
     Pandoc(#[from] crate::error::PandocError),
+    #[diagnostic(code(type_down::compile::pdf::PdfCompiler::compile))]
     #[error("Stdout is unsupported for pdf")]
     StdoutUnsupported,
 }
@@ -25,18 +28,16 @@ pub struct PdfCompiler;
 
 impl Render for PdfCompiler {
     type Error = PdfError;
-    type Content = Content;
+    type Context = PandocState;
 
-    fn render(ast: &Ast, ctx: Context, output: Output) -> Result<(), Self::Error> {
+    fn render(ast: &Ast, ctx: Self::Context, output: Output) -> Result<(), Self::Error> {
         let dest = match output {
             Output::File(path) => path,
             Output::Stdout => return Err(PdfError::StdoutUnsupported),
         };
 
-        let mut builder = PandocBuilder::new(ctx);
-        builder.visit_ast(ast)?;
-
-        let pandoc = builder.build();
+        let engine = PandocEngine::new();
+        let pandoc = engine.build(ctx, ast)?;
         let contents = pandoc.to_json();
 
         let mut pandoc = Pandoc::new();

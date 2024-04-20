@@ -2,19 +2,25 @@ use miette::Diagnostic;
 use std::path::PathBuf;
 use tyd_syntax::ast::Ast;
 
-pub use context::*;
+pub use command::*;
+pub use engine::*;
+pub use table::*;
+pub use ty::*;
 pub use value::*;
 
-pub mod builtin;
-mod context;
+// pub mod builtin;
+mod command;
+mod engine;
 pub mod error;
+mod table;
+mod ty;
 mod value;
 
 pub trait Render {
     type Error: Diagnostic;
-    type Content;
+    type Context;
 
-    fn render(ast: &Ast, ctx: Context<Self::Content>, output: Output) -> Result<(), Self::Error>;
+    fn render(ast: &Ast, ctx: Self::Context, output: Output) -> Result<(), Self::Error>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -22,6 +28,3 @@ pub enum Output {
     File(PathBuf),
     Stdout,
 }
-
-// TODO create Event based ast visitor with evaluation code already inside in here
-// maybe merge tyd pandoc and tyd render ? And then expose funcitonality to further

@@ -11,7 +11,7 @@
 // use super::{Compiler, Context, Output};
 // use crate::parse::ast::*;
 
-use tyd_render::{Args, Context, Value};
+use tyd_render::{Args, Engine, Value};
 use tyd_syntax::ast::{
     visitor::{
         walk_block_quote, walk_emphasis, walk_enclosed, walk_heading, walk_paragraph, walk_quote,
@@ -35,11 +35,11 @@ pub struct HtmlBuilder {
     head: HtmlElement<HeadTag>,
     body: HtmlElement<BodyTag>,
     stack: HtmlStack,
-    ctx: Context,
+    ctx: Engine,
 }
 
 impl HtmlBuilder {
-    pub fn new(ctx: Context) -> Self {
+    pub fn new(ctx: Engine) -> Self {
         let head = HtmlElement::head().child(HtmlElement::stylesheet(
             "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css",
         ));

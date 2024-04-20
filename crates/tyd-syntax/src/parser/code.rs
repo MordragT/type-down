@@ -23,21 +23,18 @@ where
     I: Parser<'src, &'src str, Inline, Extra<'src>> + 'src,
 {
     recursive(|expr| {
-        let ident = ascii::ident().to_ecow();
-        let args = args_parser(expr.clone());
-        let content = inline
-            .repeated()
-            .collect()
-            .delimited_by(just("["), just("]"))
-            .or_not();
-        let call_tail = args.then(content);
+        let ident = ascii::ident().to_ecow().map_with(|value, e| Ident {
+            value,
+            span: e.span(),
+        });
+        let args = args_parser(expr.clone(), inline);
 
-        let access = ident.then(call_tail.or_not()).map(|(ident, tail)| {
-            if let Some((args, content)) = tail {
+        let access = ident.then(args.or_not()).map_with(|(ident, args), e| {
+            if let Some(args) = args {
                 Expr::Call(Call {
                     ident,
                     args,
-                    content,
+                    span: e.span(),
                 })
             } else {
                 Expr::Ident(ident)
@@ -55,22 +52,47 @@ where
     })
 }
 
-pub fn args_parser<'src, E>(expr: E) -> impl Parser<'src, &'src str, Vec<Arg>, Extra<'src>>
+pub fn args_parser<'src, E, I>(
+    expr: E,
+    inline: I,
+) -> impl Parser<'src, &'src str, Args, Extra<'src>>
 where
     E: Parser<'src, &'src str, Expr, Extra<'src>>,
+    I: Parser<'src, &'src str, Inline, Extra<'src>> + 'src,
 {
     let arg = ascii::ident()
         .to_ecow()
         .then_ignore(just(": "))
         .or_not()
         .then(expr)
-        .map(|(name, value)| Arg { name, value });
+        .map_with(|(name, value), e| Arg {
+            name,
+            value,
+            span: e.span(),
+        });
 
-    arg.separated_by(just(",").padded())
+    let args = arg
+        .separated_by(just(",").padded())
         .allow_trailing()
         .collect()
         .padded()
-        .delimited_by(just("("), just(")"))
+        .delimited_by(just("("), just(")"));
+
+    let content = inline
+        .repeated()
+        .collect()
+        .delimited_by(just("["), just("]"))
+        .map_with(|content, e| Content {
+            content,
+            span: e.span(),
+        })
+        .or_not();
+
+    args.then(content).map_with(|(args, content), e| Args {
+        args,
+        content,
+        span: e.span(),
+    })
 }
 
 pub fn literal_parser<'src>() -> impl Parser<'src, &'src str, Literal, Extra<'src>> {
