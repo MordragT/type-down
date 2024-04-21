@@ -38,20 +38,37 @@ impl EngineError {
             span: SourceSpan::from(span.into_range()),
         }
     }
+
+    pub fn arg(span: Span, msg: ArgumentError) -> Self {
+        Self {
+            msg: EngineErrorMessage::Argument(msg),
+            span: SourceSpan::from(span.into_range()),
+        }
+    }
 }
 
 #[derive(Clone, Error, Debug, Diagnostic)]
 pub enum EngineErrorMessage {
-    #[error("{0}")]
-    Message(String),
-    #[error("Missing Argument {0}")]
-    MissingArgument(String),
-    #[error("Wrong Type for argument {key}. Expected {expected}")]
-    WrongArgType { key: String, expected: Type },
-    #[error("Wrong Arguments")]
-    WrongArguments(Vec<String>),
+    #[error(transparent)]
+    Argument(#[from] ArgumentError),
     #[error("Function '{0}' not found")]
     FunctionNotFound(String),
     #[error("Symbol '{0}' not found")]
     SymbolNotFound(String),
+    #[error("{0}")]
+    Message(String),
+}
+
+#[derive(Clone, Error, Debug, Diagnostic)]
+pub enum ArgumentError {
+    #[error("Missing Argument {name}: {ty}")]
+    MissingRequired { name: String, ty: Type },
+    #[error("Missing Argument at {pos} of {ty}")]
+    MissingPositional { pos: usize, ty: Type },
+    #[error("Unknown Argument {name}")]
+    UnknownNamed { name: String },
+    #[error("Unknown Argument at {pos}")]
+    UnknownPositional { pos: usize },
+    #[error("Wrong Argument type of {got}, expected: {expected}")]
+    WrongType { got: Type, expected: Type },
 }

@@ -1,73 +1,19 @@
-pub fn linebreak(args: Args) -> Result<Value, EngineError> {
-    use EngineError::*;
+use pandoc_ast as ir;
+use tyd_render::{error::EngineError, Command, Type};
 
-    if !args.is_empty() {
-        return Err(WrongArguments);
+use crate::{attr::AttrBuilder, Arguments, PandocShape, Signature, Value};
+
+pub struct Highlight;
+
+impl Command<PandocShape> for Highlight {
+    fn signature(&self) -> Signature {
+        Signature::new("highlight").required("content", Type::list(Type::Inline))
     }
 
-    Ok(Value::Content(vec![Inline::LineBreak]))
-}
+    fn run(&self, args: &mut Arguments) -> Result<Value, EngineError> {
+        let content = args.remove_named::<Vec<ir::Inline>>("content");
+        let inline = ir::Inline::Span(AttrBuilder::new().class("mark").build(), content);
 
-pub fn underline(mut args: Args) -> Result<Value, EngineError> {
-    use EngineError::*;
-
-    let content = args
-        .remove("content")
-        .ok_or(MissingArgument("content".to_owned()))?;
-
-    let content = content.into_content().ok_or(WrongArgType {
-        arg: "content".to_owned(),
-        expected: ValueKind::Content,
-    })?;
-
-    if !args.is_empty() {
-        return Err(WrongArguments);
+        Ok(Value::Inline(inline))
     }
-
-    Ok(Value::Content(vec![Inline::Underline(content)]))
-}
-
-pub fn smallcaps(mut args: Args) -> Result<Value, EngineError> {
-    use EngineError::*;
-
-    let content = args
-        .remove("content")
-        .ok_or(MissingArgument("content".to_owned()))?;
-
-    let content = content.into_content().ok_or(WrongArgType {
-        arg: "content".to_owned(),
-        expected: ValueKind::Content,
-    })?;
-
-    if !args.is_empty() {
-        return Err(WrongArguments);
-    }
-
-    Ok(Value::Content(vec![Inline::SmallCaps(content)]))
-}
-
-pub fn highlight(args: Args) -> Result<Value, EngineError> {
-    add_class("mark", args)
-}
-
-fn add_class(class: impl Into<String>, mut args: Args) -> Result<Value, EngineError> {
-    use EngineError::*;
-
-    let content = args
-        .remove("content")
-        .ok_or(MissingArgument("content".to_owned()))?;
-
-    let content = content.into_content().ok_or(WrongArgType {
-        arg: "content".to_owned(),
-        expected: ValueKind::Content,
-    })?;
-
-    if !args.is_empty() {
-        return Err(WrongArguments);
-    }
-
-    Ok(Value::Content(vec![Inline::Span(
-        AttrBuilder::new().class(class).build(),
-        content,
-    )]))
 }

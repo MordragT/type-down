@@ -1,204 +1,159 @@
-use std::collections::{BTreeMap, HashSet};
+use std::collections::HashSet;
 use tyd_syntax::Span;
 
 use crate::{
-    error::{EngineError, EngineErrorMessage},
-    Shape, Signature, Type, Value,
+    error::{ArgumentError, EngineError},
+    Cast, Shape, Signature, Value,
 };
 
-pub type RawArgs<S> = BTreeMap<String, Arg<S>>;
-
 #[derive(Debug, Clone)]
-pub struct RawArgsBuilder<S: Shape>(RawArgs<S>);
+pub struct Arguments<S: Shape> {
+    named: Vec<(String, Value<S>)>,
+    positional: Vec<Value<S>>,
+}
 
-impl<S: Shape> RawArgsBuilder<S> {
+impl<S: Shape> Arguments<S> {
     pub fn new() -> Self {
-        Self(RawArgs::new())
-    }
-
-    pub fn insert(&mut self, name: impl Into<String>, span: Span, value: Value<S>) {
-        self.0.insert(
-            name.into(),
-            Arg {
-                ty: value.ty(),
-                span,
-                value,
-            },
-        );
-    }
-
-    pub fn build(self) -> RawArgs<S> {
-        self.0
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Arg<S: Shape> {
-    span: Span,
-    value: Value<S>,
-    ty: Type,
-}
-
-#[derive(Debug, Clone)]
-pub struct ValidArgs<S: Shape>(RawArgs<S>);
-
-impl<S: Shape> ValidArgs<S> {
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-
-    pub fn map(&mut self, name: impl AsRef<str>) -> BTreeMap<String, Value<S>> {
-        let arg = self.0.remove(name.as_ref()).unwrap();
-
-        // assert!(TypeChecker::<S>::check::<BTreeMap<String, Value<S>>>(
-        //     arg.ty
-        // ));
-
-        arg.value.into_map().unwrap()
-    }
-
-    pub fn list(&mut self, name: impl AsRef<str>) -> Vec<Value<S>> {
-        self.0
-            .remove(name.as_ref())
-            .unwrap()
-            .value
-            .into_list()
-            .unwrap()
-    }
-
-    pub fn bool(&mut self, name: impl AsRef<str>) -> bool {
-        self.0
-            .remove(name.as_ref())
-            .unwrap()
-            .value
-            .into_bool()
-            .unwrap()
-    }
-
-    pub fn str(&mut self, name: impl AsRef<str>) -> String {
-        self.0
-            .remove(name.as_ref())
-            .unwrap()
-            .value
-            .into_string()
-            .unwrap()
-    }
-
-    pub fn float(&mut self, name: impl AsRef<str>) -> f64 {
-        self.0
-            .remove(name.as_ref())
-            .unwrap()
-            .value
-            .into_float()
-            .unwrap()
-    }
-
-    pub fn int(&mut self, name: impl AsRef<str>) -> i64 {
-        self.0
-            .remove(name.as_ref())
-            .unwrap()
-            .value
-            .into_int()
-            .unwrap()
-    }
-
-    pub fn inline(&mut self, name: impl AsRef<str>) -> S::Inline {
-        self.0
-            .remove(name.as_ref())
-            .unwrap()
-            .value
-            .into_inline()
-            .unwrap()
-    }
-
-    pub fn block(&mut self, name: impl AsRef<str>) -> S::Block {
-        self.0
-            .remove(name.as_ref())
-            .unwrap()
-            .value
-            .into_block()
-            .unwrap()
-    }
-
-    pub fn any(&mut self, name: impl AsRef<str>) -> Value<S> {
-        self.0.remove(name.as_ref()).unwrap().value
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct ValidationResult<S: Shape>(pub ValidArgs<S>, pub Vec<EngineError>);
-
-impl<S: Shape> ValidationResult<S> {
-    pub fn has_errors(&self) -> bool {
-        !self.1.is_empty()
-    }
-}
-
-pub struct Validator<S: Shape> {
-    span: Span,
-    args: RawArgs<S>,
-    signature: Signature<S>,
-    errors: Vec<EngineError>,
-}
-
-impl<S: Shape> Validator<S> {
-    pub fn new(span: Span, args: RawArgs<S>, signature: Signature<S>) -> Self {
         Self {
-            span,
-            args,
-            signature,
-            errors: Vec::new(),
+            named: Vec::new(),
+            positional: Vec::new(),
         }
     }
 
-    pub fn validate(self) -> ValidationResult<S> {
-        use EngineErrorMessage::*;
+    pub fn names(&self) -> impl Iterator<Item = &String> {
+        self.named.iter().map(|(n, _)| n)
+    }
 
-        let Self {
-            span,
-            mut args,
-            signature,
-            mut errors,
-        } = self;
+    pub fn add_named(&mut self, name: impl Into<String>, value: impl Into<Value<S>>) {
+        self.named.push((name.into(), value.into()))
+    }
 
-        let allowed_keys = signature.params.keys().collect::<HashSet<_>>();
-        let actual_keys = args.keys().collect::<HashSet<_>>();
+    pub fn add_positional(&mut self, value: impl Into<Value<S>>) {
+        self.positional.push(value.into())
+    }
 
-        let diff = actual_keys
-            .difference(&allowed_keys)
-            .cloned()
-            .cloned()
-            .collect::<Vec<_>>();
+    pub fn is_empty(&self) -> bool {
+        self.named.is_empty() && self.positional.is_empty()
+    }
 
-        if !diff.is_empty() {
-            errors.push(EngineError::new(span, WrongArguments(diff)));
-        }
+    pub fn remove_named<T: Cast<S>>(&mut self, name: impl AsRef<str>) -> T {
+        let pos = self
+            .named
+            .iter()
+            .position(|(n, _)| n == name.as_ref())
+            .unwrap();
+        let (_, value) = self.named.remove(pos);
+        T::cast(value)
+    }
 
-        for (key, param) in signature.params {
-            if let Some(arg) = args.get(&key) {
-                if arg.ty != param.ty {
-                    errors.push(EngineError::new(
-                        span,
-                        WrongArgType {
-                            key,
-                            expected: param.ty,
-                        },
-                    ));
-                }
-            } else if let Some(value) = param.default {
-                args.insert(
-                    key,
-                    Arg {
-                        value,
-                        ty: param.ty,
-                        span,
-                    },
-                );
+    pub fn remove_positonal<T: Cast<S>>(&mut self, pos: usize) -> T {
+        let value = self.positional.remove(pos);
+        T::cast(value)
+    }
+}
+
+pub struct Arg<S: Shape> {
+    pub name: Option<String>,
+    pub span: Span,
+    pub value: Value<S>,
+}
+
+pub fn validate<S: Shape>(
+    signature: Signature<S>,
+    args: Vec<Arg<S>>,
+    span: Span,
+) -> Result<Arguments<S>, Vec<EngineError>> {
+    use ArgumentError::*;
+
+    let mut errors = Vec::new();
+    let mut arguments = Arguments::new();
+    let mut pos = 0;
+
+    for Arg { name, span, value } in args {
+        if let Some(name) = name {
+            if let Err(e) = validate_named(&signature, &name, &value, span) {
+                errors.push(e);
             } else {
-                errors.push(EngineError::new(span, MissingArgument(key)));
+                arguments.add_named(name, value);
             }
+        } else {
+            if let Err(e) = validate_positional(&signature, pos, &value, span) {
+                errors.push(e);
+            } else {
+                arguments.add_positional(value);
+            }
+            pos += 1;
         }
+    }
 
-        ValidationResult(ValidArgs(args), errors)
+    let gotten = arguments.names().cloned().collect::<HashSet<_>>();
+    let required = signature.required_names().cloned().collect::<HashSet<_>>();
+
+    for name in required.difference(&gotten) {
+        let ty = signature.get_required(name).unwrap();
+
+        errors.push(EngineError::arg(
+            span,
+            MissingRequired {
+                name: name.clone(),
+                ty,
+            },
+        ))
+    }
+
+    let optional = signature.optional_names().cloned().collect::<HashSet<_>>();
+
+    for name in optional.difference(&gotten) {
+        let value = signature.get_default(name).unwrap();
+        arguments.add_named(name, value);
+    }
+
+    if !errors.is_empty() {
+        Err(errors)
+    } else {
+        Ok(arguments)
+    }
+}
+
+pub fn validate_named<S: Shape>(
+    signature: &Signature<S>,
+    name: &String,
+    value: &Value<S>,
+    span: Span,
+) -> Result<(), EngineError> {
+    use ArgumentError::*;
+
+    let ty = signature
+        .get_required(&name)
+        .or(signature.get_optional(&name))
+        .ok_or(EngineError::arg(span, UnknownNamed { name: name.clone() }))?;
+
+    let got = value.ty();
+
+    if ty == got {
+        Ok(())
+    } else {
+        Err(EngineError::arg(span, WrongType { got, expected: ty }))
+    }
+}
+
+pub fn validate_positional<S: Shape>(
+    signature: &Signature<S>,
+    pos: usize,
+    value: &Value<S>,
+    span: Span,
+) -> Result<(), EngineError> {
+    use ArgumentError::*;
+
+    let ty = signature
+        .get_positional(pos)
+        .ok_or(EngineError::arg(span, UnknownPositional { pos }))?;
+
+    let got = value.ty();
+
+    if ty == got {
+        Ok(())
+    } else {
+        Err(EngineError::arg(span, WrongType { got, expected: ty }))
     }
 }

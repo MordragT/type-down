@@ -5,6 +5,51 @@ use tyd_syntax::ast::Literal;
 
 use crate::{Shape, Type};
 
+pub trait Cast<S: Shape> {
+    fn cast(value: Value<S>) -> Self;
+}
+
+impl<S: Shape> Cast<S> for BTreeMap<String, Value<S>> {
+    fn cast(value: Value<S>) -> Self {
+        value.into_map().unwrap()
+    }
+}
+
+impl<S: Shape, T: Cast<S>> Cast<S> for Vec<T> {
+    fn cast(value: Value<S>) -> Self {
+        value
+            .into_list()
+            .unwrap()
+            .into_iter()
+            .map(T::cast)
+            .collect()
+    }
+}
+
+impl<S: Shape> Cast<S> for bool {
+    fn cast(value: Value<S>) -> Self {
+        value.into_bool().unwrap()
+    }
+}
+
+impl<S: Shape> Cast<S> for String {
+    fn cast(value: Value<S>) -> Self {
+        value.into_string().unwrap()
+    }
+}
+
+impl<S: Shape> Cast<S> for f64 {
+    fn cast(value: Value<S>) -> Self {
+        value.into_float().unwrap()
+    }
+}
+
+impl<S: Shape> Cast<S> for i64 {
+    fn cast(value: Value<S>) -> Self {
+        value.into_int().unwrap()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum Value<S: Shape> {
     Map(BTreeMap<String, Value<S>>),
@@ -22,8 +67,21 @@ impl<S: Shape> Value<S> {
         use Type::*;
 
         match self {
-            Self::Map(_) => Map,
-            Self::List(_) => List,
+            Self::Map(map) => {
+                let inner = map
+                    .iter()
+                    .map(|(name, val)| (name.clone(), val.ty()))
+                    .collect();
+
+                Map(inner)
+            }
+            Self::List(list) => {
+                if list.is_empty() {
+                    List(Box::new(Any))
+                } else {
+                    List(Box::new(list.first().unwrap().ty()))
+                }
+            }
             Self::Bool(_) => Bool,
             Self::Str(_) => Str,
             Self::Float(_) => Float,
@@ -89,6 +147,7 @@ impl<S: Shape> Value<S> {
         }
     }
 }
+
 impl<S: Shape> From<EcoString> for Value<S> {
     fn from(value: EcoString) -> Self {
         Self::Str(String::from(value))

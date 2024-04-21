@@ -1,42 +1,17 @@
 use core::fmt;
-use std::{any::type_name, collections::BTreeMap, fmt::Debug, marker::PhantomData};
+use std::fmt::Debug;
 
-use crate::Value;
+use crate::Cast;
 
 pub trait Shape: Debug + Copy + Clone {
-    type Inline: Debug + Clone + 'static;
-    type Block: Debug + Clone + 'static;
+    type Inline: Debug + Clone + 'static + Cast<Self>;
+    type Block: Debug + Clone + 'static + Cast<Self>;
 }
 
-pub struct TypeChecker<S: Shape> {
-    s: PhantomData<S>,
-}
-
-impl<S: Shape> TypeChecker<S> {
-    pub fn check<T: ?Sized>(ty: Type) -> bool {
-        use Type::*;
-
-        let t = type_name::<T>();
-
-        match ty {
-            Map => t == type_name::<BTreeMap<String, Value<S>>>(),
-            List => t == type_name::<Vec<Value<S>>>(),
-            Bool => t == type_name::<bool>(),
-            Str => t == type_name::<String>(),
-            Float => t == type_name::<f64>(),
-            Int => t == type_name::<i64>(),
-            Inline => t == type_name::<S::Inline>(),
-            Block => t == type_name::<S::Block>(),
-            // TODO maybe match against all the valid ones before
-            Any => true,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialOrd, Ord)]
 pub enum Type {
-    Map,
-    List,
+    Map(Vec<(String, Self)>),
+    List(Box<Self>),
     Bool,
     Str,
     Float,
@@ -46,11 +21,23 @@ pub enum Type {
     Any,
 }
 
+impl Type {
+    pub fn list(ty: Self) -> Self {
+        Self::List(Box::new(ty))
+    }
+}
+
 impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Type::Map => write!(f, "Map"),
-            Type::List => write!(f, "List"),
+            Type::Map(map) => {
+                write!(f, "Map {{")?;
+                for (name, ty) in map {
+                    write!(f, "{name}: {ty}")?;
+                }
+                write!(f, "}}")
+            }
+            Type::List(ty) => write!(f, "List {ty}"),
             Type::Bool => write!(f, "Bool"),
             Type::Str => write!(f, "Str"),
             Type::Float => write!(f, "Float"),
@@ -67,8 +54,8 @@ impl PartialEq for Type {
         use Type::*;
 
         match (self, other) {
-            (Map, Map) => true,
-            (List, List) => true,
+            (Map(x), Map(y)) => x == y,
+            (List(x), List(y)) => x == y,
             (Bool, Bool) => true,
             (Str, Str) => true,
             (Float, Float) => true,

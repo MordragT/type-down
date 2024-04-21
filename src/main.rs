@@ -68,17 +68,19 @@ fn main() -> Result<()> {
 
             let ast = parse(&src, name.clone())?;
 
-            // TODO highlight, smallcaps, underline only all working in html
+            // TODO highlight only all working in html
             // therefor only add them in html and add a default case
             // which will throw a warning and skip the functions
             let ctx = PandocState::new(src, name)
                 .insert("title", "Default title")
                 .insert("author", vec![Value::from("Max Mustermann")])
-                .register("image", builtin::Image);
-            // .function("linebreak", builtin::linebreak)
-            // .function("highlight", builtin::highlight)
-            // .function("smallcaps", builtin::smallcaps)
-            // .function("underline", builtin::underline);
+                .register("image", builtin::Image)
+                .register("linebreak", builtin::LineBreak)
+                .register("highlight", builtin::Highlight)
+                .register("smallcaps", builtin::SmallCaps)
+                .register("underline", builtin::Underline)
+                .register("list", builtin::List)
+                .register("dict", builtin::Dict);
 
             let output = match output {
                 Some(path) => Output::File(path),

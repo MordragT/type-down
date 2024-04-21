@@ -38,7 +38,11 @@ impl Engine<PandocShape> for PandocEngine {
         state: &mut Self::State,
         inline: &Inline,
     ) -> Result<ir::Inline, Self::Error> {
-        todo!()
+        let start = state.start();
+        self.visit_inline(state, inline)?;
+        let content = state.end(start).last().unwrap();
+
+        Ok(content)
     }
 
     fn eval_block(&self, state: &mut Self::State, block: &Block) -> Result<ir::Block, Self::Error> {

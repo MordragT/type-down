@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use tyd_render::Shape;
+use tyd_render::{Cast, Shape};
 
 pub mod attr;
 pub mod builtin;
@@ -16,7 +16,19 @@ impl Shape for PandocShape {
     type Inline = pandoc_ast::Inline;
 }
 
+impl Cast<PandocShape> for pandoc_ast::Inline {
+    fn cast(value: tyd_render::Value<PandocShape>) -> Self {
+        value.into_inline().unwrap()
+    }
+}
+
+impl Cast<PandocShape> for pandoc_ast::Block {
+    fn cast(value: tyd_render::Value<PandocShape>) -> Self {
+        value.into_block().unwrap()
+    }
+}
+
 pub type Value = tyd_render::Value<PandocShape>;
 pub type CommandBox = Arc<dyn tyd_render::Command<PandocShape>>;
 pub type Signature = tyd_render::Signature<PandocShape>;
-pub type ValidArgs = tyd_render::ValidArgs<PandocShape>;
+pub type Arguments = tyd_render::Arguments<PandocShape>;
