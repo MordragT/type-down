@@ -46,7 +46,7 @@ paragraph `monospace where @ | is ignored`
 
 #img
 
-by labelling #figure(caption: [Some content])[#img] something it creates a invocable variable,
+by labelling something it creates a invocable variable,
 which can then be cited by \@label
 
 All labels are inside the global variable scope

@@ -1,4 +1,6 @@
-use crate::{kind::SyntaxKind, token::Token, Span};
+use tyd_syntax::Span;
+
+use crate::{kind::SyntaxKind, token::Token};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum SyntaxElement {

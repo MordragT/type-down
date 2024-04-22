@@ -23,22 +23,25 @@ pub struct EngineErrors {
 #[diagnostic(code(tyd_render::engine), url(docsrs), help("Please read the Book"))]
 pub struct EngineError {
     #[label("This bit here")]
-    pub span: SourceSpan,
+    pub source_span: SourceSpan,
     pub msg: EngineMessage,
+    pub span: Span,
 }
 
 impl EngineError {
     pub fn new(span: Span, msg: EngineMessage) -> Self {
         Self {
             msg,
-            span: SourceSpan::from(span.into_range()),
+            source_span: SourceSpan::from(span.into_range()),
+            span,
         }
     }
 
     pub fn arg(span: Span, msg: ArgumentError) -> Self {
         Self {
             msg: EngineMessage::Argument(msg),
-            span: SourceSpan::from(span.into_range()),
+            source_span: SourceSpan::from(span.into_range()),
+            span,
         }
     }
 }

@@ -13,7 +13,7 @@ thiserror = "1.0"
 tyd-syntax = { path = "crates/tyd-syntax" }
 tyd-render = { path = "crates/tyd-render" }
 tyd-pandoc = { path = "crates/tyd-pandoc" }
-tyd-html = { path = "crates/tyd-html", optional = true }
+# tyd-html = { path = "crates/tyd-html", optional = true }
 
 [features]
 # default = ["pdf", "docx", "html"]
@@ -21,7 +21,13 @@ tyd-html = { path = "crates/tyd-html", optional = true }
 # docx = ["pandoc"]
 # html = []
 default = []
-html = ["tyd-html"]
+# html = ["tyd-html"]
 
 [workspace]
-members = ["crates/*"]
+members = [
+    # "crates/*"
+    "crates/tyd-language-server",
+    "crates/tyd-pandoc",
+    "crates/tyd-render",
+    "crates/tyd-syntax",
+]

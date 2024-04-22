@@ -46,6 +46,13 @@ pub fn ast<'src>() -> impl Parser<'src, &'src str, Ast, Extra<'src>> {
     whitespace().ignore_then(ast).then_ignore(whitespace())
 }
 
+pub fn try_parse<'src>(src: &'src str) -> ParseResult<Ast, Rich<'src, char, Span>> {
+    let parser = ast();
+    let mut state = ParserState {};
+
+    parser.parse_with_state(src, &mut state)
+}
+
 pub fn parse<'src>(src: &'src str, name: impl AsRef<str>) -> SyntaxResult<Ast> {
     let parser = ast();
     let mut state = ParserState {};

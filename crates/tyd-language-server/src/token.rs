@@ -1,7 +1,6 @@
 use ecow::EcoString;
 use std::fmt;
-
-use crate::Span;
+use tyd_syntax::Span;
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct Token {

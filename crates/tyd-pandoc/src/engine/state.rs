@@ -8,6 +8,7 @@ use std::{
 use tyd_render::{
     command as cmd,
     context::{Context, SymbolTable},
+    error::EngineError,
 };
 
 use crate::{CommandBox, PandocShape, Value};
@@ -19,6 +20,7 @@ pub struct PandocState {
     commands: BTreeMap<String, CommandBox>,
     named_source: NamedSource<Arc<str>>,
     path: PathBuf,
+    errors: Vec<EngineError>,
 }
 
 impl PandocState {
@@ -34,6 +36,7 @@ impl PandocState {
             commands: BTreeMap::new(),
             named_source: NamedSource::new(name, Arc::from(source.as_ref())),
             path: path.into().canonicalize().unwrap(),
+            errors: Vec::new(),
         }
     }
 
@@ -63,7 +66,7 @@ impl PandocState {
         std::mem::replace(&mut self.stack, Vec::new())
     }
 
-    pub(crate) fn is_stack_empty(&self) -> bool {
+    pub(crate) fn stack_is_empty(&self) -> bool {
         self.stack.is_empty()
     }
 
@@ -105,5 +108,21 @@ impl Context<PandocShape> for PandocState {
 
     fn work_path(&self) -> &Path {
         self.path.parent().unwrap()
+    }
+
+    fn error(&mut self, e: EngineError) {
+        self.errors.push(e)
+    }
+
+    fn errors(&mut self, errs: impl IntoIterator<Item = EngineError>) {
+        self.errors.extend(errs)
+    }
+
+    fn has_errors(&self) -> bool {
+        !self.errors.is_empty()
+    }
+
+    fn into_errors(self) -> Vec<EngineError> {
+        self.errors
     }
 }

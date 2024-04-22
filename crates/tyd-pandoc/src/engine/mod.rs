@@ -23,6 +23,13 @@ impl PandocEngine {
     pub fn build(self, mut state: PandocState, ast: &Ast) -> Result<ir::Pandoc, PandocError> {
         self.visit_ast(&mut state, ast)?;
 
+        if state.has_errors() {
+            return Err(EngineErrors {
+                src: state.named_source(),
+                related: state.into_errors(),
+            })?;
+        }
+
         if let Some(Value::Str(title)) = state.symbol("title") {
             state.pandoc.meta.insert(
                 "title".to_owned(),
@@ -35,25 +42,20 @@ impl PandocEngine {
 }
 
 impl Engine<PandocShape> for PandocEngine {
-    type Error = PandocError;
     type State = PandocState;
 
-    fn eval_inline(
-        &self,
-        state: &mut Self::State,
-        inline: &Inline,
-    ) -> Result<ir::Inline, Self::Error> {
+    fn eval_inline(&self, state: &mut Self::State, inline: &Inline) -> Option<ir::Inline> {
         let start = state.start();
-        self.visit_inline(state, inline)?;
+        self.visit_inline(state, inline).ok()?;
         let content = state.end(start).last().unwrap();
 
-        Ok(content)
+        Some(content)
     }
 
-    fn eval_block(&self, state: &mut Self::State, block: &Block) -> Result<ir::Block, Self::Error> {
-        self.visit_block(state, block)?;
+    fn eval_block(&self, state: &mut Self::State, block: &Block) -> Option<ir::Block> {
+        self.visit_block(state, block).ok()?;
         let block = state.pop_block();
-        Ok(block)
+        Some(block)
     }
 }
 
@@ -371,31 +373,27 @@ impl Visitor for PandocEngine {
     }
 
     fn visit_expr(&self, state: &mut Self::State, expr: &Expr) -> Result<(), Self::Error> {
-        let value = self.eval_expr(state, expr)?;
-
-        match value {
-            Value::Block(block) => {
-                if state.is_stack_empty() {
-                    state.add_block(block);
-                } else {
-                    return Err(EngineErrors {
-                        src: state.named_source(),
-                        related: vec![EngineError::new(
+        if let Some(value) = self.eval_expr(state, expr) {
+            match value {
+                Value::Block(block) => {
+                    if state.stack_is_empty() {
+                        state.add_block(block);
+                    } else {
+                        state.error(EngineError::new(
                             *expr.span(),
                             EngineMessage::ExpectedInline,
-                        )],
+                        ));
                     }
-                    .into());
                 }
+                Value::Inline(inline) => state.push(inline),
+                Value::Bool(b) => state.push(ir::Inline::Str(format!("{b}"))),
+                Value::Float(f) => state.push(ir::Inline::Str(format!("{f}"))),
+                Value::Int(i) => state.push(ir::Inline::Str(format!("{i}"))),
+                Value::Str(s) => state.push(ir::Inline::Str(s.to_string())),
+                Value::List(l) => state.push(ir::Inline::Str(format!("{l:?}"))),
+                Value::Map(m) => state.push(ir::Inline::Str(format!("{m:?}"))),
+                Value::None => (),
             }
-            Value::Inline(inline) => state.push(inline),
-            Value::Bool(b) => state.push(ir::Inline::Str(format!("{b}"))),
-            Value::Float(f) => state.push(ir::Inline::Str(format!("{f}"))),
-            Value::Int(i) => state.push(ir::Inline::Str(format!("{i}"))),
-            Value::Str(s) => state.push(ir::Inline::Str(s.to_string())),
-            Value::List(l) => state.push(ir::Inline::Str(format!("{l:?}"))),
-            Value::Map(m) => state.push(ir::Inline::Str(format!("{m:?}"))),
-            Value::None => (),
         }
 
         Ok(())

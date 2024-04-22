@@ -49,7 +49,11 @@ export function activate(context: ExtensionContext) {
 
 	context.subscriptions.push(disposable);
 
-	const traceOutputChannel = window.createOutputChannel("TypeDown Language Server trace");
+	const traceOutputChannel = window.createOutputChannel("TypeDown LSP Trace", { log: true });
+	const outputChannel = window.createOutputChannel("TypeDown LSP", { log: true });
+	context.subscriptions.push(traceOutputChannel);
+
+
 	const command = process.env.SERVER_PATH || "tyd-language-server";
 	const run: Executable = {
 		command,
@@ -75,12 +79,15 @@ export function activate(context: ExtensionContext) {
 			fileEvents: workspace.createFileSystemWatcher("**/.clientrc"),
 		},
 		traceOutputChannel,
+		outputChannel,
 	};
 
 	// Create the language client and start the client.
 	client = new LanguageClient("tyd-language-server", "tyd language server", serverOptions, clientOptions);
 	// activateInlayHints(context);
 	client.start();
+
+	return { client, serverOptions }
 }
 
 // This method is called when your extension is deactivated

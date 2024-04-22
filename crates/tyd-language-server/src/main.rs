@@ -1,29 +1,12 @@
 use async_std::task;
-use tower_lsp::jsonrpc::Result;
-use tower_lsp::lsp_types::*;
-use tower_lsp::{Client, LanguageServer, LspService, Server};
+use backend::Backend;
+use tower_lsp::{LspService, Server};
 
-#[derive(Debug)]
-struct Backend {
-    client: Client,
-}
+pub mod backend;
+pub mod kind;
+pub mod token;
+pub mod tree;
 
-#[tower_lsp::async_trait]
-impl LanguageServer for Backend {
-    async fn initialize(&self, _: InitializeParams) -> Result<InitializeResult> {
-        Ok(InitializeResult::default())
-    }
-
-    async fn initialized(&self, _: InitializedParams) {
-        self.client
-            .log_message(MessageType::INFO, "server initialized!")
-            .await;
-    }
-
-    async fn shutdown(&self) -> Result<()> {
-        Ok(())
-    }
-}
 fn main() {
     task::block_on(run())
 }
@@ -32,6 +15,6 @@ async fn run() {
     let stdin = async_std::io::stdin();
     let stdout = async_std::io::stdout();
 
-    let (service, socket) = LspService::new(|client| Backend { client });
+    let (service, socket) = LspService::new(Backend::new);
     Server::new(stdin, stdout, socket).serve(service).await;
 }

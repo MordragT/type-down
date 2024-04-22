@@ -21,7 +21,9 @@ function activate(context) {
         vscode_1.window.showInformationMessage('Hello World from tyd-language-client!');
     });
     context.subscriptions.push(disposable);
-    const traceOutputChannel = vscode_1.window.createOutputChannel("TypeDown Language Server trace");
+    const traceOutputChannel = vscode_1.window.createOutputChannel("TypeDown LSP Trace", { log: true });
+    const outputChannel = vscode_1.window.createOutputChannel("TypeDown LSP", { log: true });
+    context.subscriptions.push(traceOutputChannel);
     const command = process.env.SERVER_PATH || "tyd-language-server";
     const run = {
         command,
@@ -47,14 +49,21 @@ function activate(context) {
             fileEvents: vscode_1.workspace.createFileSystemWatcher("**/.clientrc"),
         },
         traceOutputChannel,
+        outputChannel,
     };
     // Create the language client and start the client.
     client = new node_1.LanguageClient("tyd-language-server", "tyd language server", serverOptions, clientOptions);
     // activateInlayHints(context);
     client.start();
+    return { client, serverOptions };
 }
 exports.activate = activate;
 // This method is called when your extension is deactivated
-function deactivate() { }
+function deactivate() {
+    if (!client) {
+        return undefined;
+    }
+    return client.stop();
+}
 exports.deactivate = deactivate;
 //# sourceMappingURL=extension.js.map
