@@ -3,14 +3,16 @@ use tyd_render::{command::Command, error::EngineError};
 
 use crate::{engine::PandocState, Call, PandocShape, Signature, Value};
 
-pub struct LineBreak;
+pub struct HorizontalRule;
 
-impl Command<PandocShape, PandocState> for LineBreak {
+impl Command<PandocShape, PandocState> for HorizontalRule {
     fn signature(&self) -> Signature {
-        Signature::new("linebreak")
+        Signature::new("hrule")
     }
 
     fn run(&self, _call: Call, _ctx: &PandocState) -> Result<Value, EngineError> {
-        Ok(Value::Inline(ir::Inline::LineBreak))
+        let block = ir::Block::HorizontalRule;
+
+        Ok(Value::Block(block))
     }
 }

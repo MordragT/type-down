@@ -3,7 +3,10 @@ use chumsky::{
     text::{ascii, digits, newline},
 };
 
-use super::{Extra, ParserExt};
+use super::{
+    markup::{indent_parser, level_parser, soft_break_parser},
+    Extra, ParserContext, ParserExt,
+};
 use crate::ast::*;
 
 pub fn code_parser<'src, I>(inline: I) -> impl Parser<'src, &'src str, Code, Extra<'src>>
@@ -27,7 +30,9 @@ where
             value,
             span: e.span(),
         });
-        let args = args_parser(expr.clone(), inline);
+        let content = content_parser(inline).boxed();
+
+        let args = args_parser(expr.clone(), content.clone());
 
         let access = ident.then(args.or_not()).map_with(|(ident, args), e| {
             if let Some(args) = args {
@@ -48,17 +53,63 @@ where
             .map(Expr::Block);
         let literal = literal_parser().map(Expr::Literal);
 
-        choice((literal, access, block)).boxed()
+        choice((literal, access, block, content.map(Expr::Content))).boxed()
     })
 }
 
-pub fn args_parser<'src, E, I>(
+pub fn content_parser<'src, I>(inline: I) -> impl Parser<'src, &'src str, Content, Extra<'src>>
+where
+    I: Parser<'src, &'src str, Inline, Extra<'src>> + 'src,
+{
+    let text = inline.repeated().collect::<Vec<_>>().boxed();
+
+    let paragraph = recursive(
+        |par: Recursive<dyn Parser<&'src str, Vec<Inline>, Extra<'src>>>| {
+            let nested = indent_parser()
+                .map(|indent| ParserContext { indent })
+                .ignore_with_ctx(par);
+
+            text.clone()
+                .then(nested.or_not())
+                .map(|(mut text, nested)| {
+                    if let Some(mut nested) = nested {
+                        text.push(Inline::SoftBreak);
+                        text.append(&mut nested);
+                    }
+
+                    text
+                })
+                .separated_by(level_parser())
+                .allow_leading()
+                .at_least(1)
+                .collect()
+                .map(|mut content: Vec<Vec<_>>| {
+                    for line in &mut content {
+                        line.push(Inline::SoftBreak);
+                    }
+                    content.into_iter().flatten().collect()
+                })
+                .boxed()
+        },
+    );
+
+    text.delimited_by(just("["), just("]"))
+        .or(paragraph
+            .with_ctx(ParserContext { indent: 1 })
+            .delimited_by(just("["), soft_break_parser().then(just("]"))))
+        .map_with(|content, e| Content {
+            content,
+            span: e.span(),
+        })
+}
+
+pub fn args_parser<'src, E, C>(
     expr: E,
-    inline: I,
+    content: C,
 ) -> impl Parser<'src, &'src str, Args, Extra<'src>>
 where
     E: Parser<'src, &'src str, Expr, Extra<'src>>,
-    I: Parser<'src, &'src str, Inline, Extra<'src>> + 'src,
+    C: Parser<'src, &'src str, Content, Extra<'src>> + 'src,
 {
     let arg = ascii::ident()
         .to_ecow()
@@ -77,16 +128,7 @@ where
         .collect()
         .padded()
         .delimited_by(just("("), just(")"));
-
-    let content = inline
-        .repeated()
-        .collect()
-        .delimited_by(just("["), just("]"))
-        .map_with(|content, e| Content {
-            content,
-            span: e.span(),
-        })
-        .or_not();
+    let content = content.or_not();
 
     args.then(content).map_with(|(args, content), e| Args {
         args,

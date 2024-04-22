@@ -1,7 +1,14 @@
 use miette::NamedSource;
 use pandoc_ast as ir;
-use std::{collections::BTreeMap, sync::Arc};
-use tyd_render::{error::EngineErrorHandler, SymbolTable};
+use std::{
+    collections::BTreeMap,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
+use tyd_render::{
+    command as cmd,
+    context::{Context, SymbolTable},
+};
 
 use crate::{CommandBox, PandocShape, Value};
 
@@ -11,10 +18,11 @@ pub struct PandocState {
     symbols: BTreeMap<String, Value>,
     commands: BTreeMap<String, CommandBox>,
     named_source: NamedSource<Arc<str>>,
+    path: PathBuf,
 }
 
 impl PandocState {
-    pub fn new(source: impl AsRef<str>, name: impl AsRef<str>) -> Self {
+    pub fn new(source: impl AsRef<str>, name: impl AsRef<str>, path: impl Into<PathBuf>) -> Self {
         Self {
             pandoc: ir::Pandoc {
                 pandoc_api_version: vec![1, 23, 1],
@@ -25,13 +33,14 @@ impl PandocState {
             symbols: BTreeMap::new(),
             commands: BTreeMap::new(),
             named_source: NamedSource::new(name, Arc::from(source.as_ref())),
+            path: path.into().canonicalize().unwrap(),
         }
     }
 
     pub fn register(
         mut self,
         name: impl Into<String>,
-        command: impl tyd_render::Command<PandocShape> + 'static,
+        command: impl cmd::Command<PandocShape, PandocState> + 'static,
     ) -> Self {
         self.commands.insert(name.into(), Arc::new(command));
         self
@@ -52,6 +61,10 @@ impl PandocState {
 
     pub(crate) fn take_stack(&mut self) -> Vec<ir::Inline> {
         std::mem::replace(&mut self.stack, Vec::new())
+    }
+
+    pub(crate) fn is_stack_empty(&self) -> bool {
+        self.stack.is_empty()
     }
 
     pub(crate) fn push(&mut self, inline: ir::Inline) {
@@ -75,10 +88,22 @@ impl SymbolTable<PandocShape> for PandocState {
     fn symbol(&self, key: impl AsRef<str>) -> Option<Value> {
         self.symbols.get(key.as_ref()).cloned()
     }
+
+    fn add_symbol(&mut self, name: impl Into<String>, value: impl Into<Value>) -> Option<Value> {
+        self.symbols.insert(name.into(), value.into())
+    }
 }
 
-impl EngineErrorHandler for PandocState {
+impl Context<PandocShape> for PandocState {
     fn named_source(&self) -> NamedSource<Arc<str>> {
         self.named_source.clone()
+    }
+
+    fn file_path(&self) -> &Path {
+        &self.path
+    }
+
+    fn work_path(&self) -> &Path {
+        self.path.parent().unwrap()
     }
 }

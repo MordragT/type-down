@@ -1,13 +1,15 @@
 use tyd_syntax::ast;
 
 use crate::{
-    error::{EngineError, EngineErrorHandler, EngineErrorMessage::*, EngineErrors},
-    Arg, Shape, SymbolTable, Value,
+    command::{Arg, UnverifiedCall},
+    context::{Context, SymbolTable},
+    error::{EngineError, EngineErrors, EngineMessage::*},
+    value::{Shape, Value},
 };
 
 pub trait Engine<S: Shape> {
     type Error: From<EngineError> + From<EngineErrors>;
-    type State: SymbolTable<S> + EngineErrorHandler;
+    type State: Context<S>;
 
     fn eval_inline(
         &self,
@@ -21,21 +23,6 @@ pub trait Engine<S: Shape> {
         block: &ast::Block,
     ) -> Result<S::Block, Self::Error>;
 
-    fn eval_text(
-        &self,
-        state: &mut Self::State,
-        text: &Vec<ast::Inline>,
-    ) -> Result<Value<S>, Self::Error> {
-        let mut result = Vec::new();
-
-        for inline in text {
-            let evaluated = self.eval_inline(state, inline)?;
-            result.push(Value::Inline(evaluated));
-        }
-
-        Ok(Value::List(result))
-    }
-
     fn eval_expr(
         &self,
         state: &mut Self::State,
@@ -46,7 +33,23 @@ pub trait Engine<S: Shape> {
             ast::Expr::Call(call) => self.eval_call(state, call),
             ast::Expr::Ident(ident) => self.eval_symbol(state, ident),
             ast::Expr::Literal(literal) => Ok(Value::from(literal.to_owned())),
+            ast::Expr::Content(content) => self.eval_content(state, content),
         }
+    }
+
+    fn eval_content(
+        &self,
+        state: &mut Self::State,
+        content: &ast::Content,
+    ) -> Result<Value<S>, Self::Error> {
+        let mut result = Vec::new();
+
+        for inline in &content.content {
+            let evaluated = self.eval_inline(state, inline)?;
+            result.push(Value::Inline(evaluated));
+        }
+
+        Ok(Value::List(result))
     }
 
     fn eval_symbol(
@@ -77,7 +80,8 @@ pub trait Engine<S: Shape> {
             .ok_or(EngineError::new(*span, FunctionNotFound(key.to_string())))?;
 
         let args = self.eval_args(state, args)?;
-        let value = cmd.dispatch(args, *span).map_err(|related| EngineErrors {
+        let call = UnverifiedCall { args, span: *span };
+        let value = cmd.dispatch(call, state).map_err(|related| EngineErrors {
             src: state.named_source(),
             related,
         })?;
@@ -101,12 +105,13 @@ pub trait Engine<S: Shape> {
             .map(|arg| self.eval_arg(state, arg))
             .collect::<Result<Vec<_>, Self::Error>>()?;
 
-        if let Some(ast::Content { content, span }) = content {
-            let value = self.eval_text(state, content)?;
+        if let Some(content) = content {
+            let span = content.span;
+            let value = self.eval_content(state, content)?;
 
             args.push(Arg {
-                name: Some("content".to_owned()),
-                span: *span,
+                name: None,
+                span,
                 value,
             });
         }

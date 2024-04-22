@@ -2,7 +2,7 @@ use miette::Diagnostic;
 use pandoc::{InputFormat, InputKind, OutputFormat, OutputKind, Pandoc};
 use std::io;
 use thiserror::Error;
-use tyd_render::{Output, Render};
+use tyd_render::render::{Output, Render};
 use tyd_syntax::ast::Ast;
 
 use crate::engine::{PandocEngine, PandocState};

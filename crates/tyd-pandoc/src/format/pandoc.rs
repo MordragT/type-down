@@ -1,5 +1,5 @@
 use std::fs;
-use tyd_render::{Output, Render};
+use tyd_render::render::{Output, Render};
 use tyd_syntax::ast::Ast;
 
 use crate::{

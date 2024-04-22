@@ -2,7 +2,7 @@ use miette::Diagnostic;
 use pandoc::{InputFormat, InputKind, OutputFormat, OutputKind, Pandoc, PandocOption};
 use std::io;
 use thiserror::Error;
-use tyd_render::{Output, Render};
+use tyd_render::render::{Output, Render};
 use tyd_syntax::ast::Ast;
 
 use crate::engine::{PandocEngine, PandocState};
@@ -47,6 +47,7 @@ impl Render for PdfCompiler {
             .set_input(InputKind::Pipe(contents))
             .set_output_format(OutputFormat::Pdf, Vec::new())
             .set_output(OutputKind::File(dest))
+            .add_option(PandocOption::Template("templates/default.typst".into()))
             .add_option(PandocOption::PdfEngine("typst".into()));
 
         pandoc.execute()?;

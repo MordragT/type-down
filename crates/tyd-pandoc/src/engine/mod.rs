@@ -1,6 +1,11 @@
 use miette::Result;
 use pandoc_ast as ir;
-use tyd_render::{Engine, SymbolTable, Value};
+use tyd_render::{
+    context::{Context, SymbolTable},
+    engine::Engine,
+    error::{EngineError, EngineErrors, EngineMessage},
+    value::Value,
+};
 use tyd_syntax::prelude::*;
 
 use crate::{attr::AttrBuilder, error::PandocError, PandocShape};
@@ -46,19 +51,10 @@ impl Engine<PandocShape> for PandocEngine {
     }
 
     fn eval_block(&self, state: &mut Self::State, block: &Block) -> Result<ir::Block, Self::Error> {
-        todo!()
+        self.visit_block(state, block)?;
+        let block = state.pop_block();
+        Ok(block)
     }
-
-    // fn eval_text(
-    //     &mut self,
-    //     text: &Vec<tyd_syntax::prelude::Inline>,
-    // ) -> Result<Content, PandocError> {
-    //     let start = state.start();
-    //     self.visit_text(text)?;
-    //     let content = state.end(start).collect();
-
-    //     Ok(content)
-    // }
 }
 
 impl Visitor for PandocEngine {
@@ -345,14 +341,6 @@ impl Visitor for PandocEngine {
         Ok(())
     }
 
-    fn visit_comment(
-        &self,
-        state: &mut Self::State,
-        _comment: &Comment,
-    ) -> Result<(), Self::Error> {
-        Ok(())
-    }
-
     fn visit_escape(&self, state: &mut Self::State, escape: &Escape) -> Result<(), Self::Error> {
         let inline = ir::Inline::Str(escape.content.to_string());
         state.push(inline);
@@ -386,7 +374,20 @@ impl Visitor for PandocEngine {
         let value = self.eval_expr(state, expr)?;
 
         match value {
-            Value::Block(block) => todo!(),
+            Value::Block(block) => {
+                if state.is_stack_empty() {
+                    state.add_block(block);
+                } else {
+                    return Err(EngineErrors {
+                        src: state.named_source(),
+                        related: vec![EngineError::new(
+                            *expr.span(),
+                            EngineMessage::ExpectedInline,
+                        )],
+                    }
+                    .into());
+                }
+            }
             Value::Inline(inline) => state.push(inline),
             Value::Bool(b) => state.push(ir::Inline::Str(format!("{b}"))),
             Value::Float(f) => state.push(ir::Inline::Str(format!("{f}"))),
@@ -394,6 +395,7 @@ impl Visitor for PandocEngine {
             Value::Str(s) => state.push(ir::Inline::Str(s.to_string())),
             Value::List(l) => state.push(ir::Inline::Str(format!("{l:?}"))),
             Value::Map(m) => state.push(ir::Inline::Str(format!("{m:?}"))),
+            Value::None => (),
         }
 
         Ok(())

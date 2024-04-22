@@ -1,13 +1,6 @@
 use core::fmt;
 use std::fmt::Debug;
 
-use crate::Cast;
-
-pub trait Shape: Debug + Copy + Clone {
-    type Inline: Debug + Clone + 'static + Cast<Self>;
-    type Block: Debug + Clone + 'static + Cast<Self>;
-}
-
 #[derive(Debug, Clone, PartialOrd, Ord)]
 pub enum Type {
     Map(Vec<(String, Self)>),
@@ -19,6 +12,7 @@ pub enum Type {
     Inline,
     Block,
     Any,
+    None,
 }
 
 impl Type {
@@ -45,6 +39,7 @@ impl fmt::Display for Type {
             Type::Inline => write!(f, "Inline"),
             Type::Block => write!(f, "Block"),
             Type::Any => write!(f, "Any"),
+            Type::None => write!(f, "None"),
         }
     }
 }

@@ -2,15 +2,20 @@
 
 $ \forall x \in X, \quad \exists y \leq \epsilon $
 
-#highlight()[Some highlighted text]
+#highlight()[
+    Some highlighted text
+    some more text
+]
 
 #smallcaps()[This will be *all* small caps]
 
 #underline()[Underlined text]
 
-#dict(a: "test", b: true)
+#Map(a: "test", b: true)
 
-#list("a", "b", 3)
+#List("a", "b", 3)
+
+#hrule()
 
 == heading \@
 
@@ -33,9 +38,15 @@ paragraph `monospace where @ | is ignored`
 
 > term: Some definition of the term for more info <https://example.com>[Hier klicken]
 
-#image(src: "test.png", alt: "Human", width: "50%")
+#let(img: image(src: "test.png", alt: "Human", width: "50%"))
 
-by labelling something it creates a invocable variable,
+#figure(caption: [Some content], List(img))
+
+#figure(caption: [Some content])[#img]
+
+#img
+
+by labelling #figure(caption: [Some content])[#img] something it creates a invocable variable,
 which can then be cited by \@label
 
 All labels are inside the global variable scope

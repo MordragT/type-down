@@ -205,6 +205,14 @@ pub trait Visitor {
     fn visit_call_expr(&self, _state: &mut Self::State, _call: &Call) -> Result<(), Self::Error> {
         Ok(())
     }
+
+    fn visit_content_expr(
+        &self,
+        _state: &mut Self::State,
+        _content: &Content,
+    ) -> Result<(), Self::Error> {
+        Ok(())
+    }
 }
 
 pub fn walk_ast<V: Visitor + ?Sized>(
@@ -498,6 +506,7 @@ pub fn walk_expr<V: Visitor + ?Sized>(
         Expr::Call(call) => visitor.visit_call_expr(state, call),
         Expr::Ident(ident) => visitor.visit_ident_expr(state, ident),
         Expr::Literal(literal) => visitor.visit_literal_expr(state, literal),
+        Expr::Content(content) => visitor.visit_content_expr(state, content),
     }
 }
 

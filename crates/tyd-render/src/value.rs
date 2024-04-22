@@ -1,9 +1,13 @@
-use std::collections::BTreeMap;
-
 use ecow::EcoString;
+use std::{collections::BTreeMap, fmt::Debug};
 use tyd_syntax::ast::Literal;
 
-use crate::{Shape, Type};
+use crate::ty::Type;
+
+pub trait Shape: Debug + Copy + Clone {
+    type Inline: Debug + Clone + 'static + Cast<Self>;
+    type Block: Debug + Clone + 'static + Cast<Self>;
+}
 
 pub trait Cast<S: Shape> {
     fn cast(value: Value<S>) -> Self;
@@ -60,6 +64,7 @@ pub enum Value<S: Shape> {
     Int(i64),
     Inline(S::Inline),
     Block(S::Block),
+    None,
 }
 
 impl<S: Shape> Value<S> {
@@ -88,6 +93,7 @@ impl<S: Shape> Value<S> {
             Self::Int(_) => Int,
             Self::Inline(_) => Inline,
             Self::Block(_) => Block,
+            Self::None => None,
         }
     }
 

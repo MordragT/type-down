@@ -1,4 +1,7 @@
-use crate::{Shape, Type, Value};
+use crate::{
+    ty::Type,
+    value::{Shape, Value},
+};
 
 #[derive(Debug, Clone)]
 pub struct Signature<S: Shape> {
@@ -28,6 +31,10 @@ impl<S: Shape> Signature<S> {
 
     pub fn optional_names(&self) -> impl Iterator<Item = &String> {
         self.optional.iter().map(|(n, _)| n)
+    }
+
+    pub fn positonal_count(&self) -> usize {
+        self.positional.len()
     }
 
     pub fn get_required(&self, name: impl AsRef<str>) -> Option<Type> {

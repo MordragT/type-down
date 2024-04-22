@@ -1,16 +1,12 @@
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 
 use miette::{Diagnostic, NamedSource, SourceSpan};
 use thiserror::Error;
 use tyd_syntax::Span;
 
-use crate::Type;
+use crate::ty::Type;
 
 pub type EngineResult<T> = Result<T, Vec<EngineError>>;
-
-pub trait EngineErrorHandler {
-    fn named_source(&self) -> NamedSource<Arc<str>>;
-}
 
 #[derive(Clone, Error, Debug, Diagnostic)]
 #[error("Evaluation failed with the following errors:")]
@@ -28,11 +24,11 @@ pub struct EngineErrors {
 pub struct EngineError {
     #[label("This bit here")]
     pub span: SourceSpan,
-    pub msg: EngineErrorMessage,
+    pub msg: EngineMessage,
 }
 
 impl EngineError {
-    pub fn new(span: Span, msg: EngineErrorMessage) -> Self {
+    pub fn new(span: Span, msg: EngineMessage) -> Self {
         Self {
             msg,
             span: SourceSpan::from(span.into_range()),
@@ -41,20 +37,24 @@ impl EngineError {
 
     pub fn arg(span: Span, msg: ArgumentError) -> Self {
         Self {
-            msg: EngineErrorMessage::Argument(msg),
+            msg: EngineMessage::Argument(msg),
             span: SourceSpan::from(span.into_range()),
         }
     }
 }
 
 #[derive(Clone, Error, Debug, Diagnostic)]
-pub enum EngineErrorMessage {
+pub enum EngineMessage {
     #[error(transparent)]
     Argument(#[from] ArgumentError),
     #[error("Function '{0}' not found")]
     FunctionNotFound(String),
     #[error("Symbol '{0}' not found")]
     SymbolNotFound(String),
+    #[error("File '{0}' not found")]
+    FileNotFound(PathBuf),
+    #[error("Expected element of type 'Inline'")]
+    ExpectedInline,
     #[error("{0}")]
     Message(String),
 }

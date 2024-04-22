@@ -3,8 +3,10 @@ use tyd_syntax::Span;
 
 use crate::{
     error::{ArgumentError, EngineError},
-    Cast, Shape, Signature, Value,
+    value::{Cast, Shape, Value},
 };
+
+use super::Signature;
 
 #[derive(Debug, Clone)]
 pub struct Arguments<S: Shape> {
@@ -50,8 +52,14 @@ impl<S: Shape> Arguments<S> {
         let value = self.positional.remove(pos);
         T::cast(value)
     }
+
+    pub fn pop_positional<T: Cast<S>>(&mut self) -> T {
+        let value = self.positional.pop().unwrap();
+        T::cast(value)
+    }
 }
 
+#[derive(Debug, Clone)]
 pub struct Arg<S: Shape> {
     pub name: Option<String>,
     pub span: Span,
@@ -99,6 +107,12 @@ pub fn validate<S: Shape>(
                 ty,
             },
         ))
+    }
+
+    for pos in pos..signature.positonal_count() {
+        let ty = signature.get_positional(pos).unwrap();
+
+        errors.push(EngineError::arg(span, MissingPositional { pos, ty }))
     }
 
     let optional = signature.optional_names().cloned().collect::<HashSet<_>>();
