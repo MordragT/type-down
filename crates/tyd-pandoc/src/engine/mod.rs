@@ -64,10 +64,7 @@ impl Visitor for PandocEngine {
     type State = PandocState;
 
     fn visit_raw(&self, state: &mut Self::State, raw: &Raw) -> Result<(), Self::Error> {
-        let attr = AttrBuilder::new()
-            .ident_opt(raw.label.as_ref())
-            .class_opt(raw.lang.as_ref())
-            .build();
+        let attr = AttrBuilder::new().class_opt(raw.lang.as_ref()).build();
 
         let block = ir::Block::CodeBlock(attr, raw.content.to_string());
         state.add_block(block);
@@ -80,7 +77,7 @@ impl Visitor for PandocEngine {
 
         let attr = AttrBuilder::new().ident_opt(heading.label.as_ref()).build();
 
-        let block = ir::Block::Header(heading.level as i64, attr, state.take_stack());
+        let block = ir::Block::Header(heading.level.level as i64, attr, state.take_stack());
         state.add_block(block);
 
         Ok(())
@@ -150,7 +147,7 @@ impl Visitor for PandocEngine {
             rows.push((AttrBuilder::empty(), cells));
         }
 
-        let attr = AttrBuilder::empty();
+        let attr = AttrBuilder::new().ident_opt(table.label.as_ref()).build();
         let caption = (None, Vec::new());
         let col_spec = (ir::Alignment::AlignCenter, ir::ColWidth::ColWidthDefault);
         let col_specs = vec![col_spec; col_count];
@@ -163,7 +160,7 @@ impl Visitor for PandocEngine {
         Ok(())
     }
 
-    fn visit_term(&self, state: &mut Self::State, term: &Term) -> Result<(), Self::Error> {
+    fn visit_term(&self, state: &mut Self::State, term: &Terms) -> Result<(), Self::Error> {
         let mut definition_list = Vec::new();
 
         for item in &term.content {
@@ -366,7 +363,11 @@ impl Visitor for PandocEngine {
         Ok(())
     }
 
-    fn visit_softbreak(&self, state: &mut Self::State) -> Result<(), Self::Error> {
+    fn visit_softbreak(
+        &self,
+        state: &mut Self::State,
+        _soft_break: &SoftBreak,
+    ) -> Result<(), Self::Error> {
         state.push(ir::Inline::SoftBreak);
 
         Ok(())

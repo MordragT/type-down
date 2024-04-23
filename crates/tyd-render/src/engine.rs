@@ -16,10 +16,10 @@ pub trait Engine<S: Shape> {
 
     fn eval_expr(&self, state: &mut Self::State, expr: &ast::Expr) -> Option<Value<S>> {
         match expr {
-            ast::Expr::Block(block) => todo!(),
+            ast::Expr::Block(block, _) => todo!(),
             ast::Expr::Call(call) => self.eval_call(state, call),
             ast::Expr::Ident(ident) => self.eval_symbol(state, ident),
-            ast::Expr::Literal(literal) => Some(Value::from(literal.to_owned())),
+            ast::Expr::Literal(literal, _) => Some(Value::from(literal.to_owned())),
             ast::Expr::Content(content) => self.eval_content(state, content),
         }
     }
@@ -36,7 +36,7 @@ pub trait Engine<S: Shape> {
     }
 
     fn eval_symbol(&self, state: &mut Self::State, ident: &ast::Ident) -> Option<Value<S>> {
-        let key = &ident.value;
+        let key = &ident.ident;
 
         let value = match state.symbol(key) {
             Some(v) => v,
@@ -55,7 +55,7 @@ pub trait Engine<S: Shape> {
     fn eval_call(&self, state: &mut Self::State, call: &ast::Call) -> Option<Value<S>> {
         let ast::Call { ident, args, span } = call;
 
-        let key = &ident.value;
+        let key = &ident.ident;
         let cmd = match state.command(key) {
             Some(cmd) => cmd,
             None => {

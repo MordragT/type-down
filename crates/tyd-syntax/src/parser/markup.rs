@@ -3,10 +3,9 @@ use chumsky::{
     text::{ascii, newline},
 };
 use constcat::concat_slices;
-use ecow::EcoString;
 
 use super::{code::code_parser, Extra, ParserContext, ParserExt};
-use crate::ast::*;
+use crate::{ast::*, Span};
 
 pub const SPECIAL: &[char] = &[
     ' ', '\\', '\n', '"', '{', '}', '[', ']', '/', '*', '~', '_', '^', '@', '#', '`', '$', '%', '|',
@@ -53,7 +52,7 @@ pub fn block_parser<'src>() -> impl Parser<'src, &'src str, Block, Extra<'src>> 
     choice((
         heading_parser(paragraph.clone()).map(Block::Heading),
         table_parser(table_row).map(Block::Table),
-        term_parser(term_item).map(Block::Term),
+        term_parser(term_item).map(Block::Terms),
         list_parser(list_item).map(Block::List),
         enum_parser(enum_item).map(Block::Enum),
         raw_parser().map(Block::Raw),
@@ -67,36 +66,49 @@ where
     T: Parser<'src, &'src str, Vec<Inline>, Extra<'src>> + 'src,
 {
     recursive(
-        |paragraph: Recursive<dyn Parser<&'src str, Paragraph, Extra<'src>>>| {
+        |par: Recursive<dyn Parser<&'src str, Vec<Inline>, Extra<'src>>>| {
             let nested = indent_parser()
                 .map(|indent| ParserContext { indent })
-                .ignore_with_ctx(paragraph);
+                .ignore_with_ctx(par)
+                .map_with(|nested, e| (nested, e.span()));
 
-            text.then(nested.or_not())
-                .map(|(mut text, nested)| {
-                    if let Some(mut nested) = nested {
-                        text.push(Inline::SoftBreak);
-                        text.append(&mut nested.content);
+            let el = text
+                .then(nested.or_not())
+                .map_with(|(mut text, nested), e| {
+                    let span = e.span();
+
+                    if let Some((mut nested, nested_span)) = nested {
+                        text.push(Inline::SoftBreak(SoftBreak {
+                            span: Span::new(span.end, nested_span.start),
+                        }));
+                        text.append(&mut nested);
                     }
+                    (text, span)
+                });
 
-                    text
-                })
-                .separated_by(level_parser())
+            el.separated_by(level_parser())
                 .at_least(1)
                 .collect()
-                .map_with(|mut content: Vec<Vec<_>>, e| {
-                    for line in &mut content {
-                        line.push(Inline::SoftBreak);
+                .map(|content: Vec<_>| {
+                    let (mut content, spans): (Vec<_>, Vec<_>) = content.into_iter().unzip();
+
+                    for (i, span) in spans
+                        .array_windows()
+                        .map(|[a, b]| Span::new(a.end, b.start))
+                        .enumerate()
+                    {
+                        content[i].push(Inline::SoftBreak(SoftBreak { span }));
                     }
 
-                    Paragraph {
-                        content: content.into_iter().flatten().collect(),
-                        span: e.span(),
-                    }
+                    content.into_iter().flatten().collect()
                 })
                 .boxed()
         },
     )
+    .map_with(|content, e| Paragraph {
+        content,
+        span: e.span(),
+    })
 }
 
 pub fn heading_parser<'src, T>(paragraph: T) -> impl Parser<'src, &'src str, Heading, Extra<'src>>
@@ -108,6 +120,10 @@ where
         .at_least(1)
         .at_most(6)
         .to_ecow()
+        .map_with(|level, e| HeadingLevel {
+            level: level.len() as u8,
+            span: e.span(),
+        })
         .then_ignore(just(" "));
 
     group((
@@ -116,7 +132,7 @@ where
         label_parser().or_not(),
     ))
     .map_with(|(level, par, label), e| Heading {
-        level: level.len() as u8,
+        level,
         content: par.content,
         label,
         span: e.span(),
@@ -125,36 +141,49 @@ where
 
 pub fn raw_parser<'src>() -> impl Parser<'src, &'src str, Raw, Extra<'src>> {
     let delim = "```";
+    let lang = ascii::ident()
+        .to_ecow()
+        .map_with(|lang, e| RawLang {
+            lang,
+            span: e.span(),
+        })
+        .or_not();
+    let content = none_of(delim)
+        .repeated()
+        .at_least(1)
+        .to_ecow()
+        .map_with(|content, e| RawContent {
+            content,
+            span: e.span(),
+        });
 
-    group((
-        ascii::ident().to_ecow().or_not(),
-        just(" ").ignore_then(label_parser()).or_not(),
-        none_of(delim).repeated().at_least(1).to_ecow(),
-    ))
-    .delimited_by(just(delim), just(delim))
-    .map_with(|(lang, label, content), e| Raw {
-        lang,
-        content,
-        label,
-        span: e.span(),
-    })
+    group((lang, content))
+        .delimited_by(just(delim), just(delim))
+        .map_with(|(lang, content), e| Raw {
+            lang,
+            content,
+            span: e.span(),
+        })
 }
 
 pub fn table_parser<'src, R>(table_row: R) -> impl Parser<'src, &'src str, Table, Extra<'src>>
 where
     R: Parser<'src, &'src str, TableRow, Extra<'src>>,
 {
+    let label = just(" ").ignore_then(label_parser()).or_not();
+
     table_row
         .separated_by(soft_break_parser())
         .at_least(1)
         .collect()
-        .map_with(|rows: Vec<TableRow>, e| {
+        .then(label)
+        .map_with(|(rows, label): (Vec<TableRow>, _), e| {
             let col_count = rows[0].cells.len();
 
             let table = Table {
                 col_count,
                 rows,
-                label: None,
+                label,
                 span: e.span(),
             };
             (table, col_count)
@@ -181,7 +210,6 @@ where
     L: Parser<'src, &'src str, ListItem, Extra<'src>>,
 {
     let delim = just("|");
-    let label = label_parser();
 
     let cell = choice((
         list_item.map(|item| Block::List(item.into())),
@@ -199,24 +227,21 @@ where
         .at_least(1)
         .collect()
         .delimited_by(delim, delim)
-        .then(just(" ").ignore_then(label).or_not())
-        .map_with(|(cells, label), e| TableRow {
+        .map_with(|cells, e| TableRow {
             cells,
-            label,
             span: e.span(),
         })
 }
 
-pub fn term_parser<'src, I>(item: I) -> impl Parser<'src, &'src str, Term, Extra<'src>>
+pub fn term_parser<'src, I>(item: I) -> impl Parser<'src, &'src str, Terms, Extra<'src>>
 where
     I: Parser<'src, &'src str, TermItem, Extra<'src>>,
 {
     item.separated_by(soft_break_parser())
         .at_least(1)
         .collect()
-        .map_with(|content, e| Term {
+        .map_with(|content, e| Terms {
             content,
-            label: None,
             span: e.span(),
         })
 }
@@ -234,12 +259,10 @@ where
         text_parser(TERM_SPECIAL),
         just(": ").ignored(),
         paragraph.with_ctx(ParserContext { indent: 1 }),
-        label_parser().or_not(),
     ))
-    .map_with(|((), term, (), par, label), e| TermItem {
+    .map_with(|((), term, (), par), e| TermItem {
         term,
         content: par.content,
-        label,
         span: e.span(),
     })
 }
@@ -267,7 +290,6 @@ where
                 .collect()
                 .map_with(|items, e| List {
                     items,
-                    label: None,
                     span: e.span(),
                 })
                 .boxed()
@@ -279,19 +301,13 @@ pub fn list_item_parser<'src, T>(text: T) -> impl Parser<'src, &'src str, ListIt
 where
     T: Parser<'src, &'src str, Vec<Inline>, Extra<'src>> + 'src,
 {
-    let label = label_parser();
-
-    just("- ")
-        .ignore_then(text.map_with(|content, e| Plain {
+    just("- ").ignore_then(text.map_with(|content, e| ListItem {
+        content: vec![Block::Plain(Plain {
             content,
             span: e.span(),
-        }))
-        .then(label.or_not())
-        .map_with(|(content, label), e| ListItem {
-            content: vec![Block::Plain(content)],
-            label,
-            span: e.span(),
-        })
+        })],
+        span: e.span(),
+    }))
 }
 
 pub fn enum_parser<'src, I>(enum_item: I) -> impl Parser<'src, &'src str, Enum, Extra<'src>>
@@ -317,7 +333,6 @@ where
                 .collect()
                 .map_with(|items, e| Enum {
                     items,
-                    label: None,
                     span: e.span(),
                 })
                 .boxed()
@@ -329,25 +344,25 @@ pub fn enum_item_parser<'src, T>(text: T) -> impl Parser<'src, &'src str, EnumIt
 where
     T: Parser<'src, &'src str, Vec<Inline>, Extra<'src>> + 'src,
 {
-    let label = label_parser();
-
-    just("+ ")
-        .ignore_then(text.map_with(|content, e| Plain {
+    just("+ ").ignore_then(text.map_with(|content, e| EnumItem {
+        content: vec![Block::Plain(Plain {
             content,
             span: e.span(),
-        }))
-        .then(label.or_not())
-        .map_with(|(content, label), e| EnumItem {
-            content: vec![Block::Plain(content)],
-            label,
-            span: e.span(),
-        })
+        })],
+        span: e.span(),
+    }))
 }
 // TODO maybe allow more attributes to be specified ? Maybe something like {label .class key=value} ?
 // then one could also simplify div and raw to just take this new attr literal instead of own lang and class parsers ?
 
-pub fn label_parser<'src>() -> impl Parser<'src, &'src str, EcoString, Extra<'src>> {
-    ascii::ident().to_ecow().delimited_by(just("{"), just("}"))
+pub fn label_parser<'src>() -> impl Parser<'src, &'src str, Label, Extra<'src>> {
+    ascii::ident()
+        .to_ecow()
+        .map_with(|label, e| Label {
+            label,
+            span: e.span(),
+        })
+        .delimited_by(just("{"), just("}"))
 }
 
 pub fn text_parser<'src>(
@@ -492,7 +507,11 @@ where
         .repeated()
         .at_least(1)
         .to_ecow()
-        .delimited_by(just("<"), just(">"));
+        .delimited_by(just("<"), just(">"))
+        .map_with(|href, e| Href {
+            href,
+            span: e.span(),
+        });
 
     let content = inline
         .repeated()

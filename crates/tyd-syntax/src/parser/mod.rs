@@ -17,7 +17,7 @@ pub mod code;
 pub mod error;
 pub mod markup;
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParserState {}
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Default)]
@@ -41,7 +41,10 @@ pub fn ast<'src>() -> impl Parser<'src, &'src str, Ast, Extra<'src>> {
         .separated_by(hard_break_parser())
         .at_least(1)
         .collect()
-        .map(|blocks| Ast { blocks });
+        .map_with(|blocks, e| Ast {
+            blocks,
+            span: e.span(),
+        });
 
     whitespace().ignore_then(ast).then_ignore(whitespace())
 }

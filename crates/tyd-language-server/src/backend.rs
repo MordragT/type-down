@@ -10,14 +10,14 @@ use tyd_syntax::ast::Ast;
 use tyd_syntax::parser::try_parse;
 use tyd_syntax::visitor::Visitor;
 
-use crate::tree::SyntaxNode;
+use crate::semantic::{semantic_tokens_full_from_node, semantic_tokens_range_from_node, LEGEND};
+use crate::syntax::SyntaxNode;
 
 #[derive(Debug)]
 pub struct Backend {
     client: Client,
     documents: DashMap<Url, Rope>,
-    abstract_trees: DashMap<Url, Ast>,
-    trees: DashMap<Url, SyntaxNode>,
+    trees: DashMap<Url, Ast>,
 }
 
 impl Backend {
@@ -25,9 +25,40 @@ impl Backend {
         Self {
             client,
             documents: DashMap::new(),
-            abstract_trees: DashMap::new(),
             trees: DashMap::new(),
         }
+    }
+
+    pub async fn on_semantic_tokens_full(&self, uri: Url) -> Option<SemanticTokensResult> {
+        let rope = self.documents.get(&uri)?;
+        let ast = self.trees.get(&uri)?;
+        let node = SyntaxNode::from(ast.value());
+        let semantic_tokens = semantic_tokens_full_from_node(node, &rope);
+
+        self.client
+            .log_message(
+                MessageType::INFO,
+                format!("semantic tokens full: {}", semantic_tokens.len()),
+            )
+            .await;
+
+        Some(SemanticTokensResult::Tokens(SemanticTokens {
+            result_id: None,
+            data: semantic_tokens,
+        }))
+    }
+
+    pub async fn on_semantic_tokens_range(&self, uri: Url) -> Option<SemanticTokensRangeResult> {
+        let rope = self.documents.get(&uri)?;
+        let ast = self.trees.get(&uri)?;
+        let node = SyntaxNode::from(ast.value());
+        // let semantic_tokens = semantic_tokens_range_from_node(node, &rope);
+        let semantic_tokens = semantic_tokens_full_from_node(node, &rope);
+
+        Some(SemanticTokensRangeResult::Tokens(SemanticTokens {
+            result_id: None,
+            data: semantic_tokens,
+        }))
     }
 
     pub async fn on_change(&self, uri: Url, source: String, version: i32) {
@@ -84,10 +115,7 @@ impl Backend {
                 })
                 .collect();
             diags.append(&mut engine_diags);
-
-            // then do conversion into cst and create semantic tokens
-
-            self.abstract_trees.insert(uri.clone(), ast);
+            self.trees.insert(uri.clone(), ast);
         }
 
         self.client
@@ -107,6 +135,31 @@ impl LanguageServer for Backend {
                 text_document_sync: Some(TextDocumentSyncCapability::Kind(
                     TextDocumentSyncKind::FULL,
                 )),
+                semantic_tokens_provider: Some(
+                    SemanticTokensServerCapabilities::SemanticTokensRegistrationOptions(
+                        SemanticTokensRegistrationOptions {
+                            text_document_registration_options: {
+                                TextDocumentRegistrationOptions {
+                                    document_selector: Some(vec![DocumentFilter {
+                                        language: Some("tyd".to_owned()),
+                                        scheme: Some("file".to_owned()),
+                                        pattern: None,
+                                    }]),
+                                }
+                            },
+                            semantic_tokens_options: SemanticTokensOptions {
+                                work_done_progress_options: WorkDoneProgressOptions::default(),
+                                legend: SemanticTokensLegend {
+                                    token_types: LEGEND.into(),
+                                    token_modifiers: vec![],
+                                },
+                                range: Some(true),
+                                full: Some(SemanticTokensFullOptions::Bool(true)),
+                            },
+                            static_registration_options: StaticRegistrationOptions::default(),
+                        },
+                    ),
+                ),
                 ..ServerCapabilities::default()
             },
         })
@@ -155,6 +208,22 @@ impl LanguageServer for Backend {
         self.client
             .log_message(MessageType::INFO, "file closed!")
             .await;
+    }
+
+    async fn semantic_tokens_full(
+        &self,
+        params: SemanticTokensParams,
+    ) -> Result<Option<SemanticTokensResult>> {
+        let uri = params.text_document.uri;
+        Ok(self.on_semantic_tokens_full(uri).await)
+    }
+
+    async fn semantic_tokens_range(
+        &self,
+        params: SemanticTokensRangeParams,
+    ) -> Result<Option<SemanticTokensRangeResult>> {
+        let uri = params.text_document.uri;
+        Ok(self.on_semantic_tokens_range(uri).await)
     }
 }
 

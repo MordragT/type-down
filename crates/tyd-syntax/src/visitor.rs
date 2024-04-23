@@ -50,7 +50,7 @@ pub trait Visitor {
         walk_table_row(self, state, table_row)
     }
 
-    fn visit_term(&self, state: &mut Self::State, term: &Term) -> Result<(), Self::Error> {
+    fn visit_term(&self, state: &mut Self::State, term: &Terms) -> Result<(), Self::Error> {
         walk_term(self, state, term)
     }
 
@@ -166,7 +166,11 @@ pub trait Visitor {
         Ok(())
     }
 
-    fn visit_softbreak(&self, _state: &mut Self::State) -> Result<(), Self::Error> {
+    fn visit_softbreak(
+        &self,
+        _state: &mut Self::State,
+        _soft_break: &SoftBreak,
+    ) -> Result<(), Self::Error> {
         Ok(())
     }
 
@@ -236,7 +240,7 @@ pub fn walk_block<V: Visitor + ?Sized>(
         Block::Table(table) => visitor.visit_table(state, table),
         Block::List(list) => visitor.visit_list(state, list),
         Block::Enum(enumeration) => visitor.visit_enum(state, enumeration),
-        Block::Term(block_quote) => visitor.visit_term(state, block_quote),
+        Block::Terms(block_quote) => visitor.visit_term(state, block_quote),
         Block::Heading(heading) => visitor.visit_heading(state, heading),
         Block::Paragraph(paragraph) => visitor.visit_paragraph(state, paragraph),
         Block::Plain(plain) => visitor.visit_plain(state, plain),
@@ -324,7 +328,7 @@ pub fn walk_table_row<V: Visitor + ?Sized>(
 pub fn walk_term<V: Visitor + ?Sized>(
     visitor: &V,
     state: &mut V::State,
-    block_quote: &Term,
+    block_quote: &Terms,
 ) -> Result<(), V::Error> {
     for item in &block_quote.content {
         visitor.visit_term_item(state, item)?;
@@ -398,7 +402,7 @@ pub fn walk_inline<V: Visitor + ?Sized>(
         Inline::Escape(escape) => visitor.visit_escape(state, escape),
         Inline::Word(word) => visitor.visit_word(state, word),
         Inline::Spacing(spacing) => visitor.visit_spacing(state, spacing),
-        Inline::SoftBreak => visitor.visit_softbreak(state),
+        Inline::SoftBreak(soft_break) => visitor.visit_softbreak(state, soft_break),
         Inline::Code(code) => visitor.visit_code(state, code),
     }
 }
@@ -502,10 +506,10 @@ pub fn walk_expr<V: Visitor + ?Sized>(
     expr: &Expr,
 ) -> Result<(), V::Error> {
     match expr {
-        Expr::Block(block) => visitor.visit_block_expr(state, block),
+        Expr::Block(block, _) => visitor.visit_block_expr(state, block),
         Expr::Call(call) => visitor.visit_call_expr(state, call),
         Expr::Ident(ident) => visitor.visit_ident_expr(state, ident),
-        Expr::Literal(literal) => visitor.visit_literal_expr(state, literal),
+        Expr::Literal(literal, _) => visitor.visit_literal_expr(state, literal),
         Expr::Content(content) => visitor.visit_content_expr(state, content),
     }
 }

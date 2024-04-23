@@ -1,3 +1,5 @@
+#![feature(array_windows)]
+
 use chumsky::span::SimpleSpan;
 
 pub mod ast;

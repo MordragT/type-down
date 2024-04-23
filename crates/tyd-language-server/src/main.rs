@@ -3,9 +3,8 @@ use backend::Backend;
 use tower_lsp::{LspService, Server};
 
 pub mod backend;
-pub mod kind;
-pub mod token;
-pub mod tree;
+pub mod semantic;
+pub mod syntax;
 
 fn main() {
     task::block_on(run())
