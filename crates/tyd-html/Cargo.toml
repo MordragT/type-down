@@ -7,6 +7,6 @@ edition = "2021"
 
 [dependencies]
 tyd-syntax = { path = "../tyd-syntax" }
-tyd-render = { path = "../tyd-render" }
+tyd-eval = { path = "../tyd-eval" }
 miette = "7.1.0"
 thiserror = "1.0"

@@ -18,6 +18,7 @@ pub enum Block {
     Terms(Terms),
     Paragraph(Paragraph),
     Plain(Plain),
+    Error(Span),
 }
 
 impl Block {
@@ -31,6 +32,7 @@ impl Block {
             Self::Terms(term) => &term.span,
             Self::Paragraph(p) => &p.span,
             Self::Plain(plain) => &plain.span,
+            Self::Error(span) => span,
         }
     }
 }
@@ -225,6 +227,7 @@ pub enum Inline {
     Spacing(Spacing),
     SoftBreak(SoftBreak),
     Code(Code),
+    Error(Span),
 }
 
 impl Inline {
@@ -246,6 +249,7 @@ impl Inline {
             Self::Spacing(s) => &s.span,
             Self::SoftBreak(s) => &s.span,
             Self::Code(c) => &c.span,
+            Self::Error(span) => span,
         }
     }
 }

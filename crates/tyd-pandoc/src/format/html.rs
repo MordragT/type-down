@@ -5,10 +5,13 @@ use pandoc::{
 };
 use std::io;
 use thiserror::Error;
-use tyd_render::render::{Output, Render};
+use tyd_eval::{
+    render::{Output, Render},
+    world::World,
+};
 use tyd_syntax::ast::Ast;
 
-use crate::engine::{PandocEngine, PandocState};
+use crate::engine::PandocEngine;
 
 #[derive(Debug, Error, Diagnostic)]
 #[error(transparent)]
@@ -26,16 +29,16 @@ pub struct HtmlCompiler;
 
 impl Render for HtmlCompiler {
     type Error = HtmlError;
-    type Context = PandocState;
+    type Engine = PandocEngine;
 
-    fn render(ast: &Ast, ctx: Self::Context, output: Output) -> Result<(), Self::Error> {
+    fn render(ast: &Ast, world: World<Self::Engine>, output: Output) -> Result<(), Self::Error> {
         let output_kind = match output {
             Output::File(path) => OutputKind::File(path),
             Output::Stdout => OutputKind::Pipe,
         };
 
-        let engine = PandocEngine::new();
-        let pandoc = engine.build(ctx, ast)?;
+        let engine = PandocEngine::new(world);
+        let pandoc = engine.build(ast)?;
         let contents = pandoc.to_json();
 
         let mut pandoc = Pandoc::new();

@@ -1,22 +1,22 @@
 use std::fs;
-use tyd_render::render::{Output, Render};
+use tyd_eval::{
+    render::{Output, Render},
+    world::World,
+};
 use tyd_syntax::ast::Ast;
 
-use crate::{
-    engine::{PandocEngine, PandocState},
-    error::PandocError,
-};
+use crate::{engine::PandocEngine, error::PandocError};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PandocCompiler;
 
 impl Render for PandocCompiler {
     type Error = PandocError;
-    type Context = PandocState;
+    type Engine = PandocEngine;
 
-    fn render(ast: &Ast, ctx: Self::Context, output: Output) -> Result<(), Self::Error> {
-        let engine = PandocEngine::new();
-        let pandoc = engine.build(ctx, ast)?;
+    fn render(ast: &Ast, world: World<Self::Engine>, output: Output) -> Result<(), Self::Error> {
+        let engine = PandocEngine::new(world);
+        let pandoc = engine.build(ast)?;
         let contents = pandoc.to_json();
 
         match output {

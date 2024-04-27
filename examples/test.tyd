@@ -3,7 +3,11 @@
 + @heading
 + @table
 
+pmpomp \u lkmlkm
 
+asdasd `a
+
+asdasd `asdasd *strong* /blah/
 
 == Heading {heading}
 
@@ -12,6 +16,9 @@ Dies ist kein Test
         und nehmen sie ihre Plaetze ein.
     Stampfen
 blah blah
+
+| a | b |
+| c |
 
 
 ```rust

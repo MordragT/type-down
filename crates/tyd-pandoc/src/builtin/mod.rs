@@ -1,4 +1,4 @@
-pub use tyd_render::builtin::*;
+pub use tyd_eval::builtin::*;
 
 pub use figure::*;
 pub use highlight::*;

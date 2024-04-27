@@ -11,7 +11,7 @@
 // use super::{Compiler, Context, Output};
 // use crate::parse::ast::*;
 
-use tyd_render::{Args, Engine, Value};
+use tyd_eval::{Args, Engine, Value};
 use tyd_syntax::ast::{
     visitor::{
         walk_block_quote, walk_emphasis, walk_enclosed, walk_heading, walk_paragraph, walk_quote,

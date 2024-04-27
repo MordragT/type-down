@@ -11,6 +11,34 @@ pub const SPECIAL: &[char] = &[
     ' ', '\\', '\n', '"', '{', '}', '[', ']', '/', '*', '~', '_', '^', '@', '#', '`', '$', '%', '|',
 ];
 
+pub fn ast<'src>() -> impl Parser<'src, &'src str, Ast, Extra<'src>> {
+    // let recovery = skip_until(
+    //     any()
+    //         .and_is(hard_break_parser().not())
+    //         .repeated()
+    //         .at_least(1),
+    //     hard_break_parser().ignored(),
+    //     || Block::Error(Span::new(0, 0)),
+    // );
+
+    let ast = block_parser()
+        // .recover_with(recovery)
+        .separated_by(hard_break_parser())
+        .allow_trailing()
+        .at_least(1)
+        .collect()
+        .map_with(|blocks, e| Ast {
+            blocks,
+            span: e.span(),
+        });
+
+    // whitespace()
+    //     .ignore_then(ast)
+    //     .then_ignore(whitespace())
+    //     .then_ignore(end())
+    ast.then_ignore(end()).labelled("entry")
+}
+
 pub fn soft_break_parser<'src>() -> impl Parser<'src, &'src str, (), Extra<'src>> {
     newline().repeated().exactly(1)
 }
@@ -52,12 +80,13 @@ pub fn block_parser<'src>() -> impl Parser<'src, &'src str, Block, Extra<'src>> 
     choice((
         heading_parser(paragraph.clone()).map(Block::Heading),
         table_parser(table_row).map(Block::Table),
-        term_parser(term_item).map(Block::Terms),
+        terms_parser(term_item).map(Block::Terms),
         list_parser(list_item).map(Block::List),
         enum_parser(enum_item).map(Block::Enum),
         raw_parser().map(Block::Raw),
         paragraph.map(Block::Paragraph),
     ))
+    .labelled("block")
     .with_ctx(ParserContext { indent: 0 })
 }
 
@@ -109,6 +138,7 @@ where
         content,
         span: e.span(),
     })
+    .labelled("paragraph")
 }
 
 pub fn heading_parser<'src, T>(paragraph: T) -> impl Parser<'src, &'src str, Heading, Extra<'src>>
@@ -137,6 +167,7 @@ where
         label,
         span: e.span(),
     })
+    .labelled("heading")
 }
 
 pub fn raw_parser<'src>() -> impl Parser<'src, &'src str, Raw, Extra<'src>> {
@@ -164,6 +195,7 @@ pub fn raw_parser<'src>() -> impl Parser<'src, &'src str, Raw, Extra<'src>> {
             content,
             span: e.span(),
         })
+        .labelled("raw")
 }
 
 pub fn table_parser<'src, R>(table_row: R) -> impl Parser<'src, &'src str, Table, Extra<'src>>
@@ -197,6 +229,7 @@ where
             }
             table
         })
+        .labelled("table")
 }
 
 pub fn table_row_parser<'src, T, E, L>(
@@ -231,9 +264,10 @@ where
             cells,
             span: e.span(),
         })
+        .labelled("table_row")
 }
 
-pub fn term_parser<'src, I>(item: I) -> impl Parser<'src, &'src str, Terms, Extra<'src>>
+pub fn terms_parser<'src, I>(item: I) -> impl Parser<'src, &'src str, Terms, Extra<'src>>
 where
     I: Parser<'src, &'src str, TermItem, Extra<'src>>,
 {
@@ -244,6 +278,7 @@ where
             content,
             span: e.span(),
         })
+        .labelled("terms")
 }
 
 const TERM_SPECIAL: &[char] = concat_slices!([char]: SPECIAL, &[':']);
@@ -265,6 +300,7 @@ where
         content: par.content,
         span: e.span(),
     })
+    .labelled("term_item")
 }
 
 pub fn list_parser<'src, I>(list_item: I) -> impl Parser<'src, &'src str, List, Extra<'src>>
@@ -292,6 +328,7 @@ where
                     items,
                     span: e.span(),
                 })
+                .labelled("list")
                 .boxed()
         },
     )
@@ -301,13 +338,15 @@ pub fn list_item_parser<'src, T>(text: T) -> impl Parser<'src, &'src str, ListIt
 where
     T: Parser<'src, &'src str, Vec<Inline>, Extra<'src>> + 'src,
 {
-    just("- ").ignore_then(text.map_with(|content, e| ListItem {
-        content: vec![Block::Plain(Plain {
-            content,
+    just("- ")
+        .ignore_then(text.map_with(|content, e| ListItem {
+            content: vec![Block::Plain(Plain {
+                content,
+                span: e.span(),
+            })],
             span: e.span(),
-        })],
-        span: e.span(),
-    }))
+        }))
+        .labelled("list_item")
 }
 
 pub fn enum_parser<'src, I>(enum_item: I) -> impl Parser<'src, &'src str, Enum, Extra<'src>>
@@ -335,6 +374,7 @@ where
                     items,
                     span: e.span(),
                 })
+                .labelled("enum")
                 .boxed()
         },
     )
@@ -344,13 +384,15 @@ pub fn enum_item_parser<'src, T>(text: T) -> impl Parser<'src, &'src str, EnumIt
 where
     T: Parser<'src, &'src str, Vec<Inline>, Extra<'src>> + 'src,
 {
-    just("+ ").ignore_then(text.map_with(|content, e| EnumItem {
-        content: vec![Block::Plain(Plain {
-            content,
+    just("+ ")
+        .ignore_then(text.map_with(|content, e| EnumItem {
+            content: vec![Block::Plain(Plain {
+                content,
+                span: e.span(),
+            })],
             span: e.span(),
-        })],
-        span: e.span(),
-    }))
+        }))
+        .labelled("enum_item")
 }
 // TODO maybe allow more attributes to be specified ? Maybe something like {label .class key=value} ?
 // then one could also simplify div and raw to just take this new attr literal instead of own lang and class parsers ?
@@ -363,6 +405,7 @@ pub fn label_parser<'src>() -> impl Parser<'src, &'src str, Label, Extra<'src>> 
             span: e.span(),
         })
         .delimited_by(just("{"), just("}"))
+        .labelled("label")
 }
 
 pub fn text_parser<'src>(
@@ -377,23 +420,55 @@ pub fn inline_parser<'src>(
     recursive(|inline| {
         choice((
             code_parser(inline.clone()).map(Inline::Code),
-            quote_parser(inline.clone()).map(Inline::Quote),
-            strikeout_parser(inline.clone()).map(Inline::Strikeout),
-            strong_parser(inline.clone()).map(Inline::Strong),
-            emphasis_parser(inline.clone()).map(Inline::Emphasis),
+            quote_parser(inline.clone())
+                .map(Inline::Quote)
+                .recover_with(via_parser(inline_recovery("\""))),
+            strikeout_parser(inline.clone())
+                .map(Inline::Strikeout)
+                .recover_with(via_parser(inline_recovery("~"))),
+            strong_parser(inline.clone())
+                .map(Inline::Strong)
+                .recover_with(via_parser(inline_recovery("*"))),
+            emphasis_parser(inline.clone())
+                .map(Inline::Emphasis)
+                .recover_with(via_parser(inline_recovery("/"))),
             subscript_parser(inline.clone()).map(Inline::Subscript),
             supscript_parser(inline.clone()).map(Inline::Supscript),
             link_parser(inline.clone()).map(Inline::Link),
             cite_parser().map(Inline::Cite),
-            raw_inline_parser().map(Inline::RawInline),
-            math_inline_parser().map(Inline::MathInline),
+            raw_inline_parser()
+                .map(Inline::RawInline)
+                .recover_with(via_parser(inline_recovery("`")))
+                .labelled("raw_inline")
+                .as_context(),
+            math_inline_parser()
+                .map(Inline::MathInline)
+                .recover_with(via_parser(inline_recovery("$"))),
             comment_parser().map(Inline::Comment),
-            escape_parser().map(Inline::Escape),
+            escape_parser()
+                .map(Inline::Escape)
+                .recover_with(via_parser(escape_recovery()))
+                .labelled("escape"),
             spacing_parser().map(Inline::Spacing),
             word_parser(special).map(Inline::Word),
         ))
         .boxed()
+        .labelled("inline")
+        .as_context()
     })
+}
+
+pub fn inline_recovery<'src>(
+    delim: &'src str,
+) -> impl Parser<'src, &'src str, Inline, Extra<'src>> {
+    just(delim)
+        .then(
+            none_of(SPECIAL)
+                .and_is(newline().not())
+                .repeated()
+                .at_least(1),
+        )
+        .map_with(|_, e| Inline::Error(e.span()))
 }
 
 pub fn quote_parser<'src, I>(inline: I) -> impl Parser<'src, &'src str, Quote, Extra<'src>>
@@ -533,6 +608,13 @@ pub fn cite_parser<'src>() -> impl Parser<'src, &'src str, Cite, Extra<'src>> {
             ident,
             span: e.span(),
         })
+}
+
+pub fn escape_recovery<'src>() -> impl Parser<'src, &'src str, Inline, Extra<'src>> {
+    just("\\")
+        .then(any())
+        .ignored()
+        .map_with(|_, e| Inline::Error(e.span()))
 }
 
 pub fn escape_parser<'src>() -> impl Parser<'src, &'src str, Escape, Extra<'src>> {

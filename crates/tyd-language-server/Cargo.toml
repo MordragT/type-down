@@ -11,7 +11,7 @@ tower-lsp = { version = "0.20.0", default-features = false, features = [
 ] }
 async-std = "1.12.0"
 tyd-syntax = { path = "../tyd-syntax" }
-tyd-render = { path = "../tyd-render" }
+tyd-eval = { path = "../tyd-eval" }
 tyd-pandoc = { path = "../tyd-pandoc" }
 dashmap = "5.5"
 ecow = "0.2.0"

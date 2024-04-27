@@ -1,7 +1,7 @@
 use miette::Diagnostic;
 use std::io;
 use thiserror::Error;
-use tyd_render::error::EngineErrors;
+use tyd_eval::error::EngineErrors;
 
 #[derive(Debug, Error, Diagnostic)]
 #[error(transparent)]

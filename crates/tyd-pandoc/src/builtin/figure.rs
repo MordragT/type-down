@@ -1,18 +1,29 @@
 use pandoc_ast as ir;
-use tyd_render::{command::Command, error::EngineError, ty::Type};
+use tyd_eval::{
+    error::EngineError,
+    eval::Machine,
+    foundations::{Func, Signature, VerifiedCall},
+    ty::Type,
+    value::Value,
+};
 
-use crate::{attr::AttrBuilder, engine::PandocState, Call, PandocShape, Signature, Value};
+use crate::{attr::AttrBuilder, engine::PandocEngine};
 
+#[derive(Debug, Clone, Copy)]
 pub struct Figure;
 
-impl Command<PandocShape, PandocState> for Figure {
-    fn signature(&self) -> Signature {
+impl Func<PandocEngine> for Figure {
+    fn signature(&self) -> Signature<PandocEngine> {
         Signature::new("figure")
             .required("caption", Type::list(Type::Inline))
             .positional(Type::list(Type::Inline))
     }
 
-    fn run(&self, call: Call, _ctx: &PandocState) -> Result<Value, EngineError> {
+    fn run(
+        &self,
+        call: VerifiedCall<PandocEngine>,
+        _machine: &Machine<PandocEngine>,
+    ) -> Result<Value<PandocEngine>, EngineError> {
         let mut args = call.args;
 
         let caption = args.remove_named::<Vec<ir::Inline>>("caption");

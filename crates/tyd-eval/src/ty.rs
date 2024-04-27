@@ -1,9 +1,11 @@
 use core::fmt;
 use std::fmt::Debug;
 
+use ecow::EcoString;
+
 #[derive(Debug, Clone, PartialOrd, Ord)]
 pub enum Type {
-    Map(Vec<(String, Self)>),
+    Map(Vec<(EcoString, Self)>),
     List(Box<Self>),
     Bool,
     Str,
@@ -13,6 +15,8 @@ pub enum Type {
     Block,
     Any,
     None,
+    Arg,
+    Func,
 }
 
 impl Type {
@@ -40,6 +44,8 @@ impl fmt::Display for Type {
             Type::Block => write!(f, "Block"),
             Type::Any => write!(f, "Any"),
             Type::None => write!(f, "None"),
+            Type::Arg => write!(f, "Arg"),
+            Type::Func => write!(f, "Func"),
         }
     }
 }
@@ -57,6 +63,8 @@ impl PartialEq for Type {
             (Int, Int) => true,
             (Inline, Inline) => true,
             (Block, Block) => true,
+            (Arg, Arg) => true,
+            (Func, Func) => true,
             (Any, _) => true,
             (_, Any) => true,
             _ => false,

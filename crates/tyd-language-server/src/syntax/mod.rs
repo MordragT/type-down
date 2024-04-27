@@ -1,8 +1,6 @@
-pub use kind::SyntaxKind;
-pub use node::SyntaxNode;
-pub use token::SyntaxToken;
+pub use node::{NodeKind, SyntaxNode};
+pub use token::{SyntaxToken, TokenKind};
 
-mod kind;
 mod node;
 mod token;
 

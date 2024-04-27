@@ -2,11 +2,13 @@ use miette::Diagnostic;
 use std::path::PathBuf;
 use tyd_syntax::ast::Ast;
 
+use crate::{eval::Engine, world::World};
+
 pub trait Render {
     type Error: Diagnostic;
-    type Context;
+    type Engine: Engine;
 
-    fn render(ast: &Ast, ctx: Self::Context, output: Output) -> Result<(), Self::Error>;
+    fn render(ast: &Ast, world: World<Self::Engine>, output: Output) -> Result<(), Self::Error>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]

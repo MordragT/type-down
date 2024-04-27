@@ -3,9 +3,11 @@ use ropey::Rope;
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer};
+use tyd_eval::eval::{Context, Scope};
+use tyd_eval::value::Value;
+use tyd_eval::world::World;
 use tyd_pandoc::builtin;
-use tyd_pandoc::engine::{PandocEngine, PandocState};
-use tyd_render::context::Context;
+use tyd_pandoc::engine::PandocEngine;
 use tyd_syntax::ast::Ast;
 use tyd_syntax::parser::try_parse;
 use tyd_syntax::visitor::Visitor;
@@ -81,29 +83,33 @@ impl Backend {
             // TODO make lsp generic over compiler
 
             let path = uri.to_file_path().unwrap();
-            let name = path.file_name().unwrap().to_string_lossy().to_string();
-
-            let mut state = PandocState::new(&source, name, path)
-                .register("hrule", builtin::HorizontalRule)
-                .register("figure", builtin::Figure)
+            let scope = Scope::new()
+                .register_symbol("title", "Default title")
+                .register_symbol("author", vec![Value::from("Max Mustermann")])
+                //Blocks
+                .register_func("hrule", builtin::HorizontalRule)
+                .register_func("figure", builtin::Figure)
                 // Inlines
-                .register("image", builtin::Image)
-                .register("linebreak", builtin::LineBreak)
-                .register("highlight", builtin::Highlight)
-                .register("smallcaps", builtin::SmallCaps)
-                .register("underline", builtin::Underline)
+                .register_func("image", builtin::Image)
+                .register_func("linebreak", builtin::LineBreak)
+                .register_func("highlight", builtin::Highlight)
+                .register_func("smallcaps", builtin::SmallCaps)
+                .register_func("underline", builtin::Underline)
                 // Builtins
-                .register("let", builtin::Let)
-                .register("List", builtin::List)
-                .register("Map", builtin::Map);
+                .register_func("let", builtin::Let)
+                .register_func("List", builtin::List)
+                .register_func("Map", builtin::Map);
 
-            let engine = PandocEngine::new();
+            let world = World::new(path, scope).unwrap();
+            let mut engine = PandocEngine::new(world.clone());
 
             // TODO dont want to panic if visit_ast has unrecoverable error
             // maybe rewrite visitor to not return errors
-            engine.visit_ast(&mut state, &ast);
+            let mut context = Context::new(world);
+            engine.visit_ast(&mut context, &ast);
 
-            let mut engine_diags = state
+            let mut engine_diags = context
+                .scope
                 .into_errors()
                 .into_iter()
                 .filter_map(|e| {

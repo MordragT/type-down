@@ -1,7 +1,7 @@
 use ropey::Rope;
 use tower_lsp::lsp_types::{SemanticToken, SemanticTokenType};
 
-use crate::syntax::{SyntaxKind, SyntaxNode};
+use crate::syntax::{SyntaxNode, TokenKind};
 
 pub const LEGEND: &[SemanticTokenType] = &[
     SemanticTokenType::VARIABLE,
@@ -29,17 +29,19 @@ pub enum SemanticTokenKind {
 }
 
 impl SemanticTokenKind {
-    pub fn from_syntax(kind: SyntaxKind) -> Option<Self> {
-        use SyntaxKind::*;
+    pub fn from_syntax(kind: TokenKind) -> Option<Self> {
+        use TokenKind::*;
 
         let semantic = match kind {
-            Call => SemanticTokenKind::Function,
-            Arg | RawLang => SemanticTokenKind::Parameter,
-            Comment => SemanticTokenKind::Comment,
-            Label | Cite => SemanticTokenKind::Decorator,
             Ident => SemanticTokenKind::Variable,
+            CallIdent => SemanticTokenKind::Function,
+            ArgIdent | RawLang => SemanticTokenKind::Parameter,
+            Bool => SemanticTokenKind::Keyword,
+            Comment => SemanticTokenKind::Comment,
+            Str => SemanticTokenKind::String,
+            Int => SemanticTokenKind::Number,
+            Label | Cite => SemanticTokenKind::Decorator,
             Escape => SemanticTokenKind::Modifier,
-            Literal => SemanticTokenKind::Keyword,
             _ => return None,
         };
 

@@ -1,5 +1,6 @@
 use std::{path::PathBuf, sync::Arc};
 
+use ecow::EcoString;
 use miette::{Diagnostic, NamedSource, SourceSpan};
 use thiserror::Error;
 use tyd_syntax::Span;
@@ -20,7 +21,7 @@ pub struct EngineErrors {
 
 #[derive(Clone, Error, Debug, Diagnostic)]
 #[error("{msg}")]
-#[diagnostic(code(tyd_render::engine), url(docsrs), help("Please read the Book"))]
+#[diagnostic(code(tyd_eval::engine), url(docsrs), help("Please read the Book"))]
 pub struct EngineError {
     #[label("This bit here")]
     pub source_span: SourceSpan,
@@ -51,9 +52,9 @@ pub enum EngineMessage {
     #[error(transparent)]
     Argument(#[from] ArgumentError),
     #[error("Function '{0}' not found")]
-    FunctionNotFound(String),
+    FunctionNotFound(EcoString),
     #[error("Symbol '{0}' not found")]
-    SymbolNotFound(String),
+    SymbolNotFound(EcoString),
     #[error("File '{0}' not found")]
     FileNotFound(PathBuf),
     #[error("Expected element of type 'Inline'")]
@@ -69,7 +70,7 @@ pub enum ArgumentError {
     #[error("Missing Argument at {pos} of {ty}")]
     MissingPositional { pos: usize, ty: Type },
     #[error("Unknown Argument {name}")]
-    UnknownNamed { name: String },
+    UnknownNamed { name: EcoString },
     #[error("Unknown Argument at {pos}")]
     UnknownPositional { pos: usize },
     #[error("Wrong Argument type of {got}, expected: {expected}")]

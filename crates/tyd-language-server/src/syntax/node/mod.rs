@@ -1,28 +1,27 @@
 use tyd_syntax::{ast, Span};
 
-use super::{SyntaxElement, SyntaxKind, SyntaxToken};
+use super::{SyntaxElement, SyntaxToken, TokenKind};
+
+mod kind;
+
+pub use kind::NodeKind;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct SyntaxNode {
-    pub kind: SyntaxKind,
+    pub kind: NodeKind,
     pub span: Span,
     pub children: Vec<SyntaxElement>,
 }
 
 impl SyntaxNode {
-    pub fn flatten(self) -> Vec<(SyntaxKind, Span)> {
+    pub fn flatten(self) -> Vec<(TokenKind, Span)> {
         let mut stack = vec![SyntaxElement::Node(self)];
         let mut collector = Vec::new();
 
         while let Some(el) = stack.pop() {
             match el {
-                SyntaxElement::Node(SyntaxNode {
-                    kind,
-                    span,
-                    mut children,
-                }) => {
-                    collector.push((kind, span));
-                    stack.append(&mut children);
+                SyntaxElement::Node(mut node) => {
+                    stack.append(&mut node.children);
                 }
                 SyntaxElement::Token(SyntaxToken { kind, span }) => {
                     collector.push((kind, span));
@@ -42,7 +41,7 @@ impl From<&ast::Ast> for SyntaxNode {
             .collect();
 
         SyntaxNode {
-            kind: SyntaxKind::Document,
+            kind: NodeKind::Document,
             children,
             span: *span,
         }
@@ -62,6 +61,7 @@ impl From<&ast::Block> for SyntaxNode {
             Terms(t) => t.into(),
             Paragraph(p) => p.into(),
             Plain(p) => p.into(),
+            Error(_) => todo!(),
         }
     }
 }
@@ -88,7 +88,7 @@ impl From<&ast::Raw> for SyntaxNode {
         }
 
         SyntaxNode {
-            kind: SyntaxKind::Raw,
+            kind: NodeKind::Raw,
             children,
             span: *span,
         }
@@ -112,7 +112,7 @@ impl From<&ast::Heading> for SyntaxNode {
         }
 
         SyntaxNode {
-            kind: SyntaxKind::Heading,
+            kind: NodeKind::Heading,
             children,
             span: *span,
         }
@@ -138,7 +138,7 @@ impl From<&ast::Table> for SyntaxNode {
         }
 
         SyntaxNode {
-            kind: SyntaxKind::Table,
+            kind: NodeKind::Table,
             children,
             span: *span,
         }
@@ -150,7 +150,7 @@ impl From<&ast::TableRow> for SyntaxNode {
         let children = cells.into_iter().map(Into::into).collect();
 
         SyntaxNode {
-            kind: SyntaxKind::TableRow,
+            kind: NodeKind::TableRow,
             children,
             span: *span,
         }
@@ -169,7 +169,7 @@ impl From<&ast::List> for SyntaxNode {
         let children = items.into_iter().map(Into::into).collect();
 
         SyntaxNode {
-            kind: SyntaxKind::List,
+            kind: NodeKind::List,
             children,
             span: *span,
         }
@@ -181,7 +181,7 @@ impl From<&ast::ListItem> for SyntaxNode {
         let children = content.into_iter().map(Into::into).collect();
 
         SyntaxNode {
-            kind: SyntaxKind::ListItem,
+            kind: NodeKind::ListItem,
             children,
             span: *span,
         }
@@ -200,7 +200,7 @@ impl From<&ast::Enum> for SyntaxNode {
         let children = items.into_iter().map(Into::into).collect();
 
         SyntaxNode {
-            kind: SyntaxKind::Enum,
+            kind: NodeKind::Enum,
             children,
             span: *span,
         }
@@ -212,7 +212,7 @@ impl From<&ast::EnumItem> for SyntaxNode {
         let children = content.into_iter().map(Into::into).collect();
 
         SyntaxNode {
-            kind: SyntaxKind::EnumItem,
+            kind: NodeKind::EnumItem,
             children,
             span: *span,
         }
@@ -231,7 +231,7 @@ impl From<&ast::Terms> for SyntaxNode {
         let children = content.into_iter().map(Into::into).collect();
 
         SyntaxNode {
-            kind: SyntaxKind::Terms,
+            kind: NodeKind::Terms,
             children,
             span: *span,
         }
@@ -253,7 +253,7 @@ impl From<&ast::TermItem> for SyntaxNode {
             .collect();
 
         SyntaxNode {
-            kind: SyntaxKind::TermItem,
+            kind: NodeKind::TermItem,
             children,
             span: *span,
         }
@@ -272,7 +272,7 @@ impl From<&ast::Paragraph> for SyntaxNode {
         let children = content.into_iter().map(Into::into).collect();
 
         SyntaxNode {
-            kind: SyntaxKind::Paragraph,
+            kind: NodeKind::Paragraph,
             children,
             span: *span,
         }
@@ -284,7 +284,7 @@ impl From<&ast::Plain> for SyntaxNode {
         let children = content.into_iter().map(Into::into).collect();
 
         SyntaxNode {
-            kind: SyntaxKind::Plain,
+            kind: NodeKind::Plain,
             children,
             span: *span,
         }
@@ -312,6 +312,7 @@ impl From<&ast::Inline> for SyntaxElement {
             Spacing(el) => SyntaxToken::from(el).into(),
             SoftBreak(el) => SyntaxToken::from(el).into(),
             Code(el) => SyntaxNode::from(el).into(),
+            Error(_) => todo!(),
         }
     }
 }
@@ -321,7 +322,7 @@ impl From<&ast::Quote> for SyntaxNode {
         let children = content.into_iter().map(Into::into).collect();
 
         SyntaxNode {
-            kind: SyntaxKind::Quote,
+            kind: NodeKind::Quote,
             children,
             span: *span,
         }
@@ -333,7 +334,7 @@ impl From<&ast::Strikeout> for SyntaxNode {
         let children = content.into_iter().map(Into::into).collect();
 
         SyntaxNode {
-            kind: SyntaxKind::Strikeout,
+            kind: NodeKind::Strikeout,
             children,
             span: *span,
         }
@@ -345,7 +346,7 @@ impl From<&ast::Emphasis> for SyntaxNode {
         let children = content.into_iter().map(Into::into).collect();
 
         SyntaxNode {
-            kind: SyntaxKind::Emphasis,
+            kind: NodeKind::Emphasis,
             children,
             span: *span,
         }
@@ -357,7 +358,7 @@ impl From<&ast::Strong> for SyntaxNode {
         let children = content.into_iter().map(Into::into).collect();
 
         SyntaxNode {
-            kind: SyntaxKind::Strong,
+            kind: NodeKind::Strong,
             children,
             span: *span,
         }
@@ -369,7 +370,7 @@ impl From<&ast::Subscript> for SyntaxNode {
         let children = content.into_iter().map(Into::into).collect();
 
         SyntaxNode {
-            kind: SyntaxKind::Subscript,
+            kind: NodeKind::Subscript,
             children,
             span: *span,
         }
@@ -381,7 +382,7 @@ impl From<&ast::Supscript> for SyntaxNode {
         let children = content.into_iter().map(Into::into).collect();
 
         SyntaxNode {
-            kind: SyntaxKind::Supscript,
+            kind: NodeKind::Supscript,
             children,
             span: *span,
         }
@@ -403,7 +404,7 @@ impl From<&ast::Link> for SyntaxNode {
         }
 
         SyntaxNode {
-            kind: SyntaxKind::Link,
+            kind: NodeKind::Link,
             children,
             span: *span,
         }
@@ -413,7 +414,7 @@ impl From<&ast::Link> for SyntaxNode {
 impl From<&ast::Code> for SyntaxNode {
     fn from(ast::Code { expr, span }: &ast::Code) -> Self {
         SyntaxNode {
-            kind: SyntaxKind::Expr,
+            kind: NodeKind::Expr,
             children: vec![expr.into()],
             span: *span,
         }
@@ -428,13 +429,9 @@ impl From<&ast::Expr> for SyntaxElement {
             Content(content) => SyntaxNode::from(content).into(),
             Ident(ident) => SyntaxToken::from(ident).into(),
             Call(call) => SyntaxNode::from(call).into(),
-            Literal(_, span) => SyntaxToken {
-                kind: SyntaxKind::Literal,
-                span: *span,
-            }
-            .into(),
+            Literal(literal, span) => SyntaxToken::literal(literal, *span).into(),
             Block(exprs, span) => SyntaxNode {
-                kind: SyntaxKind::ExprBlock,
+                kind: NodeKind::ExprBlock,
                 children: exprs.into_iter().map(Into::into).collect(),
                 span: *span,
             }
@@ -446,7 +443,7 @@ impl From<&ast::Expr> for SyntaxElement {
 impl From<&ast::Content> for SyntaxNode {
     fn from(ast::Content { content, span }: &ast::Content) -> Self {
         SyntaxNode {
-            kind: SyntaxKind::Content,
+            kind: NodeKind::Content,
             children: content.into_iter().map(Into::into).collect(),
             span: *span,
         }
@@ -456,9 +453,9 @@ impl From<&ast::Content> for SyntaxNode {
 impl From<&ast::Call> for SyntaxNode {
     fn from(ast::Call { ident, args, span }: &ast::Call) -> Self {
         SyntaxNode {
-            kind: SyntaxKind::Call,
+            kind: NodeKind::Call,
             children: vec![
-                SyntaxToken::from(ident).into(),
+                SyntaxToken::call_ident(ident).into(),
                 SyntaxNode::from(args).into(),
             ],
             span: *span,
@@ -484,7 +481,7 @@ impl From<&ast::Args> for SyntaxNode {
         }
 
         SyntaxNode {
-            kind: SyntaxKind::Args,
+            kind: NodeKind::Args,
             children,
             span: *span,
         }
@@ -494,7 +491,7 @@ impl From<&ast::Args> for SyntaxNode {
 impl From<&ast::Arg> for SyntaxNode {
     fn from(ast::Arg { name, value, span }: &ast::Arg) -> Self {
         let mut children = if let Some(name) = name {
-            vec![SyntaxToken::from(name).into()]
+            vec![SyntaxToken::arg_ident(name).into()]
         } else {
             Vec::new()
         };
@@ -502,7 +499,7 @@ impl From<&ast::Arg> for SyntaxNode {
         children.push(value.into());
 
         SyntaxNode {
-            kind: SyntaxKind::Arg,
+            kind: NodeKind::Arg,
             children,
             span: *span,
         }

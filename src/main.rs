@@ -1,19 +1,17 @@
-use miette::{Diagnostic, Result};
+use miette::{Diagnostic, NamedSource, Result};
 use std::{io, path::PathBuf};
 use thiserror::Error;
 
+use tyd_eval::prelude::*;
 #[cfg(feature = "html")]
 use tyd_html::HtmlCompiler;
 #[cfg(not(feature = "html"))]
 use tyd_pandoc::format::HtmlCompiler;
 use tyd_pandoc::{
     builtin,
-    engine::PandocState,
     format::{DocxCompiler, PandocCompiler, PdfCompiler},
-    Value,
 };
-use tyd_render::render::{Output, Render};
-use tyd_syntax::{parser::error::SyntaxErrors, prelude::*};
+use tyd_syntax::prelude::*;
 
 #[derive(Debug, clap::Parser)]
 #[command(author, version, about, long_about = None)]
@@ -59,14 +57,42 @@ pub enum TydError {
 fn main() -> Result<()> {
     let args: Args = clap::Parser::parse();
 
+    let scope = Scope::new()
+        .register_symbol("title", "Default title")
+        .register_symbol("author", vec![Value::from("Max Mustermann")])
+        //Blocks
+        .register_func("hrule", builtin::HorizontalRule)
+        .register_func("figure", builtin::Figure)
+        // Inlines
+        .register_func("image", builtin::Image)
+        .register_func("linebreak", builtin::LineBreak)
+        .register_func("highlight", builtin::Highlight)
+        .register_func("smallcaps", builtin::SmallCaps)
+        .register_func("underline", builtin::Underline)
+        // Builtins
+        .register_func("let", builtin::Let)
+        .register_func("List", builtin::List)
+        .register_func("Map", builtin::Map);
+
     match args.command {
         Commands::Check { path } => {
-            let name = path.file_name().unwrap().to_string_lossy();
-            let src = std::fs::read_to_string(&path).map_err(TydError::Io)?;
+            let world = World::new(path, scope).map_err(TydError::Io)?;
+            let mut parser = Parser::new(world.source());
+            let result = parser.try_parse();
 
-            let ast = parse(&src, name)?;
+            if result.has_errors() {
+                let related = result.errors().cloned().map(Into::into).collect::<Vec<_>>();
+                let report: miette::Report = SyntaxErrors {
+                    related,
+                    src: world.named_source(),
+                }
+                .into();
+                println!("{report:?}");
+            }
 
-            println!("{ast:?}");
+            if let Some(ast) = result.into_output() {
+                println!("{ast:?}");
+            }
         }
         Commands::Format { path } => {
             todo!()
@@ -76,30 +102,9 @@ fn main() -> Result<()> {
             output,
             format,
         } => {
-            let name = input.file_name().unwrap().to_string_lossy();
-            let src = std::fs::read_to_string(&input).map_err(TydError::Io)?;
-
-            let ast = parse(&src, name.clone())?;
-
-            // TODO highlight only all working in html
-            // therefor only add them in html and add a default case
-            // which will throw a warning and skip the functions
-            let ctx = PandocState::new(src, name, &input)
-                .insert("title", "Default title")
-                .insert("author", vec![Value::from("Max Mustermann")])
-                //Blocks
-                .register("hrule", builtin::HorizontalRule)
-                .register("figure", builtin::Figure)
-                // Inlines
-                .register("image", builtin::Image)
-                .register("linebreak", builtin::LineBreak)
-                .register("highlight", builtin::Highlight)
-                .register("smallcaps", builtin::SmallCaps)
-                .register("underline", builtin::Underline)
-                // Builtins
-                .register("let", builtin::Let)
-                .register("List", builtin::List)
-                .register("Map", builtin::Map);
+            let world = World::new(input, scope).map_err(TydError::Io)?;
+            let mut parser = Parser::new(world.source());
+            let ast = parser.parse()?;
 
             let output = match output {
                 Some(path) => Output::File(path),
@@ -107,10 +112,10 @@ fn main() -> Result<()> {
             };
 
             match format {
-                Format::Html => HtmlCompiler::render(&ast, ctx, output)?,
-                Format::Pdf => PdfCompiler::render(&ast, ctx, output)?,
-                Format::Docx => DocxCompiler::render(&ast, ctx, output)?,
-                Format::Json => PandocCompiler::render(&ast, ctx, output)?,
+                Format::Html => HtmlCompiler::render(&ast, world, output)?,
+                Format::Pdf => PdfCompiler::render(&ast, world, output)?,
+                Format::Docx => DocxCompiler::render(&ast, world, output)?,
+                Format::Json => PandocCompiler::render(&ast, world, output)?,
             }
         }
     }

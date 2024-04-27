@@ -1,17 +1,14 @@
-use crate::{
-    ty::Type,
-    value::{Shape, Value},
-};
+use crate::{eval::Engine, ty::Type, value::Value};
 
 #[derive(Debug, Clone)]
-pub struct Signature<S: Shape> {
+pub struct Signature<E: Engine> {
     pub name: String,
     pub positional: Vec<Type>,
     pub required: Vec<(String, Type)>,
-    pub optional: Vec<(String, Value<S>)>,
+    pub optional: Vec<(String, Value<E>)>,
 }
 
-impl<S: Shape> Signature<S> {
+impl<E: Engine> Signature<E> {
     pub fn new(name: impl Into<String>) -> Self {
         Self {
             name: name.into(),
@@ -57,14 +54,10 @@ impl<S: Shape> Signature<S> {
         })
     }
 
-    pub fn get_default(&self, name: impl AsRef<str>) -> Option<Value<S>> {
-        self.optional.iter().find_map(|(n, val)| {
-            if n == name.as_ref() {
-                Some(val.clone())
-            } else {
-                None
-            }
-        })
+    pub fn get_default(&self, name: impl AsRef<str>) -> Option<&Value<E>> {
+        self.optional
+            .iter()
+            .find_map(|(n, val)| if n == name.as_ref() { Some(val) } else { None })
     }
 
     pub fn get_positional(&self, position: usize) -> Option<Type> {
@@ -83,7 +76,7 @@ impl<S: Shape> Signature<S> {
         self
     }
 
-    pub fn optional(mut self, name: impl Into<String>, default: impl Into<Value<S>>) -> Self {
+    pub fn optional(mut self, name: impl Into<String>, default: impl Into<Value<E>>) -> Self {
         self.optional.push((name.into(), default.into()));
         self
     }

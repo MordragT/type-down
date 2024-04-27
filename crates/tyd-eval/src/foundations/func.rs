@@ -1,80 +1,63 @@
-use std::collections::HashSet;
-use tyd_syntax::Span;
-
 use crate::{
     error::{ArgumentError, EngineError},
-    value::{Cast, Shape, Value},
+    eval::{Engine, Machine},
+    value::Value,
 };
+use ecow::EcoString;
+use std::{collections::HashSet, fmt::Debug};
+use tyd_syntax::Span;
 
-use super::Signature;
+use super::{Arg, Args, Signature};
 
-#[derive(Debug, Clone)]
-pub struct Arguments<S: Shape> {
-    named: Vec<(String, Value<S>)>,
-    positional: Vec<Value<S>>,
-}
+pub trait Func<E>: Debug
+where
+    E: Engine,
+{
+    fn signature(&self) -> Signature<E>;
+    fn run(&self, call: VerifiedCall<E>, machine: &Machine<E>) -> Result<Value<E>, EngineError>;
 
-impl<S: Shape> Arguments<S> {
-    pub fn new() -> Self {
-        Self {
-            named: Vec::new(),
-            positional: Vec::new(),
+    fn dispatch(&self, call: Call<E>, machine: &mut Machine<E>) -> Option<Value<E>> {
+        let Call { args, span } = call;
+
+        let args = match validate(self.signature(), args, span) {
+            Ok(args) => args,
+            Err(errs) => {
+                machine.scope.errors(errs);
+                return None;
+            }
+        };
+        let call = VerifiedCall { args, span };
+
+        match self.run(call, machine) {
+            Ok(value) => Some(value),
+            Err(e) => {
+                machine.scope.error(e);
+                None
+            }
         }
     }
-
-    pub fn names(&self) -> impl Iterator<Item = &String> {
-        self.named.iter().map(|(n, _)| n)
-    }
-
-    pub fn add_named(&mut self, name: impl Into<String>, value: impl Into<Value<S>>) {
-        self.named.push((name.into(), value.into()))
-    }
-
-    pub fn add_positional(&mut self, value: impl Into<Value<S>>) {
-        self.positional.push(value.into())
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.named.is_empty() && self.positional.is_empty()
-    }
-
-    pub fn remove_named<T: Cast<S>>(&mut self, name: impl AsRef<str>) -> T {
-        let pos = self
-            .named
-            .iter()
-            .position(|(n, _)| n == name.as_ref())
-            .unwrap();
-        let (_, value) = self.named.remove(pos);
-        T::cast(value)
-    }
-
-    pub fn remove_positonal<T: Cast<S>>(&mut self, pos: usize) -> T {
-        let value = self.positional.remove(pos);
-        T::cast(value)
-    }
-
-    pub fn pop_positional<T: Cast<S>>(&mut self) -> T {
-        let value = self.positional.pop().unwrap();
-        T::cast(value)
-    }
 }
 
 #[derive(Debug, Clone)]
-pub struct Arg<S: Shape> {
-    pub name: Option<String>,
+pub struct VerifiedCall<E: Engine> {
+    pub args: Args<E>,
     pub span: Span,
-    pub value: Value<S>,
 }
 
-pub fn validate<S: Shape>(
-    signature: Signature<S>,
-    args: Vec<Arg<S>>,
+pub struct Call<E: Engine> {
+    pub args: Vec<Arg<E>>,
+    pub span: Span,
+}
+
+pub fn validate<E: Engine>(
+    signature: Signature<E>,
+    args: Vec<Arg<E>>,
     span: Span,
-) -> Result<Arguments<S>, Vec<EngineError>> {
+) -> Result<Args<E>, Vec<EngineError>> {
     use ArgumentError::*;
 
     let mut errors = Vec::new();
-    let mut arguments = Arguments::new();
+    let mut arguments = Args::new();
     let mut pos = 0;
 
     for Arg { name, span, value } in args {
@@ -118,7 +101,7 @@ pub fn validate<S: Shape>(
     let optional = signature.optional_names().cloned().collect::<HashSet<_>>();
 
     for name in optional.difference(&gotten) {
-        let value = signature.get_default(name).unwrap();
+        let value = signature.get_default(name).unwrap().to_owned();
         arguments.add_named(name, value);
     }
 
@@ -129,10 +112,10 @@ pub fn validate<S: Shape>(
     }
 }
 
-pub fn validate_named<S: Shape>(
-    signature: &Signature<S>,
-    name: &String,
-    value: &Value<S>,
+pub fn validate_named<E: Engine>(
+    signature: &Signature<E>,
+    name: &EcoString,
+    value: &Value<E>,
     span: Span,
 ) -> Result<(), EngineError> {
     use ArgumentError::*;
@@ -151,10 +134,10 @@ pub fn validate_named<S: Shape>(
     }
 }
 
-pub fn validate_positional<S: Shape>(
-    signature: &Signature<S>,
+pub fn validate_positional<E: Engine>(
+    signature: &Signature<E>,
     pos: usize,
-    value: &Value<S>,
+    value: &Value<E>,
     span: Span,
 ) -> Result<(), EngineError> {
     use ArgumentError::*;
