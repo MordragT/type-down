@@ -37,7 +37,7 @@ impl From<&ast::Ast> for SyntaxNode {
     fn from(ast::Ast { blocks, span }: &ast::Ast) -> Self {
         let children = blocks
             .into_iter()
-            .map(|block| SyntaxNode::from(block).into())
+            .map(|block| SyntaxElement::from(block))
             .collect();
 
         SyntaxNode {
@@ -48,28 +48,21 @@ impl From<&ast::Ast> for SyntaxNode {
     }
 }
 
-impl From<&ast::Block> for SyntaxNode {
+impl From<&ast::Block> for SyntaxElement {
     fn from(value: &ast::Block) -> Self {
         use ast::Block::*;
 
         match value {
-            Raw(r) => r.into(),
-            Heading(h) => h.into(),
-            Table(t) => t.into(),
-            List(l) => l.into(),
-            Enum(e) => e.into(),
-            Terms(t) => t.into(),
-            Paragraph(p) => p.into(),
-            Plain(p) => p.into(),
-            Error(_) => todo!(),
+            Raw(r) => SyntaxNode::from(r).into(),
+            Heading(h) => SyntaxNode::from(h).into(),
+            Table(t) => SyntaxNode::from(t).into(),
+            List(l) => SyntaxNode::from(l).into(),
+            Enum(e) => SyntaxNode::from(e).into(),
+            Terms(t) => SyntaxNode::from(t).into(),
+            Paragraph(p) => SyntaxNode::from(p).into(),
+            Plain(p) => SyntaxNode::from(p).into(),
+            Error(span) => SyntaxToken::error(span).into(),
         }
-    }
-}
-
-impl From<&ast::Block> for SyntaxElement {
-    fn from(value: &ast::Block) -> Self {
-        let node = SyntaxNode::from(value);
-        node.into()
     }
 }
 
@@ -312,7 +305,7 @@ impl From<&ast::Inline> for SyntaxElement {
             Spacing(el) => SyntaxToken::from(el).into(),
             SoftBreak(el) => SyntaxToken::from(el).into(),
             Code(el) => SyntaxNode::from(el).into(),
-            Error(_) => todo!(),
+            Error(span) => SyntaxToken::error(span).into(),
         }
     }
 }

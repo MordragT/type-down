@@ -65,11 +65,16 @@ paragraph `monospace where @ | is ignored`
 
 > term: Some definition of the term for more info <https://example.com>[Hier klicken]
 
+
 #let(img: image(src: "test.png", alt: "Human", width: "50%"))
 
 #figure(caption: [Some content], List(img))
 
-#figure(caption: [Some content])[#img]
+#figure(caption: [Some content])[
+    hallo
+]
+
+
 
 #img
 

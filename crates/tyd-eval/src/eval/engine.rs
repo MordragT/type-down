@@ -6,8 +6,8 @@ use crate::{value::Cast, world::World};
 
 /// The core component, responsible for typesetting
 pub trait Engine: Sized + Clone {
-    type Inline: Debug + Clone + Cast<Self> + 'static;
-    type Block: Debug + Clone + Cast<Self> + 'static;
+    type Inline: Debug + Clone + Send + Sync + Cast<Self> + 'static;
+    type Block: Debug + Clone + Send + Sync + Cast<Self> + 'static;
     type Visitor: Debug + Clone + Visitor<State = Self>;
 
     fn eval_inline(
@@ -22,4 +22,6 @@ pub trait Engine: Sized + Clone {
     fn scopes_mut(&mut self) -> &mut Scopes<Self>;
     fn tracer(&self) -> &Tracer;
     fn tracer_mut(&mut self) -> &mut Tracer;
+
+    fn from_world(world: World<Self>) -> Self;
 }

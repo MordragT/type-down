@@ -1,5 +1,6 @@
 use std::fs;
 use tyd_eval::{
+    eval::Engine,
     render::{Output, Render},
     world::World,
 };
@@ -15,7 +16,7 @@ impl Render for PandocCompiler {
     type Engine = PandocEngine;
 
     fn render(ast: &Ast, world: World<Self::Engine>, output: Output) -> Result<(), Self::Error> {
-        let engine = PandocEngine::new(world);
+        let engine = PandocEngine::from_world(world);
         let pandoc = engine.build(ast)?;
         let contents = pandoc.to_json();
 

@@ -6,6 +6,7 @@ use pandoc::{
 use std::io;
 use thiserror::Error;
 use tyd_eval::{
+    eval::Engine,
     render::{Output, Render},
     world::World,
 };
@@ -37,7 +38,7 @@ impl Render for HtmlCompiler {
             Output::Stdout => OutputKind::Pipe,
         };
 
-        let engine = PandocEngine::new(world);
+        let engine = PandocEngine::from_world(world);
         let pandoc = engine.build(ast)?;
         let contents = pandoc.to_json();
 

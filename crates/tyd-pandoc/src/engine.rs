@@ -27,22 +27,8 @@ pub struct PandocEngine {
 }
 
 impl PandocEngine {
-    pub fn new(world: World<Self>) -> Self {
-        Self {
-            pandoc: ir::Pandoc {
-                pandoc_api_version: vec![1, 23, 1],
-                meta: ir::Map::new(),
-                blocks: Vec::new(),
-            },
-            stack: Vec::new(),
-            scopes: Scopes::new(world.global_scope()),
-            tracer: Tracer::new(),
-            world,
-        }
-    }
-
     pub fn build(mut self, ast: &ast::Ast) -> Result<ir::Pandoc, PandocError> {
-        PandocVisitor {}.visit_ast(&mut self, ast)?;
+        PandocVisitor {}.visit_ast(&mut self, ast);
 
         let Self {
             mut pandoc,
@@ -105,8 +91,22 @@ impl Engine for PandocEngine {
     type Block = ir::Block;
     type Visitor = PandocVisitor;
 
+    fn from_world(world: World<Self>) -> Self {
+        Self {
+            pandoc: ir::Pandoc {
+                pandoc_api_version: vec![1, 23, 1],
+                meta: ir::Map::new(),
+                blocks: Vec::new(),
+            },
+            stack: Vec::new(),
+            scopes: Scopes::new(world.global_scope()),
+            tracer: Tracer::new(),
+            world,
+        }
+    }
+
     fn eval_block(&mut self, visitor: &Self::Visitor, block: &ast::Block) -> Option<Self::Block> {
-        visitor.visit_block(self, block).ok()?;
+        visitor.visit_block(self, block);
         let block = self.pop_block();
         Some(block)
     }
@@ -117,7 +117,7 @@ impl Engine for PandocEngine {
         inline: &ast::Inline,
     ) -> Option<Self::Inline> {
         let start = self.start();
-        visitor.visit_inline(self, inline).ok()?;
+        visitor.visit_inline(self, inline);
 
         // TODO error handling
 

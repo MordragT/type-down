@@ -1,6 +1,7 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(u8)]
 pub enum TokenKind {
+    Error,
     Label,
     RawLang,
     RawContent,

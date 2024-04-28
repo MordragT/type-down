@@ -22,7 +22,7 @@ struct Repr<E: Engine> {
 }
 
 impl<E: Engine> World<E> {
-    pub fn new(path: impl AsRef<Path>, scope: Scope<E>) -> io::Result<Self> {
+    pub fn new(path: impl AsRef<Path>, scope: impl Into<Arc<Scope<E>>>) -> io::Result<Self> {
         let path = path.as_ref().canonicalize()?;
         let name = path.file_name().unwrap().to_string_lossy();
         let source = fs::read_to_string(&path)?;
@@ -30,7 +30,7 @@ impl<E: Engine> World<E> {
         let repr = Repr {
             source,
             path,
-            scope: Arc::new(scope),
+            scope: scope.into(),
         };
 
         Ok(Self(Arc::new(repr)))

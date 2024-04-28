@@ -3,6 +3,7 @@ use pandoc::{InputFormat, InputKind, OutputFormat, OutputKind, Pandoc};
 use std::io;
 use thiserror::Error;
 use tyd_eval::{
+    eval::Engine,
     render::{Output, Render},
     world::World,
 };
@@ -36,7 +37,7 @@ impl Render for DocxCompiler {
             Output::Stdout => return Err(DocxError::StdoutUnsupported),
         };
 
-        let engine = PandocEngine::new(world);
+        let engine = PandocEngine::from_world(world);
         let pandoc = engine.build(ast)?;
         let contents = pandoc.to_json();
 

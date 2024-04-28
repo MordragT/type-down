@@ -122,7 +122,10 @@ impl<E: Engine> Eval<E> for &ast::Args {
 
         if let Some(content) = content {
             let span = content.span;
+
+            engine.scopes_mut().enter();
             let value = content.eval(engine, visitor)?;
+            engine.scopes_mut().exit();
 
             result.insert(hir::Arg {
                 name: None,

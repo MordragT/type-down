@@ -1,29 +1,37 @@
 use dashmap::DashMap;
 use ropey::Rope;
-use tower_lsp::jsonrpc::Result;
-use tower_lsp::lsp_types::*;
-use tower_lsp::{Client, LanguageServer};
-use tyd_eval::{builtin, eval::Engine, value::Value, world::World};
-use tyd_pandoc::visitor::PandocVisitor;
-use tyd_pandoc::{engine::PandocEngine, plugin};
+use std::sync::Arc;
+use tower_lsp::{jsonrpc::Result, lsp_types::*, Client, LanguageServer};
+use tyd_eval::{
+    eval::{Engine, Scope},
+    world::World,
+};
 use tyd_syntax::{ast::Ast, parser::try_parse, visitor::Visitor};
 
 use crate::semantic::{semantic_tokens_full_from_node, semantic_tokens_range_from_node, LEGEND};
 use crate::syntax::SyntaxNode;
 
 #[derive(Debug)]
-pub struct Backend {
+pub struct Backend<E: Engine> {
     client: Client,
     documents: DashMap<Url, Rope>,
     trees: DashMap<Url, Ast>,
+    global_scope: Arc<Scope<E>>,
+    visitor: Arc<dyn Visitor<State = E> + Send + Sync>,
 }
 
-impl Backend {
-    pub fn new(client: Client) -> Self {
+impl<E: Engine> Backend<E> {
+    pub fn new(
+        client: Client,
+        global_scope: impl Into<Arc<Scope<E>>>,
+        visitor: impl Visitor<State = E> + Send + Sync + 'static,
+    ) -> Self {
         Self {
             client,
             documents: DashMap::new(),
             trees: DashMap::new(),
+            global_scope: global_scope.into(),
+            visitor: Arc::new(visitor),
         }
     }
 
@@ -75,26 +83,11 @@ impl Backend {
             .collect::<Vec<_>>();
 
         if let Some(ast) = result.into_output() {
-            // TODO do pandoc compilation here and check results
-            // TODO make lsp generic over compiler
-
             let path = uri.to_file_path().unwrap();
-            let scope = plugin::plugin()
-                .into_scope()
-                .register_symbol("title", "Default title")
-                .register_symbol("author", vec![Value::from("Max Mustermann")])
-                // Builtins
-                .register_func("let", builtin::Let)
-                .register_func("List", builtin::List)
-                .register_func("Map", builtin::Map);
+            let world = World::new(path, self.global_scope.clone()).unwrap();
+            let mut engine = E::from_world(world);
 
-            let world = World::new(path, scope).unwrap();
-            let mut engine = PandocEngine::new(world.clone());
-            let visitor = PandocVisitor {};
-
-            // TODO dont want to panic if visit_ast has unrecoverable error
-            // maybe rewrite visitor to not return errors
-            visitor.visit_ast(&mut engine, &ast);
+            self.visitor.visit_ast(&mut engine, &ast);
 
             let mut engine_diags = engine
                 .tracer_mut()
@@ -120,7 +113,7 @@ impl Backend {
 }
 
 #[tower_lsp::async_trait]
-impl LanguageServer for Backend {
+impl<E: Engine + 'static> LanguageServer for Backend<E> {
     async fn initialize(&self, _: InitializeParams) -> Result<InitializeResult> {
         Ok(InitializeResult {
             server_info: None,

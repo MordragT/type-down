@@ -37,6 +37,13 @@ impl SyntaxToken {
             span: ident.span,
         }
     }
+
+    pub fn error(span: &Span) -> Self {
+        Self {
+            kind: TokenKind::Error,
+            span: *span,
+        }
+    }
 }
 
 impl fmt::Debug for SyntaxToken {
