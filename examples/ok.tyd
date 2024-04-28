@@ -69,7 +69,7 @@ paragraph `monospace where @ | is ignored`
 
 #figure(caption: [Some content], List(img))
 
-% #figure(caption: [Some content])[#img]
+#figure(caption: [Some content])[#img]
 
 #img
 

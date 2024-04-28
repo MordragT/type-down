@@ -1,11 +1,13 @@
+use ecow::EcoString;
+
 use crate::{eval::Engine, ty::Type, value::Value};
 
 #[derive(Debug, Clone)]
 pub struct Signature<E: Engine> {
     pub name: String,
     pub positional: Vec<Type>,
-    pub required: Vec<(String, Type)>,
-    pub optional: Vec<(String, Value<E>)>,
+    pub required: Vec<(EcoString, Type)>,
+    pub optional: Vec<(EcoString, Value<E>)>,
 }
 
 impl<E: Engine> Signature<E> {
@@ -18,15 +20,15 @@ impl<E: Engine> Signature<E> {
         }
     }
 
-    pub fn names(&self) -> impl Iterator<Item = &String> {
+    pub fn names(&self) -> impl Iterator<Item = &EcoString> {
         self.required_names().chain(self.optional_names())
     }
 
-    pub fn required_names(&self) -> impl Iterator<Item = &String> {
+    pub fn required_names(&self) -> impl Iterator<Item = &EcoString> {
         self.required.iter().map(|(n, _)| n)
     }
 
-    pub fn optional_names(&self) -> impl Iterator<Item = &String> {
+    pub fn optional_names(&self) -> impl Iterator<Item = &EcoString> {
         self.optional.iter().map(|(n, _)| n)
     }
 
@@ -76,12 +78,12 @@ impl<E: Engine> Signature<E> {
         self
     }
 
-    pub fn optional(mut self, name: impl Into<String>, default: impl Into<Value<E>>) -> Self {
+    pub fn optional(mut self, name: impl Into<EcoString>, default: impl Into<Value<E>>) -> Self {
         self.optional.push((name.into(), default.into()));
         self
     }
 
-    pub fn required(mut self, name: impl Into<String>, ty: Type) -> Self {
+    pub fn required(mut self, name: impl Into<EcoString>, ty: Type) -> Self {
         self.required.push((name.into(), ty));
         self
     }

@@ -15,7 +15,6 @@ pub enum Type {
     Block,
     Any,
     None,
-    Arg,
     Func,
 }
 
@@ -44,7 +43,6 @@ impl fmt::Display for Type {
             Type::Block => write!(f, "Block"),
             Type::Any => write!(f, "Any"),
             Type::None => write!(f, "None"),
-            Type::Arg => write!(f, "Arg"),
             Type::Func => write!(f, "Func"),
         }
     }
@@ -63,7 +61,6 @@ impl PartialEq for Type {
             (Int, Int) => true,
             (Inline, Inline) => true,
             (Block, Block) => true,
-            (Arg, Arg) => true,
             (Func, Func) => true,
             (Any, _) => true,
             (_, Any) => true,

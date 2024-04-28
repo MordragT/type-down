@@ -1,13 +1,13 @@
 use ecow::EcoString;
 
-use super::{Map, Value};
-use crate::eval::Engine;
+use super::Value;
+use crate::{eval::Engine, hir};
 
 pub trait Cast<E: Engine> {
     fn cast(value: Value<E>) -> Self;
 }
 
-impl<E: Engine> Cast<E> for Map<E> {
+impl<E: Engine> Cast<E> for hir::Map<E> {
     fn cast(value: Value<E>) -> Self {
         value.into_map().unwrap()
     }

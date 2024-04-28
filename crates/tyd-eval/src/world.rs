@@ -18,7 +18,7 @@ pub struct World<E: Engine>(Arc<Repr<E>>);
 struct Repr<E: Engine> {
     source: Source,
     path: PathBuf,
-    scope: Scope<E>,
+    scope: Arc<Scope<E>>,
 }
 
 impl<E: Engine> World<E> {
@@ -30,7 +30,7 @@ impl<E: Engine> World<E> {
         let repr = Repr {
             source,
             path,
-            scope,
+            scope: Arc::new(scope),
         };
 
         Ok(Self(Arc::new(repr)))
@@ -52,7 +52,7 @@ impl<E: Engine> World<E> {
         self.0.path.parent().unwrap()
     }
 
-    pub fn global_scope(&self) -> &Scope<E> {
-        &self.0.scope
+    pub fn global_scope(&self) -> Arc<Scope<E>> {
+        self.0.scope.clone()
     }
 }

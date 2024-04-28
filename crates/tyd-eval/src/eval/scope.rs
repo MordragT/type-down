@@ -2,24 +2,91 @@ use ecow::EcoString;
 use std::{collections::BTreeMap, sync::Arc};
 
 use super::Engine;
-use crate::{error::EngineError, foundations::Func, value::Value};
+use crate::{hir, value::Value};
 
-// TODO save func also in value
+/// A stack of scopes.
+#[derive(Debug, Clone)]
+pub struct Scopes<E: Engine> {
+    scopes: Vec<Scope<E>>,
+    base: Arc<Scope<E>>,
+}
+
+impl<E: Engine> Scopes<E> {
+    pub fn new(base: Arc<Scope<E>>) -> Self {
+        Self {
+            base,
+            scopes: vec![Scope::new()],
+        }
+    }
+
+    pub fn with_scope(base: Arc<Scope<E>>, scope: Scope<E>) -> Self {
+        Self {
+            base,
+            scopes: vec![scope],
+        }
+    }
+
+    pub fn enter(&mut self) {
+        self.scopes.push(Scope::new())
+    }
+
+    pub fn exit(&mut self) {
+        self.scopes.pop().expect("no active scope");
+    }
+
+    pub fn symbol(&self, name: impl AsRef<str>) -> Option<Value<E>> {
+        let name = name.as_ref();
+
+        self.scopes
+            .iter()
+            .rev()
+            .chain(std::iter::once(self.base.as_ref()))
+            .find_map(|scope| scope.symbol(name))
+    }
+
+    pub fn func(&self, name: impl AsRef<str>) -> Option<hir::Func<E>> {
+        let name = name.as_ref();
+
+        self.scopes
+            .iter()
+            .rev()
+            .chain(std::iter::once(self.base.as_ref()))
+            .find_map(|scope| scope.func(name))
+    }
+
+    pub fn define_symbol<N, V>(&mut self, name: N, value: V) -> Option<Value<E>>
+    where
+        N: Into<EcoString>,
+        V: Into<Value<E>>,
+    {
+        self.scopes
+            .last_mut()
+            .expect("no active scope")
+            .define_symbol(name, value)
+    }
+
+    pub fn define_func<N, F>(&mut self, name: N, func: F) -> Option<Value<E>>
+    where
+        N: Into<EcoString>,
+        F: Into<hir::Func<E>>,
+    {
+        self.scopes
+            .last_mut()
+            .expect("no active scope")
+            .define_func(name, func)
+    }
+}
 
 /// A scoped table binding names to values.
 #[derive(Debug, Clone)]
 pub struct Scope<E: Engine> {
     symbols: BTreeMap<EcoString, Value<E>>,
-    funcs: BTreeMap<EcoString, Arc<dyn Func<E>>>,
-    errors: Vec<EngineError>,
 }
 
 impl<E: Engine> Scope<E> {
     pub fn new() -> Self {
         Self {
             symbols: BTreeMap::new(),
-            funcs: BTreeMap::new(),
-            errors: Vec::new(),
         }
     }
 
@@ -27,57 +94,44 @@ impl<E: Engine> Scope<E> {
         self.symbols.get(name.as_ref()).cloned()
     }
 
-    pub fn func(&self, name: impl AsRef<str>) -> Option<Arc<dyn Func<E>>> {
-        self.funcs.get(name.as_ref()).cloned()
+    pub fn func(&self, name: impl AsRef<str>) -> Option<hir::Func<E>> {
+        self.symbols
+            .get(name.as_ref())
+            .cloned()
+            .and_then(|value| value.into_func())
     }
 
-    pub fn has_errors(&self) -> bool {
-        !self.errors.is_empty()
-    }
-
-    pub fn error(&mut self, e: EngineError) {
-        self.errors.push(e);
-    }
-
-    pub fn errors(&mut self, errs: impl IntoIterator<Item = EngineError>) {
-        self.errors.extend(errs)
-    }
-
-    pub fn into_errors(self) -> Vec<EngineError> {
-        self.errors
-    }
-
-    pub fn register_symbol(
-        mut self,
-        name: impl Into<EcoString>,
-        value: impl Into<Value<E>>,
-    ) -> Self {
+    pub fn register_symbol<N, V>(mut self, name: N, value: V) -> Self
+    where
+        N: Into<EcoString>,
+        V: Into<Value<E>>,
+    {
         self.define_symbol(name, value);
         self
     }
 
-    pub fn register_func(
-        mut self,
-        name: impl Into<EcoString>,
-        func: impl Func<E> + 'static,
-    ) -> Self {
+    pub fn register_func<N, F>(mut self, name: N, func: F) -> Self
+    where
+        N: Into<EcoString>,
+        F: Into<hir::Func<E>>,
+    {
         self.define_func(name, func);
         self
     }
 
-    pub fn define_symbol(
-        &mut self,
-        name: impl Into<EcoString>,
-        value: impl Into<Value<E>>,
-    ) -> Option<Value<E>> {
+    pub fn define_symbol<N, V>(&mut self, name: N, value: V) -> Option<Value<E>>
+    where
+        N: Into<EcoString>,
+        V: Into<Value<E>>,
+    {
         self.symbols.insert(name.into(), value.into())
     }
 
-    pub fn define_func(
-        &mut self,
-        name: impl Into<EcoString>,
-        func: impl Func<E> + 'static,
-    ) -> Option<Arc<dyn Func<E>>> {
-        self.funcs.insert(name.into(), Arc::new(func))
+    pub fn define_func<N, F>(&mut self, name: N, func: F) -> Option<Value<E>>
+    where
+        N: Into<EcoString>,
+        F: Into<hir::Func<E>>,
+    {
+        self.symbols.insert(name.into(), Value::Func(func.into()))
     }
 }

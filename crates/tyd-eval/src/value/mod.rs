@@ -1,20 +1,15 @@
 use ecow::EcoString;
 use std::{collections::BTreeMap, fmt::Debug, sync::Arc};
 
-use crate::{
-    eval::Engine,
-    foundations::{Arg, Func, List, Map},
-    ty::Type,
-};
+use crate::{eval::Engine, hir, ty::Type};
 
 mod cast;
-
 pub use cast::*;
 
 #[derive(Debug, Clone)]
 pub enum Value<E: Engine> {
-    Map(Map<E>),
-    List(List<E>),
+    Map(hir::Map<E>),
+    List(hir::List<E>),
     Bool(bool),
     Str(EcoString),
     Float(f64),
@@ -22,8 +17,7 @@ pub enum Value<E: Engine> {
     Inline(E::Inline),
     Block(E::Block),
     None,
-    Arg(Arc<Arg<E>>),
-    Func(Arc<dyn Func<E>>),
+    Func(hir::Func<E>),
 }
 
 impl<E: Engine> Value<E> {
@@ -52,20 +46,19 @@ impl<E: Engine> Value<E> {
             Self::Int(_) => Int,
             Self::Inline(_) => Inline,
             Self::Block(_) => Block,
-            Self::Arg(_) => Arg,
             Self::Func(_) => Func,
             Self::None => None,
         }
     }
 
-    pub fn into_map(self) -> Option<Map<E>> {
+    pub fn into_map(self) -> Option<hir::Map<E>> {
         match self {
             Self::Map(map) => Some(map),
             _ => None,
         }
     }
 
-    pub fn into_list(self) -> Option<List<E>> {
+    pub fn into_list(self) -> Option<hir::List<E>> {
         match self {
             Self::List(list) => Some(list),
             _ => None,
@@ -114,16 +107,9 @@ impl<E: Engine> Value<E> {
         }
     }
 
-    pub fn into_func(self) -> Option<Arc<dyn Func<E>>> {
+    pub fn into_func(self) -> Option<hir::Func<E>> {
         match self {
             Self::Func(f) => Some(f),
-            _ => None,
-        }
-    }
-
-    pub fn into_arg(self) -> Option<Arc<Arg<E>>> {
-        match self {
-            Self::Arg(a) => Some(a),
             _ => None,
         }
     }
@@ -135,12 +121,6 @@ impl<E: Engine, T: Into<Value<E>>> From<Option<T>> for Value<E> {
             Some(v) => v.into(),
             None => Value::None,
         }
-    }
-}
-
-impl<E: Engine> From<Arg<E>> for Value<E> {
-    fn from(value: Arg<E>) -> Self {
-        Self::Arg(Arc::new(value))
     }
 }
 

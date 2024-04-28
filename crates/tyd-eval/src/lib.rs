@@ -1,7 +1,8 @@
 pub mod builtin;
 pub mod error;
 pub mod eval;
-pub mod foundations;
+pub mod hir;
+pub mod plugin;
 pub mod render;
 pub mod ty;
 pub mod value;

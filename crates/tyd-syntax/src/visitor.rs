@@ -6,112 +6,84 @@ pub trait Visitor {
     type Error: Diagnostic;
     type State;
 
-    fn visit_ast(&mut self, state: &mut Self::State, ast: &Ast) -> Result<(), Self::Error> {
+    fn visit_ast(&self, state: &mut Self::State, ast: &Ast) -> Result<(), Self::Error> {
         walk_ast(self, state, ast)
     }
 
-    fn visit_block(&mut self, state: &mut Self::State, block: &Block) -> Result<(), Self::Error> {
+    fn visit_block(&self, state: &mut Self::State, block: &Block) -> Result<(), Self::Error> {
         walk_block(self, state, block)
     }
 
-    fn visit_raw(&mut self, _state: &mut Self::State, _raw: &Raw) -> Result<(), Self::Error> {
+    fn visit_raw(&self, _state: &mut Self::State, _raw: &Raw) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    fn visit_heading(
-        &mut self,
-        state: &mut Self::State,
-        heading: &Heading,
-    ) -> Result<(), Self::Error> {
+    fn visit_heading(&self, state: &mut Self::State, heading: &Heading) -> Result<(), Self::Error> {
         walk_heading(self, state, heading)
     }
 
-    fn visit_list(&mut self, state: &mut Self::State, list: &List) -> Result<(), Self::Error> {
+    fn visit_list(&self, state: &mut Self::State, list: &List) -> Result<(), Self::Error> {
         walk_list(self, state, list)
     }
 
-    fn visit_list_item(
-        &mut self,
-        state: &mut Self::State,
-        item: &ListItem,
-    ) -> Result<(), Self::Error> {
+    fn visit_list_item(&self, state: &mut Self::State, item: &ListItem) -> Result<(), Self::Error> {
         walk_list_item(self, state, item)
     }
 
-    fn visit_enum(
-        &mut self,
-        state: &mut Self::State,
-        enumeration: &Enum,
-    ) -> Result<(), Self::Error> {
+    fn visit_enum(&self, state: &mut Self::State, enumeration: &Enum) -> Result<(), Self::Error> {
         walk_enum(self, state, enumeration)
     }
 
-    fn visit_enum_item(
-        &mut self,
-        state: &mut Self::State,
-        item: &EnumItem,
-    ) -> Result<(), Self::Error> {
+    fn visit_enum_item(&self, state: &mut Self::State, item: &EnumItem) -> Result<(), Self::Error> {
         walk_enum_item(self, state, item)
     }
 
-    fn visit_table(&mut self, state: &mut Self::State, table: &Table) -> Result<(), Self::Error> {
+    fn visit_table(&self, state: &mut Self::State, table: &Table) -> Result<(), Self::Error> {
         walk_table(self, state, table)
     }
 
     fn visit_table_row(
-        &mut self,
+        &self,
         state: &mut Self::State,
         table_row: &TableRow,
     ) -> Result<(), Self::Error> {
         walk_table_row(self, state, table_row)
     }
 
-    fn visit_term(&mut self, state: &mut Self::State, term: &Terms) -> Result<(), Self::Error> {
+    fn visit_term(&self, state: &mut Self::State, term: &Terms) -> Result<(), Self::Error> {
         walk_term(self, state, term)
     }
 
-    fn visit_term_item(
-        &mut self,
-        state: &mut Self::State,
-        item: &TermItem,
-    ) -> Result<(), Self::Error> {
+    fn visit_term_item(&self, state: &mut Self::State, item: &TermItem) -> Result<(), Self::Error> {
         walk_term_item(self, state, item)
     }
 
     fn visit_paragraph(
-        &mut self,
+        &self,
         state: &mut Self::State,
         paragraph: &Paragraph,
     ) -> Result<(), Self::Error> {
         walk_paragraph(self, state, paragraph)
     }
 
-    fn visit_plain(&mut self, state: &mut Self::State, plain: &Plain) -> Result<(), Self::Error> {
+    fn visit_plain(&self, state: &mut Self::State, plain: &Plain) -> Result<(), Self::Error> {
         walk_plain(self, state, plain)
     }
 
-    fn visit_text(
-        &mut self,
-        state: &mut Self::State,
-        text: &Vec<Inline>,
-    ) -> Result<(), Self::Error> {
+    fn visit_text(&self, state: &mut Self::State, text: &Vec<Inline>) -> Result<(), Self::Error> {
         walk_text(self, state, text)
     }
 
-    fn visit_inline(
-        &mut self,
-        state: &mut Self::State,
-        inline: &Inline,
-    ) -> Result<(), Self::Error> {
+    fn visit_inline(&self, state: &mut Self::State, inline: &Inline) -> Result<(), Self::Error> {
         walk_inline(self, state, inline)
     }
 
-    fn visit_quote(&mut self, state: &mut Self::State, quote: &Quote) -> Result<(), Self::Error> {
+    fn visit_quote(&self, state: &mut Self::State, quote: &Quote) -> Result<(), Self::Error> {
         walk_quote(self, state, quote)
     }
 
     fn visit_strikeout(
-        &mut self,
+        &self,
         state: &mut Self::State,
         strikeout: &Strikeout,
     ) -> Result<(), Self::Error> {
@@ -119,23 +91,19 @@ pub trait Visitor {
     }
 
     fn visit_emphasis(
-        &mut self,
+        &self,
         state: &mut Self::State,
         emphasis: &Emphasis,
     ) -> Result<(), Self::Error> {
         walk_emphasis(self, state, emphasis)
     }
 
-    fn visit_strong(
-        &mut self,
-        state: &mut Self::State,
-        strong: &Strong,
-    ) -> Result<(), Self::Error> {
+    fn visit_strong(&self, state: &mut Self::State, strong: &Strong) -> Result<(), Self::Error> {
         walk_strong(self, state, strong)
     }
 
     fn visit_subscript(
-        &mut self,
+        &self,
         state: &mut Self::State,
         subscript: &Subscript,
     ) -> Result<(), Self::Error> {
@@ -143,23 +111,23 @@ pub trait Visitor {
     }
 
     fn visit_supscript(
-        &mut self,
+        &self,
         state: &mut Self::State,
         supscript: &Supscript,
     ) -> Result<(), Self::Error> {
         walk_supscript(self, state, supscript)
     }
 
-    fn visit_link(&mut self, state: &mut Self::State, link: &Link) -> Result<(), Self::Error> {
+    fn visit_link(&self, state: &mut Self::State, link: &Link) -> Result<(), Self::Error> {
         walk_link(self, state, link)
     }
 
-    fn visit_cite(&mut self, _state: &mut Self::State, _cite: &Cite) -> Result<(), Self::Error> {
+    fn visit_cite(&self, _state: &mut Self::State, _cite: &Cite) -> Result<(), Self::Error> {
         Ok(())
     }
 
     fn visit_raw_inline(
-        &mut self,
+        &self,
         _state: &mut Self::State,
         _raw_inline: &RawInline,
     ) -> Result<(), Self::Error> {
@@ -167,7 +135,7 @@ pub trait Visitor {
     }
 
     fn visit_math_inline(
-        &mut self,
+        &self,
         _state: &mut Self::State,
         _math_inline: &MathInline,
     ) -> Result<(), Self::Error> {
@@ -175,27 +143,23 @@ pub trait Visitor {
     }
 
     fn visit_comment(
-        &mut self,
+        &self,
         _state: &mut Self::State,
         _comment: &Comment,
     ) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    fn visit_escape(
-        &mut self,
-        _state: &mut Self::State,
-        _escape: &Escape,
-    ) -> Result<(), Self::Error> {
+    fn visit_escape(&self, _state: &mut Self::State, _escape: &Escape) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    fn visit_word(&mut self, _state: &mut Self::State, _word: &Word) -> Result<(), Self::Error> {
+    fn visit_word(&self, _state: &mut Self::State, _word: &Word) -> Result<(), Self::Error> {
         Ok(())
     }
 
     fn visit_spacing(
-        &mut self,
+        &self,
         _state: &mut Self::State,
         _spacing: &Spacing,
     ) -> Result<(), Self::Error> {
@@ -203,23 +167,23 @@ pub trait Visitor {
     }
 
     fn visit_softbreak(
-        &mut self,
+        &self,
         _state: &mut Self::State,
         _soft_break: &SoftBreak,
     ) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    fn visit_code(&mut self, state: &mut Self::State, code: &Code) -> Result<(), Self::Error> {
+    fn visit_code(&self, state: &mut Self::State, code: &Code) -> Result<(), Self::Error> {
         walk_code(self, state, code)
     }
 
-    fn visit_expr(&mut self, state: &mut Self::State, expr: &Expr) -> Result<(), Self::Error> {
+    fn visit_expr(&self, state: &mut Self::State, expr: &Expr) -> Result<(), Self::Error> {
         walk_expr(self, state, expr)
     }
 
     fn visit_ident_expr(
-        &mut self,
+        &self,
         _state: &mut Self::State,
         _ident: &Ident,
     ) -> Result<(), Self::Error> {
@@ -227,7 +191,7 @@ pub trait Visitor {
     }
 
     fn visit_literal_expr(
-        &mut self,
+        &self,
         _state: &mut Self::State,
         _literal: &Literal,
     ) -> Result<(), Self::Error> {
@@ -235,23 +199,19 @@ pub trait Visitor {
     }
 
     fn visit_block_expr(
-        &mut self,
+        &self,
         state: &mut Self::State,
         block: &Vec<Expr>,
     ) -> Result<(), Self::Error> {
         walk_block_expr(self, state, block)
     }
 
-    fn visit_call_expr(
-        &mut self,
-        _state: &mut Self::State,
-        _call: &Call,
-    ) -> Result<(), Self::Error> {
+    fn visit_call_expr(&self, _state: &mut Self::State, _call: &Call) -> Result<(), Self::Error> {
         Ok(())
     }
 
     fn visit_content_expr(
-        &mut self,
+        &self,
         _state: &mut Self::State,
         _content: &Content,
     ) -> Result<(), Self::Error> {
@@ -260,7 +220,7 @@ pub trait Visitor {
 }
 
 pub fn walk_ast<V: Visitor + ?Sized>(
-    visitor: &mut V,
+    visitor: &V,
     state: &mut V::State,
     ast: &Ast,
 ) -> Result<(), V::Error> {
@@ -271,7 +231,7 @@ pub fn walk_ast<V: Visitor + ?Sized>(
 }
 
 pub fn walk_block<V: Visitor + ?Sized>(
-    visitor: &mut V,
+    visitor: &V,
     state: &mut V::State,
     block: &Block,
 ) -> Result<(), V::Error> {
@@ -289,7 +249,7 @@ pub fn walk_block<V: Visitor + ?Sized>(
 }
 
 pub fn walk_heading<V: Visitor + ?Sized>(
-    visitor: &mut V,
+    visitor: &V,
     state: &mut V::State,
     heading: &Heading,
 ) -> Result<(), V::Error> {
@@ -297,7 +257,7 @@ pub fn walk_heading<V: Visitor + ?Sized>(
 }
 
 pub fn walk_list<V: Visitor + ?Sized>(
-    visitor: &mut V,
+    visitor: &V,
     state: &mut V::State,
     list: &List,
 ) -> Result<(), V::Error> {
@@ -309,7 +269,7 @@ pub fn walk_list<V: Visitor + ?Sized>(
 }
 
 pub fn walk_list_item<V: Visitor + ?Sized>(
-    visitor: &mut V,
+    visitor: &V,
     state: &mut V::State,
     item: &ListItem,
 ) -> Result<(), V::Error> {
@@ -320,7 +280,7 @@ pub fn walk_list_item<V: Visitor + ?Sized>(
 }
 
 pub fn walk_enum<V: Visitor + ?Sized>(
-    visitor: &mut V,
+    visitor: &V,
     state: &mut V::State,
     enumeration: &Enum,
 ) -> Result<(), V::Error> {
@@ -332,7 +292,7 @@ pub fn walk_enum<V: Visitor + ?Sized>(
 }
 
 pub fn walk_enum_item<V: Visitor + ?Sized>(
-    visitor: &mut V,
+    visitor: &V,
     state: &mut V::State,
     item: &EnumItem,
 ) -> Result<(), V::Error> {
@@ -343,7 +303,7 @@ pub fn walk_enum_item<V: Visitor + ?Sized>(
 }
 
 pub fn walk_table<V: Visitor + ?Sized>(
-    visitor: &mut V,
+    visitor: &V,
     state: &mut V::State,
     table: &Table,
 ) -> Result<(), V::Error> {
@@ -355,7 +315,7 @@ pub fn walk_table<V: Visitor + ?Sized>(
 }
 
 pub fn walk_table_row<V: Visitor + ?Sized>(
-    visitor: &mut V,
+    visitor: &V,
     state: &mut V::State,
     table_row: &TableRow,
 ) -> Result<(), V::Error> {
@@ -367,7 +327,7 @@ pub fn walk_table_row<V: Visitor + ?Sized>(
 }
 
 pub fn walk_term<V: Visitor + ?Sized>(
-    visitor: &mut V,
+    visitor: &V,
     state: &mut V::State,
     block_quote: &Terms,
 ) -> Result<(), V::Error> {
@@ -379,7 +339,7 @@ pub fn walk_term<V: Visitor + ?Sized>(
 }
 
 pub fn walk_term_item<V: Visitor + ?Sized>(
-    visitor: &mut V,
+    visitor: &V,
     state: &mut V::State,
     item: &TermItem,
 ) -> Result<(), V::Error> {
@@ -388,7 +348,7 @@ pub fn walk_term_item<V: Visitor + ?Sized>(
 }
 
 pub fn walk_paragraph<V: Visitor + ?Sized>(
-    visitor: &mut V,
+    visitor: &V,
     state: &mut V::State,
     paragraph: &Paragraph,
 ) -> Result<(), V::Error> {
@@ -400,7 +360,7 @@ pub fn walk_paragraph<V: Visitor + ?Sized>(
 }
 
 pub fn walk_plain<V: Visitor + ?Sized>(
-    visitor: &mut V,
+    visitor: &V,
     state: &mut V::State,
     plain: &Plain,
 ) -> Result<(), V::Error> {
@@ -412,7 +372,7 @@ pub fn walk_plain<V: Visitor + ?Sized>(
 }
 
 pub fn walk_text<V: Visitor + ?Sized>(
-    visitor: &mut V,
+    visitor: &V,
     state: &mut V::State,
     text: &Vec<Inline>,
 ) -> Result<(), V::Error> {
@@ -424,7 +384,7 @@ pub fn walk_text<V: Visitor + ?Sized>(
 }
 
 pub fn walk_inline<V: Visitor + ?Sized>(
-    visitor: &mut V,
+    visitor: &V,
     state: &mut V::State,
     inline: &Inline,
 ) -> Result<(), V::Error> {
@@ -450,7 +410,7 @@ pub fn walk_inline<V: Visitor + ?Sized>(
 }
 
 pub fn walk_quote<V: Visitor + ?Sized>(
-    visitor: &mut V,
+    visitor: &V,
     state: &mut V::State,
     quote: &Quote,
 ) -> Result<(), V::Error> {
@@ -462,7 +422,7 @@ pub fn walk_quote<V: Visitor + ?Sized>(
 }
 
 pub fn walk_strikeout<V: Visitor + ?Sized>(
-    visitor: &mut V,
+    visitor: &V,
     state: &mut V::State,
     strikeout: &Strikeout,
 ) -> Result<(), V::Error> {
@@ -474,7 +434,7 @@ pub fn walk_strikeout<V: Visitor + ?Sized>(
 }
 
 pub fn walk_emphasis<V: Visitor + ?Sized>(
-    visitor: &mut V,
+    visitor: &V,
     state: &mut V::State,
     emphasis: &Emphasis,
 ) -> Result<(), V::Error> {
@@ -486,7 +446,7 @@ pub fn walk_emphasis<V: Visitor + ?Sized>(
 }
 
 pub fn walk_strong<V: Visitor + ?Sized>(
-    visitor: &mut V,
+    visitor: &V,
     state: &mut V::State,
     strong: &Strong,
 ) -> Result<(), V::Error> {
@@ -498,7 +458,7 @@ pub fn walk_strong<V: Visitor + ?Sized>(
 }
 
 pub fn walk_subscript<V: Visitor + ?Sized>(
-    visitor: &mut V,
+    visitor: &V,
     state: &mut V::State,
     subscript: &Subscript,
 ) -> Result<(), V::Error> {
@@ -510,7 +470,7 @@ pub fn walk_subscript<V: Visitor + ?Sized>(
 }
 
 pub fn walk_supscript<V: Visitor + ?Sized>(
-    visitor: &mut V,
+    visitor: &V,
     state: &mut V::State,
     supscript: &Supscript,
 ) -> Result<(), V::Error> {
@@ -522,7 +482,7 @@ pub fn walk_supscript<V: Visitor + ?Sized>(
 }
 
 pub fn walk_link<V: Visitor + ?Sized>(
-    visitor: &mut V,
+    visitor: &V,
     state: &mut V::State,
     link: &Link,
 ) -> Result<(), V::Error> {
@@ -535,7 +495,7 @@ pub fn walk_link<V: Visitor + ?Sized>(
 }
 
 pub fn walk_code<V: Visitor + ?Sized>(
-    visitor: &mut V,
+    visitor: &V,
     state: &mut V::State,
     code: &Code,
 ) -> Result<(), V::Error> {
@@ -543,7 +503,7 @@ pub fn walk_code<V: Visitor + ?Sized>(
 }
 
 pub fn walk_expr<V: Visitor + ?Sized>(
-    visitor: &mut V,
+    visitor: &V,
     state: &mut V::State,
     expr: &Expr,
 ) -> Result<(), V::Error> {
@@ -557,7 +517,7 @@ pub fn walk_expr<V: Visitor + ?Sized>(
 }
 
 pub fn walk_block_expr<V: Visitor + ?Sized>(
-    visitor: &mut V,
+    visitor: &V,
     state: &mut V::State,
     block: &Vec<Expr>,
 ) -> Result<(), V::Error> {

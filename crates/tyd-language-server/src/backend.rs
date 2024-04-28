@@ -3,14 +3,10 @@ use ropey::Rope;
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer};
-use tyd_eval::eval::{Context, Scope};
-use tyd_eval::value::Value;
-use tyd_eval::world::World;
-use tyd_pandoc::builtin;
-use tyd_pandoc::engine::PandocEngine;
-use tyd_syntax::ast::Ast;
-use tyd_syntax::parser::try_parse;
-use tyd_syntax::visitor::Visitor;
+use tyd_eval::{builtin, eval::Engine, value::Value, world::World};
+use tyd_pandoc::visitor::PandocVisitor;
+use tyd_pandoc::{engine::PandocEngine, plugin};
+use tyd_syntax::{ast::Ast, parser::try_parse, visitor::Visitor};
 
 use crate::semantic::{semantic_tokens_full_from_node, semantic_tokens_range_from_node, LEGEND};
 use crate::syntax::SyntaxNode;
@@ -83,18 +79,10 @@ impl Backend {
             // TODO make lsp generic over compiler
 
             let path = uri.to_file_path().unwrap();
-            let scope = Scope::new()
+            let scope = plugin::plugin()
+                .into_scope()
                 .register_symbol("title", "Default title")
                 .register_symbol("author", vec![Value::from("Max Mustermann")])
-                //Blocks
-                .register_func("hrule", builtin::HorizontalRule)
-                .register_func("figure", builtin::Figure)
-                // Inlines
-                .register_func("image", builtin::Image)
-                .register_func("linebreak", builtin::LineBreak)
-                .register_func("highlight", builtin::Highlight)
-                .register_func("smallcaps", builtin::SmallCaps)
-                .register_func("underline", builtin::Underline)
                 // Builtins
                 .register_func("let", builtin::Let)
                 .register_func("List", builtin::List)
@@ -102,16 +90,15 @@ impl Backend {
 
             let world = World::new(path, scope).unwrap();
             let mut engine = PandocEngine::new(world.clone());
+            let visitor = PandocVisitor {};
 
             // TODO dont want to panic if visit_ast has unrecoverable error
             // maybe rewrite visitor to not return errors
-            let mut context = Context::new(world);
-            engine.visit_ast(&mut context, &ast);
+            visitor.visit_ast(&mut engine, &ast);
 
-            let mut engine_diags = context
-                .scope
-                .into_errors()
-                .into_iter()
+            let mut engine_diags = engine
+                .tracer_mut()
+                .drain_errors()
                 .filter_map(|e| {
                     Some(Diagnostic {
                         range: range_conversion(e.span.into_range(), &rope)?,

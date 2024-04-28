@@ -4,19 +4,20 @@ use ecow::EcoString;
 use pandoc_ast as ir;
 use tyd_eval::{
     error::{EngineError, EngineMessage},
-    eval::Machine,
-    foundations::{Func, Signature, VerifiedCall},
+    eval::Engine,
+    hir,
+    plugin::{PluginFunc, Signature},
     ty::Type,
     value::Value,
 };
 
-use crate::{attr::AttrBuilder, engine::PandocEngine};
+use crate::{attr::AttrBuilder, engine::PandocEngine, visitor::PandocVisitor};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Image;
 
-impl Func<PandocEngine> for Image {
-    fn signature(&self) -> Signature<PandocEngine> {
+impl PluginFunc<PandocEngine> for Image {
+    fn signature() -> Signature<PandocEngine> {
         Signature::new("image")
             .required("src", Type::Str)
             .optional("alt", String::new())
@@ -24,23 +25,24 @@ impl Func<PandocEngine> for Image {
             .optional("height", "auto")
     }
 
-    fn run(
-        &self,
-        call: VerifiedCall<PandocEngine>,
-        machine: &Machine<PandocEngine>,
+    fn call(
+        mut args: hir::Args<PandocEngine>,
+        engine: &mut PandocEngine,
+        _visitor: &PandocVisitor,
     ) -> Result<Value<PandocEngine>, EngineError> {
-        let VerifiedCall { span, mut args } = call;
-
         let src = args.remove_named::<EcoString>("src");
         let alt = args.remove_named::<EcoString>("alt");
         let width = args.remove_named::<EcoString>("width");
         let height = args.remove_named::<EcoString>("height");
 
         // work_path is the parent path of the file which is compiled at the moment
-        let path = machine.world.work_path().join(src.as_str());
+        let path = engine.world().work_path().join(src.as_str());
 
         if !path.exists() {
-            return Err(EngineError::new(span, EngineMessage::FileNotFound(path)));
+            return Err(EngineError::new(
+                args.span,
+                EngineMessage::FileNotFound(path),
+            ));
         }
 
         // FIXME does some magic here to get the src path relative to the working directory

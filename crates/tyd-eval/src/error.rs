@@ -66,7 +66,7 @@ pub enum EngineMessage {
 #[derive(Clone, Error, Debug, Diagnostic)]
 pub enum ArgumentError {
     #[error("Missing Argument {name}: {ty}")]
-    MissingRequired { name: String, ty: Type },
+    MissingRequired { name: EcoString, ty: Type },
     #[error("Missing Argument at {pos} of {ty}")]
     MissingPositional { pos: usize, ty: Type },
     #[error("Unknown Argument {name}")]

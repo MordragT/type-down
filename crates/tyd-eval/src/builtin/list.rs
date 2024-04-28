@@ -1,39 +1,45 @@
 use crate::{
     error::{ArgumentError, EngineError},
-    eval::{Engine, Machine},
-    foundations::{Arg, Call, Func},
+    eval::Engine,
+    hir,
     value::Value,
 };
 
 #[derive(Debug, Clone, Copy)]
 pub struct List;
 
-impl<E: Engine> Func<E> for List {
-    fn signature(&self) -> crate::foundations::Signature<E> {
-        unreachable!()
+impl<E: Engine> Into<hir::Func<E>> for List {
+    fn into(self) -> hir::Func<E> {
+        hir::Func::new(list::<E>)
+    }
+}
+
+pub fn list<E: Engine>(
+    args: hir::Args<E>,
+    engine: &mut E,
+    _visitor: &E::Visitor,
+) -> Option<Value<E>> {
+    let hir::Args {
+        named,
+        positional,
+        span: _,
+    } = args;
+
+    for hir::NamedArg {
+        name,
+        value: _,
+        span,
+    } in named
+    {
+        engine
+            .tracer_mut()
+            .error(EngineError::arg(span, ArgumentError::UnknownNamed { name }));
     }
 
-    fn run(
-        &self,
-        call: crate::foundations::VerifiedCall<E>,
-        machine: &Machine<E>,
-    ) -> Result<Value<E>, EngineError> {
-        unreachable!()
-    }
+    let list = positional
+        .into_iter()
+        .map(|arg| arg.value)
+        .collect::<Vec<_>>();
 
-    fn dispatch(&self, call: Call<E>, machine: &mut Machine<E>) -> Option<Value<E>> {
-        let mut list = Vec::new();
-
-        for Arg { name, span, value } in call.args {
-            if let Some(name) = name {
-                machine
-                    .scope
-                    .error(EngineError::arg(span, ArgumentError::UnknownNamed { name }));
-            } else {
-                list.push(value);
-            }
-        }
-
-        Some(list.into())
-    }
+    Some(list.into())
 }

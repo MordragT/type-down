@@ -2,14 +2,14 @@ use miette::{Diagnostic, NamedSource, Result};
 use std::{io, path::PathBuf};
 use thiserror::Error;
 
-use tyd_eval::prelude::*;
+use tyd_eval::{builtin, prelude::*};
 #[cfg(feature = "html")]
 use tyd_html::HtmlCompiler;
 #[cfg(not(feature = "html"))]
 use tyd_pandoc::format::HtmlCompiler;
 use tyd_pandoc::{
-    builtin,
     format::{DocxCompiler, PandocCompiler, PdfCompiler},
+    plugin,
 };
 use tyd_syntax::prelude::*;
 
@@ -57,18 +57,10 @@ pub enum TydError {
 fn main() -> Result<()> {
     let args: Args = clap::Parser::parse();
 
-    let scope = Scope::new()
+    let scope = plugin::plugin()
+        .into_scope()
         .register_symbol("title", "Default title")
         .register_symbol("author", vec![Value::from("Max Mustermann")])
-        //Blocks
-        .register_func("hrule", builtin::HorizontalRule)
-        .register_func("figure", builtin::Figure)
-        // Inlines
-        .register_func("image", builtin::Image)
-        .register_func("linebreak", builtin::LineBreak)
-        .register_func("highlight", builtin::Highlight)
-        .register_func("smallcaps", builtin::SmallCaps)
-        .register_func("underline", builtin::Underline)
         // Builtins
         .register_func("let", builtin::Let)
         .register_func("List", builtin::List)

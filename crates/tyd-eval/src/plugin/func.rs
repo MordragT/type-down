@@ -1,83 +1,81 @@
-use crate::{
-    error::{ArgumentError, EngineError},
-    eval::{Engine, Machine},
-    value::Value,
-};
+use std::collections::HashSet;
+
 use ecow::EcoString;
-use std::{collections::HashSet, fmt::Debug};
 use tyd_syntax::Span;
 
-use super::{Arg, Args, Signature};
+use super::Signature;
+use crate::{
+    error::{ArgumentError, EngineError},
+    eval::Engine,
+    hir,
+    value::Value,
+};
 
-pub trait Func<E>: Debug
+pub trait PluginFunc<E: Engine> {
+    fn signature() -> Signature<E>;
+    fn call(
+        args: hir::Args<E>,
+        engine: &mut E,
+        visitor: &E::Visitor,
+    ) -> Result<Value<E>, EngineError>;
+}
+
+pub fn dispatch<E, F>(args: hir::Args<E>, engine: &mut E, visitor: &E::Visitor) -> Option<Value<E>>
 where
     E: Engine,
+    F: PluginFunc<E>,
 {
-    fn signature(&self) -> Signature<E>;
-    fn run(&self, call: VerifiedCall<E>, machine: &Machine<E>) -> Result<Value<E>, EngineError>;
-
-    fn dispatch(&self, call: Call<E>, machine: &mut Machine<E>) -> Option<Value<E>> {
-        let Call { args, span } = call;
-
-        let args = match validate(self.signature(), args, span) {
-            Ok(args) => args,
-            Err(errs) => {
-                machine.scope.errors(errs);
-                return None;
-            }
-        };
-        let call = VerifiedCall { args, span };
-
-        match self.run(call, machine) {
-            Ok(value) => Some(value),
-            Err(e) => {
-                machine.scope.error(e);
-                None
-            }
+    let signature = F::signature();
+    let args = match validate(signature, args) {
+        Ok(args) => args,
+        Err(errs) => {
+            engine.tracer_mut().errors(errs);
+            return None;
+        }
+    };
+    match F::call(args, engine, visitor) {
+        Ok(val) => Some(val),
+        Err(e) => {
+            engine.tracer_mut().error(e);
+            None
         }
     }
-}
-
-#[derive(Debug, Clone)]
-pub struct VerifiedCall<E: Engine> {
-    pub args: Args<E>,
-    pub span: Span,
-}
-
-pub struct Call<E: Engine> {
-    pub args: Vec<Arg<E>>,
-    pub span: Span,
 }
 
 pub fn validate<E: Engine>(
     signature: Signature<E>,
-    args: Vec<Arg<E>>,
-    span: Span,
-) -> Result<Args<E>, Vec<EngineError>> {
+    args: hir::Args<E>,
+) -> Result<hir::Args<E>, Vec<EngineError>> {
     use ArgumentError::*;
 
-    let mut errors = Vec::new();
-    let mut arguments = Args::new();
-    let mut pos = 0;
+    let hir::Args {
+        named,
+        positional,
+        span,
+    } = args;
 
-    for Arg { name, span, value } in args {
-        if let Some(name) = name {
-            if let Err(e) = validate_named(&signature, &name, &value, span) {
-                errors.push(e);
-            } else {
-                arguments.add_named(name, value);
-            }
+    let mut errors = Vec::new();
+    let mut args = hir::Args::new(span);
+
+    for hir::NamedArg { name, value, span } in named {
+        if let Err(e) = validate_named(&signature, &name, &value, span) {
+            errors.push(e);
         } else {
-            if let Err(e) = validate_positional(&signature, pos, &value, span) {
-                errors.push(e);
-            } else {
-                arguments.add_positional(value);
-            }
-            pos += 1;
+            args.add_named(name, value, span);
         }
     }
 
-    let gotten = arguments.names().cloned().collect::<HashSet<_>>();
+    let mut pos = 0;
+    for hir::PositionalArg { value, span } in positional {
+        if let Err(e) = validate_positional(&signature, pos, &value, span) {
+            errors.push(e);
+        } else {
+            args.add_positional(value, span);
+        }
+        pos += 1;
+    }
+
+    let gotten = args.names().collect::<HashSet<_>>();
     let required = signature.required_names().cloned().collect::<HashSet<_>>();
 
     for name in required.difference(&gotten) {
@@ -102,13 +100,13 @@ pub fn validate<E: Engine>(
 
     for name in optional.difference(&gotten) {
         let value = signature.get_default(name).unwrap().to_owned();
-        arguments.add_named(name, value);
+        args.add_named(name.clone(), value, span);
     }
 
     if !errors.is_empty() {
         Err(errors)
     } else {
-        Ok(arguments)
+        Ok(args)
     }
 }
 

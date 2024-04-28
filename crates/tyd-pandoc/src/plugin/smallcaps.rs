@@ -1,29 +1,27 @@
 use pandoc_ast as ir;
 use tyd_eval::{
     error::EngineError,
-    eval::Machine,
-    foundations::{Func, Signature, VerifiedCall},
+    hir,
+    plugin::{PluginFunc, Signature},
     ty::Type,
     value::Value,
 };
 
-use crate::engine::PandocEngine;
+use crate::{engine::PandocEngine, visitor::PandocVisitor};
 
 #[derive(Debug, Clone, Copy)]
 pub struct SmallCaps;
 
-impl Func<PandocEngine> for SmallCaps {
-    fn signature(&self) -> Signature<PandocEngine> {
+impl PluginFunc<PandocEngine> for SmallCaps {
+    fn signature() -> Signature<PandocEngine> {
         Signature::new("smallcaps").positional(Type::list(Type::Inline))
     }
 
-    fn run(
-        &self,
-        call: VerifiedCall<PandocEngine>,
-        _machine: &Machine<PandocEngine>,
+    fn call(
+        mut args: hir::Args<PandocEngine>,
+        _engine: &mut PandocEngine,
+        _visitor: &PandocVisitor,
     ) -> Result<Value<PandocEngine>, EngineError> {
-        let mut args = call.args;
-
         let content = args.pop_positional::<Vec<ir::Inline>>();
         let inline = ir::Inline::SmallCaps(content);
 
