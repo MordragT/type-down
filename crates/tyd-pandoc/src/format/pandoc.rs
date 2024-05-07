@@ -4,7 +4,7 @@ use tyd_eval::{
     render::{Output, Render},
     world::World,
 };
-use tyd_syntax::ast::Ast;
+use tyd_syntax::ast::Document;
 
 use crate::{engine::PandocEngine, error::PandocError};
 
@@ -15,9 +15,13 @@ impl Render for PandocCompiler {
     type Error = PandocError;
     type Engine = PandocEngine;
 
-    fn render(ast: &Ast, world: World<Self::Engine>, output: Output) -> Result<(), Self::Error> {
+    fn render(
+        doc: Document,
+        world: World<Self::Engine>,
+        output: Output,
+    ) -> Result<(), Self::Error> {
         let engine = PandocEngine::from_world(world);
-        let pandoc = engine.build(ast)?;
+        let pandoc = engine.build(doc)?;
         let contents = pandoc.to_json();
 
         match output {

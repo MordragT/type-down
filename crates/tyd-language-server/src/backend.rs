@@ -6,16 +6,20 @@ use tyd_eval::{
     eval::{Engine, Scope},
     world::World,
 };
-use tyd_syntax::{ast::Ast, parser::try_parse, visitor::Visitor};
+use tyd_syntax::{
+    ast::{Document, TypedNode},
+    node::Node,
+    parser::try_parse,
+    visitor::Visitor,
+};
 
 use crate::semantic::{semantic_tokens_full_from_node, semantic_tokens_range_from_node, LEGEND};
-use crate::syntax::SyntaxNode;
 
 #[derive(Debug)]
 pub struct Backend<E: Engine> {
     client: Client,
     documents: DashMap<Url, Rope>,
-    trees: DashMap<Url, Ast>,
+    trees: DashMap<Url, Node>,
     global_scope: Arc<Scope<E>>,
     visitor: Arc<dyn Visitor<State = E> + Send + Sync>,
 }
@@ -37,9 +41,8 @@ impl<E: Engine> Backend<E> {
 
     pub async fn on_semantic_tokens_full(&self, uri: Url) -> Option<SemanticTokensResult> {
         let rope = self.documents.get(&uri)?;
-        let ast = self.trees.get(&uri)?;
-        let node = SyntaxNode::from(ast.value());
-        let semantic_tokens = semantic_tokens_full_from_node(node, &rope);
+        let node = self.trees.get(&uri)?;
+        let semantic_tokens = semantic_tokens_full_from_node(&node, &rope);
 
         self.client
             .log_message(
@@ -56,10 +59,9 @@ impl<E: Engine> Backend<E> {
 
     pub async fn on_semantic_tokens_range(&self, uri: Url) -> Option<SemanticTokensRangeResult> {
         let rope = self.documents.get(&uri)?;
-        let ast = self.trees.get(&uri)?;
-        let node = SyntaxNode::from(ast.value());
+        let node = self.trees.get(&uri)?;
         // let semantic_tokens = semantic_tokens_range_from_node(node, &rope);
-        let semantic_tokens = semantic_tokens_full_from_node(node, &rope);
+        let semantic_tokens = semantic_tokens_full_from_node(&node, &rope);
 
         Some(SemanticTokensRangeResult::Tokens(SemanticTokens {
             result_id: None,
@@ -82,12 +84,13 @@ impl<E: Engine> Backend<E> {
             })
             .collect::<Vec<_>>();
 
-        if let Some(ast) = result.into_output() {
+        if let Some(node) = result.into_output() {
             let path = uri.to_file_path().unwrap();
             let world = World::new(path, self.global_scope.clone()).unwrap();
             let mut engine = E::from_world(world);
+            let doc = Document::from_node(&node).unwrap();
 
-            self.visitor.visit_ast(&mut engine, &ast);
+            self.visitor.visit_doc(&mut engine, doc);
 
             let mut engine_diags = engine
                 .tracer_mut()
@@ -101,7 +104,7 @@ impl<E: Engine> Backend<E> {
                 })
                 .collect();
             diags.append(&mut engine_diags);
-            self.trees.insert(uri.clone(), ast);
+            self.trees.insert(uri.clone(), node);
         }
 
         self.client

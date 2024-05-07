@@ -1,466 +1,803 @@
 use ecow::EcoString;
 
-use crate::Span;
+use crate::{kind::SyntaxKind, node::Node, Span};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Ast {
-    pub blocks: Vec<Block>,
-    pub span: Span,
+pub trait TypedNode<'a>: Sized + 'a {
+    fn from_node(node: &'a Node) -> Option<Self>;
+    fn to_node(self) -> &'a Node;
+
+    fn span(self) -> Span {
+        self.to_node().span()
+    }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Block {
-    Raw(Raw),
-    Heading(Heading),
-    Table(Table),
-    List(List),
-    Enum(Enum),
-    Terms(Terms),
-    Paragraph(Paragraph),
-    Plain(Plain),
-    Error(Span),
+macro_rules! node {
+    ($(#[$attr:meta])* $name:ident) => {
+        #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+        #[repr(transparent)]
+        $(#[$attr])*
+        pub struct $name<'a>(&'a Node);
+
+        impl<'a> TypedNode<'a> for $name<'a> {
+            #[inline]
+            fn from_node(node: &'a Node) -> Option<Self> {
+                if node.kind() == SyntaxKind::$name {
+                    Some(Self(node))
+                } else {
+                    Option::None
+                }
+            }
+
+            #[inline]
+            fn to_node(self) -> &'a Node {
+                self.0
+            }
+        }
+    };
 }
 
-impl Block {
-    pub fn span(&self) -> &Span {
+node! {
+    /// A parsed file
+    Document
+}
+
+impl<'a> IntoIterator for Document<'a> {
+    type IntoIter = impl Iterator<Item = Self::Item>;
+    type Item = Block<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.children().filter_map(Block::from_node)
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub enum Block<'a> {
+    Raw(Raw<'a>),
+    Heading(Heading<'a>),
+    Table(Table<'a>),
+    List(List<'a>),
+    Enum(Enum<'a>),
+    Terms(Terms<'a>),
+    Paragraph(Paragraph<'a>),
+    Plain(Plain<'a>),
+}
+
+impl<'a> TypedNode<'a> for Block<'a> {
+    fn from_node(node: &'a Node) -> Option<Self> {
+        match node.kind() {
+            SyntaxKind::Raw => Raw::from_node(node).map(Self::Raw),
+            SyntaxKind::Heading => Heading::from_node(node).map(Self::Heading),
+            SyntaxKind::Table => Table::from_node(node).map(Self::Table),
+            SyntaxKind::List => List::from_node(node).map(Self::List),
+            SyntaxKind::Enum => Enum::from_node(node).map(Self::Enum),
+            SyntaxKind::Terms => Terms::from_node(node).map(Self::Terms),
+            SyntaxKind::Paragraph => Paragraph::from_node(node).map(Self::Paragraph),
+            SyntaxKind::Plain => Plain::from_node(node).map(Self::Plain),
+            _ => None,
+        }
+    }
+
+    fn to_node(self) -> &'a Node {
         match self {
-            Self::Raw(raw) => &raw.span,
-            Self::Heading(heading) => &heading.span,
-            Self::Table(table) => &table.span,
-            Self::List(list) => &list.span,
-            Self::Enum(enumeration) => &enumeration.span,
-            Self::Terms(term) => &term.span,
-            Self::Paragraph(p) => &p.span,
-            Self::Plain(plain) => &plain.span,
-            Self::Error(span) => span,
+            Self::Raw(r) => r.to_node(),
+            Self::Heading(h) => h.to_node(),
+            Self::Table(t) => t.to_node(),
+            Self::List(l) => l.to_node(),
+            Self::Enum(e) => e.to_node(),
+            Self::Terms(t) => t.to_node(),
+            Self::Paragraph(p) => p.to_node(),
+            Self::Plain(p) => p.to_node(),
         }
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Label {
-    pub label: EcoString,
-    pub span: Span,
+node! {
+    /// Raw text with possible syntax highlighting
+    Raw
 }
 
-impl ToString for Label {
-    fn to_string(&self) -> String {
-        self.label.to_string()
+impl<'a> Raw<'a> {
+    pub fn text(self) -> Text<'a> {
+        self.0
+            .children()
+            .find_map(Text::from_node)
+            .expect("raw expects text")
+    }
+
+    pub fn lang(self) -> Option<RawLang<'a>> {
+        self.0.children().find_map(RawLang::from_node)
     }
 }
 
-impl Into<String> for Label {
-    fn into(self) -> String {
-        self.label.into()
+node! {
+    /// A language tag
+    RawLang
+}
+
+impl<'a> RawLang<'a> {
+    pub fn get(self) -> &'a EcoString {
+        self.0.text()
     }
 }
 
-impl Into<String> for &Label {
-    fn into(self) -> String {
-        self.label.as_ref().into()
+node! {
+    /// A heading
+    Heading
+}
+
+impl<'a> Heading<'a> {
+    pub fn depth(self) -> u8 {
+        self.0
+            .children()
+            .find_map(HeadingMarker::from_node)
+            .expect("heading expects marker")
+            .depth()
+    }
+
+    pub fn content(self) -> Content<'a> {
+        self.0
+            .children()
+            .find_map(Content::from_node)
+            .expect("heading expects content")
+    }
+
+    pub fn label(self) -> Option<Label<'a>> {
+        self.0.children().rev().find_map(Label::from_node)
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Raw {
-    pub content: RawContent,
-    pub lang: Option<RawLang>,
-    pub span: Span,
+node! {
+    HeadingMarker
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RawContent {
-    pub content: EcoString,
-    pub span: Span,
-}
-
-impl ToString for RawContent {
-    fn to_string(&self) -> String {
-        self.content.to_string()
+impl HeadingMarker<'_> {
+    pub fn depth(self) -> u8 {
+        self.0.text().len() as u8
     }
 }
 
-impl Into<String> for RawContent {
-    fn into(self) -> String {
-        self.content.into()
+node! {
+    Table
+}
+
+impl<'a> Table<'a> {
+    pub fn col_count(self) -> usize {
+        self.rows().next().unwrap().col_count()
+    }
+
+    pub fn label(self) -> Option<Label<'a>> {
+        self.0.children().rev().find_map(Label::from_node)
+    }
+
+    pub fn rows(self) -> impl Iterator<Item = TableRow<'a>> {
+        self.0.children().filter_map(TableRow::from_node)
     }
 }
 
-impl Into<String> for &RawContent {
-    fn into(self) -> String {
-        self.content.as_ref().into()
+node! {
+    TableRow
+}
+
+impl<'a> TableRow<'a> {
+    pub fn col_count(self) -> usize {
+        self.into_iter().count()
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RawLang {
-    pub lang: EcoString,
-    pub span: Span,
-}
+impl<'a> IntoIterator for TableRow<'a> {
+    type IntoIter = impl Iterator<Item = Self::Item>;
+    type Item = Block<'a>;
 
-impl ToString for RawLang {
-    fn to_string(&self) -> String {
-        self.lang.to_string()
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.children().filter_map(Block::from_node)
     }
 }
 
-impl Into<String> for RawLang {
-    fn into(self) -> String {
-        self.lang.into()
+node! {
+    List
+}
+
+impl<'a> IntoIterator for List<'a> {
+    type IntoIter = impl Iterator<Item = Self::Item>;
+    type Item = ListItem<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.children().filter_map(ListItem::from_node)
     }
 }
 
-impl Into<String> for &RawLang {
-    fn into(self) -> String {
-        self.lang.as_ref().into()
+node! {
+    ListItem
+}
+
+impl<'a> IntoIterator for ListItem<'a> {
+    type IntoIter = impl Iterator<Item = Self::Item>;
+    type Item = Block<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.children().filter_map(Block::from_node)
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Heading {
-    pub level: HeadingLevel,
-    pub content: Vec<Inline>,
-    pub label: Option<Label>,
-    pub span: Span,
+node! {
+    Enum
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct HeadingLevel {
-    pub level: u8,
-    pub span: Span,
-}
+impl<'a> IntoIterator for Enum<'a> {
+    type IntoIter = impl Iterator<Item = Self::Item>;
+    type Item = EnumItem<'a>;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Table {
-    pub rows: Vec<TableRow>,
-    pub label: Option<Label>,
-    pub span: Span,
-    pub col_count: usize,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TableRow {
-    pub cells: Vec<Block>,
-    pub span: Span,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct List {
-    pub items: Vec<ListItem>,
-    pub span: Span,
-}
-
-impl From<ListItem> for List {
-    fn from(value: ListItem) -> Self {
-        let items = vec![value.clone()];
-        let ListItem { content: _, span } = value;
-
-        Self { items, span }
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.children().filter_map(EnumItem::from_node)
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ListItem {
-    pub content: Vec<Block>,
-    pub span: Span,
+node! {
+    EnumItem
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Enum {
-    pub items: Vec<EnumItem>,
-    pub span: Span,
-}
-impl From<EnumItem> for Enum {
-    fn from(value: EnumItem) -> Self {
-        let items = vec![value.clone()];
-        let EnumItem { content: _, span } = value;
+impl<'a> IntoIterator for EnumItem<'a> {
+    type IntoIter = impl Iterator<Item = Self::Item>;
+    type Item = Block<'a>;
 
-        Self { items, span }
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.children().filter_map(Block::from_node)
     }
 }
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EnumItem {
-    pub content: Vec<Block>,
-    pub span: Span,
+
+node! {
+    Terms
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Terms {
-    pub content: Vec<TermItem>,
-    pub span: Span,
+impl<'a> IntoIterator for Terms<'a> {
+    type IntoIter = impl Iterator<Item = Self::Item>;
+    type Item = TermItem<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.children().filter_map(TermItem::from_node)
+    }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TermItem {
-    pub term: Vec<Inline>,
-    pub content: Vec<Inline>,
-    pub span: Span,
+node! {
+    TermItem
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Paragraph {
-    pub content: Vec<Inline>,
-    pub span: Span,
+impl<'a> TermItem<'a> {
+    pub fn term(&self) -> Content<'a> {
+        self.0
+            .children()
+            .find_map(Content::from_node)
+            .expect("term-item expects term")
+    }
+
+    pub fn desc(&self) -> Content<'a> {
+        self.0
+            .children()
+            .rev()
+            .find_map(Content::from_node)
+            .expect("term-item expects desc")
+    }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Plain {
-    pub content: Vec<Inline>,
-    pub span: Span,
+node! {
+    Paragraph
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Inline {
-    Quote(Quote),
-    Strikeout(Strikeout),
-    Emphasis(Emphasis),
-    Strong(Strong),
-    Subscript(Subscript),
-    Supscript(Supscript),
-    Link(Link),
-    Cite(Cite),
-    RawInline(RawInline),
-    MathInline(MathInline),
-    Comment(Comment),
-    Escape(Escape),
-    Word(Word),
-    Spacing(Spacing),
-    SoftBreak(SoftBreak),
-    Code(Code),
-    Error(Span),
+impl<'a> IntoIterator for Paragraph<'a> {
+    type IntoIter = impl Iterator<Item = Self::Item>;
+    type Item = Inline<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.children().filter_map(Inline::from_node)
+    }
 }
 
-impl Inline {
-    pub fn span(&self) -> &Span {
+node! {
+    Plain
+}
+
+impl<'a> IntoIterator for Plain<'a> {
+    type IntoIter = impl Iterator<Item = Self::Item>;
+    type Item = Inline<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.children().filter_map(Inline::from_node)
+    }
+}
+
+node! {
+    Content
+}
+
+impl<'a> IntoIterator for Content<'a> {
+    type IntoIter = impl Iterator<Item = Self::Item>;
+    type Item = Inline<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.children().filter_map(Inline::from_node)
+    }
+}
+
+node! {
+    Label
+}
+
+impl<'a> Label<'a> {
+    pub fn get(self) -> &'a EcoString {
+        self.0.text()
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub enum Inline<'a> {
+    Quote(Quote<'a>),
+    Strikeout(Strikeout<'a>),
+    Emphasis(Emphasis<'a>),
+    Strong(Strong<'a>),
+    Subscript(Subscript<'a>),
+    Supscript(Supscript<'a>),
+    Link(Link<'a>),
+    Ref(Ref<'a>),
+    RawInline(RawInline<'a>),
+    MathInline(MathInline<'a>),
+    Comment(Comment<'a>),
+    Escape(Escape<'a>),
+    Word(Word<'a>),
+    Spacing(Spacing<'a>),
+    SoftBreak(SoftBreak<'a>),
+    Code(Code<'a>),
+}
+
+impl<'a> TypedNode<'a> for Inline<'a> {
+    fn from_node(node: &'a Node) -> Option<Self> {
+        match node.kind() {
+            SyntaxKind::Quote => Quote::from_node(node).map(Self::Quote),
+            SyntaxKind::Strikeout => Strikeout::from_node(node).map(Self::Strikeout),
+            SyntaxKind::Emphasis => Emphasis::from_node(node).map(Self::Emphasis),
+            SyntaxKind::Strong => Strong::from_node(node).map(Self::Strong),
+            SyntaxKind::Subscript => Subscript::from_node(node).map(Self::Subscript),
+            SyntaxKind::Supscript => Supscript::from_node(node).map(Self::Supscript),
+            SyntaxKind::Link => Link::from_node(node).map(Self::Link),
+            SyntaxKind::Ref => Ref::from_node(node).map(Self::Ref),
+            SyntaxKind::RawInline => RawInline::from_node(node).map(Self::RawInline),
+            SyntaxKind::MathInline => MathInline::from_node(node).map(Self::MathInline),
+            SyntaxKind::Comment => Comment::from_node(node).map(Self::Comment),
+            SyntaxKind::Escape => Escape::from_node(node).map(Self::Escape),
+            SyntaxKind::Word => Word::from_node(node).map(Self::Word),
+            SyntaxKind::Spacing => Spacing::from_node(node).map(Self::Spacing),
+            SyntaxKind::SoftBreak => SoftBreak::from_node(node).map(Self::SoftBreak),
+            SyntaxKind::Code => Code::from_node(node).map(Self::Code),
+            _ => None,
+        }
+    }
+
+    fn to_node(self) -> &'a Node {
         match self {
-            Self::Quote(q) => &q.span,
-            Self::Strikeout(s) => &s.span,
-            Self::Emphasis(e) => &e.span,
-            Self::Strong(s) => &s.span,
-            Self::Subscript(s) => &s.span,
-            Self::Supscript(s) => &s.span,
-            Self::Link(l) => &l.span,
-            Self::Cite(c) => &c.span,
-            Self::RawInline(r) => &r.span,
-            Self::MathInline(m) => &m.span,
-            Self::Comment(c) => &c.span,
-            Self::Escape(e) => &e.span,
-            Self::Word(w) => &w.span,
-            Self::Spacing(s) => &s.span,
-            Self::SoftBreak(s) => &s.span,
-            Self::Code(c) => &c.span,
-            Self::Error(span) => span,
+            Self::Quote(q) => q.to_node(),
+            Self::Strikeout(s) => s.to_node(),
+            Self::Emphasis(e) => e.to_node(),
+            Self::Strong(s) => s.to_node(),
+            Self::Subscript(s) => s.to_node(),
+            Self::Supscript(s) => s.to_node(),
+            Self::Link(l) => l.to_node(),
+            Self::Ref(r) => r.to_node(),
+            Self::RawInline(r) => r.to_node(),
+            Self::MathInline(m) => m.to_node(),
+            Self::Comment(c) => c.to_node(),
+            Self::Escape(e) => e.to_node(),
+            Self::Word(w) => w.to_node(),
+            Self::Spacing(s) => s.to_node(),
+            Self::SoftBreak(s) => s.to_node(),
+            Self::Code(c) => c.to_node(),
         }
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Quote {
-    pub content: Vec<Inline>,
-    pub span: Span,
+node! {
+    Quote
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Strikeout {
-    pub content: Vec<Inline>,
-    pub span: Span,
-}
+impl<'a> IntoIterator for Quote<'a> {
+    type IntoIter = impl Iterator<Item = Self::Item>;
+    type Item = Inline<'a>;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Emphasis {
-    pub content: Vec<Inline>,
-    pub span: Span,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Strong {
-    pub content: Vec<Inline>,
-    pub span: Span,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Subscript {
-    pub content: Vec<Inline>,
-    pub span: Span,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Supscript {
-    pub content: Vec<Inline>,
-    pub span: Span,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Link {
-    pub href: Href,
-    pub content: Option<Vec<Inline>>,
-    pub span: Span,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Href {
-    pub href: EcoString,
-    pub span: Span,
-}
-
-impl ToString for Href {
-    fn to_string(&self) -> String {
-        self.href.to_string()
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.children().filter_map(Inline::from_node)
     }
 }
 
-impl Into<String> for Href {
-    fn into(self) -> String {
-        self.href.into()
+node! {
+    Strikeout
+}
+
+impl<'a> IntoIterator for Strikeout<'a> {
+    type IntoIter = impl Iterator<Item = Self::Item>;
+    type Item = Inline<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.children().filter_map(Inline::from_node)
     }
 }
 
-impl Into<String> for &Href {
-    fn into(self) -> String {
-        self.href.as_ref().into()
+node! {
+    Emphasis
+}
+
+impl<'a> IntoIterator for Emphasis<'a> {
+    type IntoIter = impl Iterator<Item = Self::Item>;
+    type Item = Inline<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.children().filter_map(Inline::from_node)
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Cite {
-    pub ident: EcoString,
-    pub span: Span,
+node! {
+    Strong
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Escape {
-    pub content: EcoString,
-    pub span: Span,
+impl<'a> IntoIterator for Strong<'a> {
+    type IntoIter = impl Iterator<Item = Self::Item>;
+    type Item = Inline<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.children().filter_map(Inline::from_node)
+    }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RawInline {
-    pub content: EcoString,
-    pub span: Span,
+node! {
+    Subscript
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct MathInline {
-    pub content: EcoString,
-    pub span: Span,
+impl<'a> IntoIterator for Subscript<'a> {
+    type IntoIter = impl Iterator<Item = Self::Item>;
+    type Item = Inline<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.children().filter_map(Inline::from_node)
+    }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Comment {
-    pub content: EcoString,
-    pub span: Span,
+node! {
+    Supscript
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Word {
-    pub content: EcoString,
-    pub span: Span,
+impl<'a> IntoIterator for Supscript<'a> {
+    type IntoIter = impl Iterator<Item = Self::Item>;
+    type Item = Inline<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.children().filter_map(Inline::from_node)
+    }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Spacing {
-    pub content: EcoString,
-    pub span: Span,
+node! {
+    Link
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SoftBreak {
-    pub span: Span,
+impl<'a> Link<'a> {
+    pub fn href(self) -> Text<'a> {
+        self.0
+            .children()
+            .find_map(Text::from_node)
+            .expect("link expects href")
+    }
+
+    pub fn content(self) -> Option<Content<'a>> {
+        self.0.children().find_map(Content::from_node)
+    }
 }
 
-// Code
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Code {
-    pub expr: Expr,
-    pub span: Span,
+node! {
+    Ref
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Expr {
-    Ident(Ident),
-    Call(Call),
-    Literal(Literal, Span),
-    Block(Vec<Expr>, Span),
-    Content(Content),
+impl<'a> Ref<'a> {
+    pub fn target(self) -> &'a EcoString {
+        self.0
+            .children()
+            .find_map(Ident::from_node)
+            .expect("ref expects target")
+            .get()
+    }
 }
 
-impl Expr {
-    pub fn span(&self) -> &Span {
+node! {
+    RawInline
+}
+
+impl<'a> RawInline<'a> {
+    pub fn get(self) -> &'a EcoString {
+        // self.0
+        //     .children()
+        //     .find_map(Text::from_node)
+        //     .expect("raw inline expects text")
+        //     .get()
+        self.0.text()
+    }
+}
+
+node! {
+    MathInline
+}
+
+impl<'a> MathInline<'a> {
+    pub fn get(self) -> &'a EcoString {
+        // self.0
+        //     .children()
+        //     .find_map(Text::from_node)
+        //     .expect("math inline expects text")
+        //     .get()
+        self.0.text()
+    }
+}
+
+node! {
+    Comment
+}
+
+impl<'a> Comment<'a> {
+    pub fn get(self) -> &'a EcoString {
+        self.0
+            .children()
+            .find_map(Text::from_node)
+            .expect("math inline expects text")
+            .get()
+    }
+}
+
+node! {
+    Escape
+}
+
+impl<'a> Escape<'a> {
+    pub fn get(self) -> &'a EcoString {
+        self.0
+            .children()
+            .find_map(Word::from_node)
+            .expect("escape expects word")
+            .get()
+    }
+}
+
+node! {
+    Text
+}
+
+impl<'a> Text<'a> {
+    pub fn get(self) -> &'a EcoString {
+        self.0.text()
+    }
+}
+
+node! {
+    Word
+}
+
+impl<'a> Word<'a> {
+    pub fn get(self) -> &'a EcoString {
+        self.0.text()
+    }
+}
+
+node! {
+    Spacing
+}
+
+node! {
+    SoftBreak
+}
+
+node! {
+    Code
+}
+
+impl<'a> Code<'a> {
+    pub fn get(self) -> Expr<'a> {
+        self.0
+            .children()
+            .find_map(Expr::from_node)
+            .expect("code expects expr")
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub enum Expr<'a> {
+    Ident(Ident<'a>),
+    Call(Call<'a>),
+    Literal(Literal<'a>),
+    Block(ExprBlock<'a>),
+    Content(Content<'a>),
+}
+
+impl<'a> TypedNode<'a> for Expr<'a> {
+    fn from_node(node: &'a Node) -> Option<Self> {
+        match node.kind() {
+            SyntaxKind::Ident => Ident::from_node(node).map(Self::Ident),
+            SyntaxKind::Call => Call::from_node(node).map(Self::Call),
+            SyntaxKind::Bool | SyntaxKind::Float | SyntaxKind::Int | SyntaxKind::Str => {
+                Literal::from_node(node).map(Self::Literal)
+            }
+            SyntaxKind::Content => Content::from_node(node).map(Self::Content),
+            _ => None,
+        }
+    }
+
+    fn to_node(self) -> &'a Node {
         match self {
-            Self::Ident(i) => &i.span,
-            Self::Call(c) => &c.span,
-            Self::Literal(_, span) => span,
-            Self::Block(_, span) => span,
-            Self::Content(c) => &c.span,
+            Self::Ident(i) => i.to_node(),
+            Self::Call(c) => c.to_node(),
+            Self::Literal(l) => l.to_node(),
+            Self::Block(b) => b.to_node(),
+            Self::Content(c) => c.to_node(),
         }
     }
 }
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Ident {
-    pub ident: EcoString,
-    pub span: Span,
+
+node! {
+    ExprBlock
 }
 
-impl ToString for Ident {
-    fn to_string(&self) -> String {
-        self.ident.to_string()
+impl<'a> IntoIterator for ExprBlock<'a> {
+    type IntoIter = impl Iterator<Item = Self::Item>;
+    type Item = Expr<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.children().filter_map(Expr::from_node)
     }
 }
 
-impl Into<String> for Ident {
-    fn into(self) -> String {
-        self.ident.into()
+node! {
+    Ident
+}
+
+impl<'a> Ident<'a> {
+    pub fn get(self) -> &'a EcoString {
+        self.0.text()
     }
 }
 
-impl Into<String> for &Ident {
-    fn into(self) -> String {
-        self.ident.as_ref().into()
+node! {
+    Call
+}
+
+impl<'a> Call<'a> {
+    pub fn ident(self) -> CallIdent<'a> {
+        self.0
+            .children()
+            .find_map(CallIdent::from_node)
+            .expect("call expects ident")
+    }
+
+    pub fn args(self) -> Args<'a> {
+        self.0
+            .children()
+            .find_map(Args::from_node)
+            .expect("call expects args")
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Call {
-    pub ident: Ident,
-    pub args: Args,
-    pub span: Span,
+node! {
+    CallIdent
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Args {
-    pub args: Vec<Arg>,
-    pub content: Option<Content>,
-    pub span: Span,
+impl<'a> CallIdent<'a> {
+    pub fn get(self) -> &'a EcoString {
+        self.0.text()
+    }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Content {
-    pub content: Vec<Inline>,
-    pub span: Span,
+node! {
+    Args
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Arg {
-    pub name: Option<Ident>,
-    pub value: Expr,
-    pub span: Span,
+impl<'a> IntoIterator for Args<'a> {
+    type IntoIter = impl Iterator<Item = Self::Item>;
+    type Item = Arg<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.children().filter_map(Arg::from_node)
+    }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Literal {
-    Boolean(bool),
-    Int(i64),
-    // Float(f64),
-    Str(EcoString),
+impl<'a> Args<'a> {
+    pub fn content(self) -> Option<Content<'a>> {
+        self.0.children().find_map(Content::from_node)
+    }
 }
 
-impl ToString for Literal {
-    fn to_string(&self) -> String {
-        match self {
-            Self::Boolean(b) => b.to_string(),
-            Self::Int(i) => i.to_string(),
-            Self::Str(s) => s.to_string(),
+node! {
+    Arg
+}
+
+impl<'a> Arg<'a> {
+    pub fn ident(self) -> Option<ArgIdent<'a>> {
+        self.0.children().find_map(ArgIdent::from_node)
+    }
+
+    pub fn value(self) -> Expr<'a> {
+        self.0
+            .children()
+            .find_map(Expr::from_node)
+            .expect("arg expects value")
+    }
+}
+
+node! {
+    ArgIdent
+}
+
+impl<'a> ArgIdent<'a> {
+    pub fn get(self) -> &'a EcoString {
+        self.0.text()
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub enum Literal<'a> {
+    Str(Str<'a>),
+    Int(Int<'a>),
+    Float(Float<'a>),
+    Bool(Bool<'a>),
+}
+
+impl<'a> TypedNode<'a> for Literal<'a> {
+    fn from_node(node: &'a Node) -> Option<Self> {
+        match node.kind() {
+            SyntaxKind::Str => Str::from_node(node).map(Self::Str),
+            SyntaxKind::Int => Int::from_node(node).map(Self::Int),
+            SyntaxKind::Float => Float::from_node(node).map(Self::Float),
+            SyntaxKind::Bool => Bool::from_node(node).map(Self::Bool),
+            _ => None,
         }
+    }
+
+    fn to_node(self) -> &'a Node {
+        match self {
+            Self::Str(s) => s.to_node(),
+            Self::Int(i) => i.to_node(),
+            Self::Float(f) => f.to_node(),
+            Self::Bool(b) => b.to_node(),
+        }
+    }
+}
+
+node! {
+    Str
+}
+
+impl<'a> Str<'a> {
+    pub fn get(self) -> &'a EcoString {
+        self.0.text()
+    }
+}
+
+node! {
+    Int
+}
+
+impl<'a> Int<'a> {
+    pub fn get(self) -> i64 {
+        self.0.text().as_str().parse().unwrap()
+    }
+}
+
+node! {
+    Float
+}
+
+impl<'a> Float<'a> {
+    pub fn get(self) -> f64 {
+        self.0.text().as_str().parse().unwrap()
+    }
+}
+
+node! {
+    Bool
+}
+
+impl<'a> Bool<'a> {
+    pub fn get(self) -> bool {
+        self.0.text().as_str().parse().unwrap()
     }
 }

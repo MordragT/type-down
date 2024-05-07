@@ -10,7 +10,7 @@ use tyd_eval::{
     render::{Output, Render},
     world::World,
 };
-use tyd_syntax::ast::Ast;
+use tyd_syntax::ast::Document;
 
 use crate::engine::PandocEngine;
 
@@ -32,14 +32,18 @@ impl Render for HtmlCompiler {
     type Error = HtmlError;
     type Engine = PandocEngine;
 
-    fn render(ast: &Ast, world: World<Self::Engine>, output: Output) -> Result<(), Self::Error> {
+    fn render(
+        doc: Document,
+        world: World<Self::Engine>,
+        output: Output,
+    ) -> Result<(), Self::Error> {
         let output_kind = match output {
             Output::File(path) => OutputKind::File(path),
             Output::Stdout => OutputKind::Pipe,
         };
 
         let engine = PandocEngine::from_world(world);
-        let pandoc = engine.build(ast)?;
+        let pandoc = engine.build(doc)?;
         let contents = pandoc.to_json();
 
         let mut pandoc = Pandoc::new();

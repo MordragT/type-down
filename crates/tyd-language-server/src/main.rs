@@ -6,7 +6,6 @@ use tyd_pandoc::{plugin, visitor::PandocVisitor};
 
 pub mod backend;
 pub mod semantic;
-pub mod syntax;
 
 fn main() {
     task::block_on(run())

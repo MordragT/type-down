@@ -58,6 +58,9 @@ paragraph `monospace where @ | is ignored`
 - list
     - has
         - nesting
+            - significant
+        - too
+            - here
     - too
 
 | table | columns |

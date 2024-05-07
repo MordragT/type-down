@@ -27,8 +27,8 @@ pub struct PandocEngine {
 }
 
 impl PandocEngine {
-    pub fn build(mut self, ast: &ast::Ast) -> Result<ir::Pandoc, PandocError> {
-        PandocVisitor {}.visit_ast(&mut self, ast);
+    pub fn build(mut self, doc: ast::Document) -> Result<ir::Pandoc, PandocError> {
+        PandocVisitor {}.visit_doc(&mut self, doc);
 
         let Self {
             mut pandoc,
@@ -105,7 +105,7 @@ impl Engine for PandocEngine {
         }
     }
 
-    fn eval_block(&mut self, visitor: &Self::Visitor, block: &ast::Block) -> Option<Self::Block> {
+    fn eval_block(&mut self, visitor: &Self::Visitor, block: ast::Block) -> Option<Self::Block> {
         visitor.visit_block(self, block);
         let block = self.pop_block();
         Some(block)
@@ -114,7 +114,7 @@ impl Engine for PandocEngine {
     fn eval_inline(
         &mut self,
         visitor: &Self::Visitor,
-        inline: &ast::Inline,
+        inline: ast::Inline,
     ) -> Option<Self::Inline> {
         let start = self.start();
         visitor.visit_inline(self, inline);

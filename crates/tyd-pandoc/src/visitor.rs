@@ -14,28 +14,32 @@ pub struct PandocVisitor {}
 impl Visitor for PandocVisitor {
     type State = PandocEngine;
 
-    fn visit_raw(&self, state: &mut Self::State, raw: &Raw) {
-        let attr = AttrBuilder::new().class_opt(raw.lang.as_ref()).build();
+    fn visit_raw(&self, state: &mut Self::State, raw: Raw) {
+        let attr = AttrBuilder::new()
+            .class_opt(raw.lang().map(|l| l.get()))
+            .build();
 
-        let block = ir::Block::CodeBlock(attr, raw.content.to_string());
+        let block = ir::Block::CodeBlock(attr, raw.text().get().to_string());
         state.add_block(block);
     }
 
-    fn visit_heading(&self, state: &mut Self::State, heading: &Heading) {
+    fn visit_heading(&self, state: &mut Self::State, heading: Heading) {
         walk_heading(self, state, heading);
 
-        let attr = AttrBuilder::new().ident_opt(heading.label.as_ref()).build();
+        let attr = AttrBuilder::new()
+            .ident_opt(heading.label().map(|l| l.get()))
+            .build();
 
-        let block = ir::Block::Header(heading.level.level as i64, attr, state.take_stack());
+        let block = ir::Block::Header(heading.depth() as i64, attr, state.take_stack());
         state.add_block(block);
     }
 
-    fn visit_list(&self, state: &mut Self::State, list: &List) {
+    fn visit_list(&self, state: &mut Self::State, list: List) {
         let mut bullet_list = Vec::new();
 
-        for item in &list.items {
+        for item in list {
             let mut bullet_point = Vec::new();
-            for block in &item.content {
+            for block in item {
                 self.visit_block(state, block);
                 let block = state.pop_block();
                 bullet_point.push(block);
@@ -47,12 +51,12 @@ impl Visitor for PandocVisitor {
         state.add_block(block);
     }
 
-    fn visit_enum(&self, state: &mut Self::State, enumeration: &Enum) {
+    fn visit_enum(&self, state: &mut Self::State, enumeration: Enum) {
         let mut ordered_list = Vec::new();
 
-        for item in &enumeration.items {
+        for item in enumeration {
             let mut ordered_point = Vec::new();
-            for block in &item.content {
+            for block in item {
                 self.visit_block(state, block);
                 let block = state.pop_block();
                 ordered_point.push(block);
@@ -64,15 +68,15 @@ impl Visitor for PandocVisitor {
         state.add_block(block);
     }
 
-    fn visit_table(&self, state: &mut Self::State, table: &Table) {
-        let col_count = table.col_count;
+    fn visit_table(&self, state: &mut Self::State, table: Table) {
+        let col_count = table.col_count();
 
         let mut rows: Vec<ir::Row> = Vec::new();
 
-        for tr in &table.rows {
+        for tr in table.rows() {
             let mut cells: Vec<ir::Cell> = Vec::new();
 
-            for td in &tr.cells {
+            for td in tr {
                 self.visit_block(state, td);
 
                 let blocks = vec![state.pop_block()];
@@ -90,7 +94,9 @@ impl Visitor for PandocVisitor {
             rows.push((AttrBuilder::empty(), cells));
         }
 
-        let attr = AttrBuilder::new().ident_opt(table.label.as_ref()).build();
+        let attr = AttrBuilder::new()
+            .ident_opt(table.label().map(|l| l.get()))
+            .build();
         let caption = (None, Vec::new());
         let col_spec = (ir::Alignment::AlignCenter, ir::ColWidth::ColWidthDefault);
         let col_specs = vec![col_spec; col_count];
@@ -102,16 +108,16 @@ impl Visitor for PandocVisitor {
         state.add_block(block);
     }
 
-    fn visit_term(&self, state: &mut Self::State, term: &Terms) {
+    fn visit_term(&self, state: &mut Self::State, terms: Terms) {
         let mut definition_list = Vec::new();
 
-        for item in &term.content {
+        for item in terms {
             let start = state.start();
-            self.visit_text(state, &item.term);
+            self.visit_content(state, item.term());
             let definition = state.end(start).collect();
 
             let start = state.start();
-            self.visit_text(state, &item.content);
+            self.visit_content(state, item.desc());
             let body = vec![vec![ir::Block::Plain(state.end(start).collect())]];
 
             definition_list.push((definition, body));
@@ -121,21 +127,21 @@ impl Visitor for PandocVisitor {
         state.add_block(block);
     }
 
-    fn visit_paragraph(&self, state: &mut Self::State, paragraph: &Paragraph) {
+    fn visit_paragraph(&self, state: &mut Self::State, paragraph: Paragraph) {
         walk_paragraph(self, state, paragraph);
 
         let block = ir::Block::Para(state.take_stack());
         state.add_block(block);
     }
 
-    fn visit_plain(&self, state: &mut Self::State, plain: &Plain) {
+    fn visit_plain(&self, state: &mut Self::State, plain: Plain) {
         walk_plain(self, state, plain);
 
         let block = ir::Block::Plain(state.take_stack());
         state.add_block(block);
     }
 
-    fn visit_quote(&self, state: &mut Self::State, quote: &Quote) {
+    fn visit_quote(&self, state: &mut Self::State, quote: Quote) {
         let pos = state.start();
 
         walk_quote(self, state, quote);
@@ -144,7 +150,7 @@ impl Visitor for PandocVisitor {
         state.push(inline);
     }
 
-    fn visit_strikeout(&self, state: &mut Self::State, strikeout: &Strikeout) {
+    fn visit_strikeout(&self, state: &mut Self::State, strikeout: Strikeout) {
         let pos = state.start();
 
         walk_strikeout(self, state, strikeout);
@@ -153,7 +159,7 @@ impl Visitor for PandocVisitor {
         state.push(inline);
     }
 
-    fn visit_emphasis(&self, state: &mut Self::State, emphasis: &Emphasis) {
+    fn visit_emphasis(&self, state: &mut Self::State, emphasis: Emphasis) {
         let pos = state.start();
 
         walk_emphasis(self, state, emphasis);
@@ -162,7 +168,7 @@ impl Visitor for PandocVisitor {
         state.push(inline);
     }
 
-    fn visit_strong(&self, state: &mut Self::State, strong: &Strong) {
+    fn visit_strong(&self, state: &mut Self::State, strong: Strong) {
         let pos = state.start();
 
         walk_strong(self, state, strong);
@@ -171,7 +177,7 @@ impl Visitor for PandocVisitor {
         state.push(inline);
     }
 
-    fn visit_subscript(&self, state: &mut Self::State, subscript: &Subscript) {
+    fn visit_subscript(&self, state: &mut Self::State, subscript: Subscript) {
         let start = state.start();
 
         walk_subscript(self, state, subscript);
@@ -181,7 +187,7 @@ impl Visitor for PandocVisitor {
         state.push(inline);
     }
 
-    fn visit_supscript(&self, state: &mut Self::State, supscript: &Supscript) {
+    fn visit_supscript(&self, state: &mut Self::State, supscript: Supscript) {
         let start = state.start();
 
         walk_supscript(self, state, supscript);
@@ -191,12 +197,12 @@ impl Visitor for PandocVisitor {
         state.push(inline);
     }
 
-    fn visit_link(&self, state: &mut Self::State, link: &Link) {
+    fn visit_link(&self, state: &mut Self::State, link: Link) {
         let pos = state.start();
 
         walk_link(self, state, link);
 
-        let href = link.href.to_string();
+        let href = link.href().get().to_string();
         let mut content = state.end(pos).collect::<Vec<_>>();
 
         if content.is_empty() {
@@ -207,52 +213,53 @@ impl Visitor for PandocVisitor {
         state.push(inline);
     }
 
-    fn visit_cite(&self, state: &mut Self::State, cite: &Cite) {
-        let href = format!("#{}", cite.ident);
-        let content = vec![ir::Inline::Str(cite.ident.to_string())];
+    fn visit_ref(&self, state: &mut Self::State, reference: Ref) {
+        let target = reference.target();
+
+        let href = format!("#{}", target);
+        let content = vec![ir::Inline::Str(target.to_string())];
 
         let inline = ir::Inline::Link(AttrBuilder::empty(), content, (href, String::new()));
         state.push(inline);
     }
 
-    fn visit_raw_inline(&self, state: &mut Self::State, raw_inline: &RawInline) {
-        let inline = ir::Inline::Code(AttrBuilder::empty(), raw_inline.content.to_string());
+    fn visit_raw_inline(&self, state: &mut Self::State, raw_inline: RawInline) {
+        let inline = ir::Inline::Code(AttrBuilder::empty(), raw_inline.get().to_string());
         state.push(inline);
     }
 
-    fn visit_math_inline(&self, state: &mut Self::State, math_inline: &MathInline) {
-        let inline = ir::Inline::Math(ir::MathType::InlineMath, math_inline.content.to_string());
+    fn visit_math_inline(&self, state: &mut Self::State, math_inline: MathInline) {
+        let inline = ir::Inline::Math(ir::MathType::InlineMath, math_inline.get().to_string());
         state.push(inline);
     }
 
-    fn visit_escape(&self, state: &mut Self::State, escape: &Escape) {
-        let inline = ir::Inline::Str(escape.content.to_string());
+    fn visit_escape(&self, state: &mut Self::State, escape: Escape) {
+        let inline = ir::Inline::Str(escape.get().to_string());
         state.push(inline);
     }
 
-    fn visit_word(&self, state: &mut Self::State, word: &Word) {
-        state.push(ir::Inline::Str(word.content.to_string()));
+    fn visit_word(&self, state: &mut Self::State, word: Word) {
+        state.push(ir::Inline::Str(word.get().to_string()));
     }
 
-    fn visit_spacing(&self, state: &mut Self::State, _spacing: &Spacing) {
+    fn visit_spacing(&self, state: &mut Self::State, _spacing: Spacing) {
         state.push(ir::Inline::Space);
     }
 
-    fn visit_softbreak(&self, state: &mut Self::State, _soft_break: &SoftBreak) {
+    fn visit_softbreak(&self, state: &mut Self::State, _soft_break: SoftBreak) {
         state.push(ir::Inline::SoftBreak);
     }
 
-    fn visit_expr(&self, state: &mut Self::State, expr: &Expr) {
+    fn visit_expr(&self, state: &mut Self::State, expr: Expr) {
         if let Some(value) = expr.eval(state, self) {
             match value {
                 Value::Block(block) => {
                     if state.stack_is_empty() {
                         state.add_block(block);
                     } else {
-                        state.tracer_mut().error(EngineError::new(
-                            *expr.span(),
-                            EngineMessage::ExpectedInline,
-                        ));
+                        state
+                            .tracer_mut()
+                            .error(EngineError::new(expr.span(), EngineMessage::ExpectedInline));
                     }
                 }
                 Value::Inline(inline) => state.push(inline),

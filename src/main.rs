@@ -96,7 +96,8 @@ fn main() -> Result<()> {
         } => {
             let world = World::new(input, scope).map_err(TydError::Io)?;
             let mut parser = Parser::new(world.source());
-            let ast = parser.parse()?;
+            let node = parser.parse()?;
+            let doc = Document::from_node(&node).expect("what the hell happened here ? ;)");
 
             let output = match output {
                 Some(path) => Output::File(path),
@@ -104,10 +105,10 @@ fn main() -> Result<()> {
             };
 
             match format {
-                Format::Html => HtmlCompiler::render(&ast, world, output)?,
-                Format::Pdf => PdfCompiler::render(&ast, world, output)?,
-                Format::Docx => DocxCompiler::render(&ast, world, output)?,
-                Format::Json => PandocCompiler::render(&ast, world, output)?,
+                Format::Html => HtmlCompiler::render(doc, world, output)?,
+                Format::Pdf => PdfCompiler::render(doc, world, output)?,
+                Format::Docx => DocxCompiler::render(doc, world, output)?,
+                Format::Json => PandocCompiler::render(doc, world, output)?,
             }
         }
     }

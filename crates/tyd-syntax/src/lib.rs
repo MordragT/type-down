@@ -1,4 +1,6 @@
 #![feature(array_windows)]
+#![feature(lazy_cell)]
+#![feature(impl_trait_in_assoc_type)]
 
 use std::{fmt::Debug, sync::Arc};
 
@@ -7,12 +9,16 @@ use miette::NamedSource;
 
 pub mod ast;
 pub mod error;
+pub mod kind;
+pub mod node;
 pub mod parser;
 pub mod visitor;
 
 pub mod prelude {
     pub use crate::ast::*;
     pub use crate::error::*;
+    pub use crate::kind::*;
+    pub use crate::node::*;
     pub use crate::parser::*;
     pub use crate::visitor::*;
     pub use crate::Source;

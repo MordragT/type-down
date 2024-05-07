@@ -8,6 +8,10 @@ edition = "2021"
 [dependencies]
 miette = "7.1.0"
 thiserror = "1.0"
-chumsky = { version = "=1.0.0-alpha.7", features = ["label"] }
+chumsky = { version = "=1.0.0-alpha.7", features = [
+    "label",
+    "nightly",
+    "unstable",
+] }
 constcat = "0.4.1"
 ecow = "0.2.0"

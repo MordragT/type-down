@@ -1,4 +1,4 @@
-use tyd_syntax::ast;
+use tyd_syntax::ast::{self, TypedNode};
 
 use crate::{
     error::{EngineError, EngineMessage},
@@ -21,27 +21,27 @@ pub trait Eval<E: Engine> {
     fn eval(self, engine: &mut E, visitor: &E::Visitor) -> Self::Output;
 }
 
-impl<E: Engine> Eval<E> for &ast::Expr {
+impl<'a, E: Engine> Eval<E> for ast::Expr<'a> {
     type Output = Option<Value<E>>;
 
     fn eval(self, engine: &mut E, visitor: &E::Visitor) -> Self::Output {
         match self {
-            ast::Expr::Block(block, _) => todo!(),
+            ast::Expr::Block(block) => todo!(),
             ast::Expr::Call(call) => call.eval(engine, visitor),
             ast::Expr::Ident(ident) => ident.eval(engine, visitor),
-            ast::Expr::Literal(literal, _) => Some(literal.eval(engine, visitor)),
+            ast::Expr::Literal(literal) => Some(literal.eval(engine, visitor)),
             ast::Expr::Content(content) => content.eval(engine, visitor),
         }
     }
 }
 
-impl<E: Engine> Eval<E> for &ast::Content {
+impl<'a, E: Engine> Eval<E> for ast::Content<'a> {
     type Output = Option<Value<E>>;
 
     fn eval(self, engine: &mut E, visitor: &E::Visitor) -> Self::Output {
         let mut result = Vec::new();
 
-        for inline in &self.content {
+        for inline in self {
             let evaluated = engine.eval_inline(visitor, inline)?;
             result.push(Value::Inline(evaluated));
         }
@@ -50,17 +50,17 @@ impl<E: Engine> Eval<E> for &ast::Content {
     }
 }
 
-impl<E: Engine> Eval<E> for &ast::Ident {
+impl<'a, E: Engine> Eval<E> for ast::Ident<'a> {
     type Output = Option<Value<E>>;
 
     fn eval(self, engine: &mut E, _visitor: &E::Visitor) -> Self::Output {
-        let key = &self.ident;
+        let key = self.get();
 
         match engine.scopes().symbol(key) {
             Some(v) => Some(v),
             None => {
                 engine.tracer_mut().error(EngineError::new(
-                    self.span,
+                    self.span(),
                     EngineMessage::SymbolNotFound(key.clone()),
                 ));
                 None
@@ -88,40 +88,36 @@ impl<E: Engine> Eval<E> for hir::Call<E> {
     }
 }
 
-impl<E: Engine> Eval<E> for &ast::Call {
+impl<'a, E: Engine> Eval<E> for ast::Call<'a> {
     type Output = Option<Value<E>>;
 
     fn eval(self, engine: &mut E, visitor: &E::Visitor) -> Self::Output {
-        let ast::Call { ident, args, span } = self;
+        let ident = self.ident().get();
+        let args = self.args();
+
         let args = args.eval(engine, visitor)?;
         let call = hir::Call {
-            ident: ident.ident.clone(),
+            ident: ident.clone(),
             args,
-            span: *span,
+            span: self.span(),
         };
         call.eval(engine, visitor)
     }
 }
 
-impl<E: Engine> Eval<E> for &ast::Args {
+impl<'a, E: Engine> Eval<E> for ast::Args<'a> {
     type Output = Option<hir::Args<E>>;
 
     fn eval(self, engine: &mut E, visitor: &E::Visitor) -> Self::Output {
-        let ast::Args {
-            args,
-            content,
-            span,
-        } = self;
+        let mut result = hir::Args::new(self.span());
 
-        let mut result = hir::Args::new(*span);
-
-        for arg in args {
+        for arg in self {
             let arg = arg.eval(engine, visitor)?;
             result.insert(arg);
         }
 
-        if let Some(content) = content {
-            let span = content.span;
+        if let Some(content) = self.content() {
+            let span = content.span();
 
             engine.scopes_mut().enter();
             let value = content.eval(engine, visitor)?;
@@ -138,32 +134,34 @@ impl<E: Engine> Eval<E> for &ast::Args {
     }
 }
 
-impl<E: Engine> Eval<E> for &ast::Arg {
+impl<'a, E: Engine> Eval<E> for ast::Arg<'a> {
     type Output = Option<hir::Arg<E>>;
 
     fn eval(self, engine: &mut E, visitor: &E::Visitor) -> Self::Output {
-        let ast::Arg { name, value, span } = self;
+        let name = self.ident();
+        let value = self.value();
 
         let value = value.eval(engine, visitor)?;
 
         Some(hir::Arg {
-            name: name.as_ref().map(|ident| ident.ident.clone()),
-            span: *span,
+            name: name.as_ref().map(|ident| ident.get().clone()),
+            span: self.span(),
             value,
         })
     }
 }
 
-impl<E: Engine> Eval<E> for &ast::Literal {
+impl<'a, E: Engine> Eval<E> for ast::Literal<'a> {
     type Output = Value<E>;
 
     fn eval(self, _engine: &mut E, _visitor: &E::Visitor) -> Self::Output {
         use ast::Literal::*;
 
         match self {
-            Boolean(b) => Value::Bool(*b),
-            Str(s) => Value::Str(s.clone()),
-            Int(i) => Value::Int(*i),
+            Bool(b) => Value::Bool(b.get()),
+            Str(s) => Value::Str(s.get().clone()),
+            Int(i) => Value::Int(i.get()),
+            Float(f) => Value::Float(f.get()),
         }
     }
 }

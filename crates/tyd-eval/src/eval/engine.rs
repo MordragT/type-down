@@ -10,12 +10,9 @@ pub trait Engine: Sized + Clone {
     type Block: Debug + Clone + Send + Sync + Cast<Self> + 'static;
     type Visitor: Debug + Clone + Visitor<State = Self>;
 
-    fn eval_inline(
-        &mut self,
-        visitor: &Self::Visitor,
-        inline: &ast::Inline,
-    ) -> Option<Self::Inline>;
-    fn eval_block(&mut self, visitor: &Self::Visitor, block: &ast::Block) -> Option<Self::Block>;
+    fn eval_inline(&mut self, visitor: &Self::Visitor, inline: ast::Inline)
+        -> Option<Self::Inline>;
+    fn eval_block(&mut self, visitor: &Self::Visitor, block: ast::Block) -> Option<Self::Block>;
 
     fn world(&self) -> World<Self>;
     fn scopes(&self) -> &Scopes<Self>;

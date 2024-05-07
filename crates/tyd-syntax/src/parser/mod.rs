@@ -1,19 +1,15 @@
-pub mod code;
-pub mod markup;
+use chumsky::{error::Rich, extra, ParseResult, Parser as P};
 
-use chumsky::{
-    combinator::{Map, ToSlice},
-    error::Rich,
-    extra, ParseResult, Parser as ChumskyParser,
-};
-use ecow::EcoString;
-
-use self::markup::ast;
+use self::markup::parser;
 use crate::{
-    ast::Ast,
     error::{SyntaxErrors, SyntaxResult},
+    node::Node,
     Source, Span,
 };
+
+pub mod code;
+pub mod ext;
+pub mod markup;
 
 pub struct Parser {
     source: Source,
@@ -32,8 +28,8 @@ impl Parser {
         Self { source, state }
     }
 
-    pub fn parse(&mut self) -> SyntaxResult<Ast> {
-        let parser = ast();
+    pub fn parse(&mut self) -> SyntaxResult<Node> {
+        let parser = parser();
         let source = self.source.as_str();
 
         let ast = parser
@@ -47,8 +43,8 @@ impl Parser {
         Ok(ast)
     }
 
-    pub fn try_parse<'src>(&'src mut self) -> ParseResult<Ast, Rich<'src, char, Span>> {
-        let parser = ast();
+    pub fn try_parse<'src>(&'src mut self) -> ParseResult<Node, Rich<'src, char, Span>> {
+        let parser = parser();
         let source = self.source.as_str();
 
         parser.parse_with_state(source, &mut self.state)
@@ -65,17 +61,8 @@ pub struct ParserContext {
 
 type Extra<'src> = extra::Full<Rich<'src, char, Span>, ParserState, ParserContext>;
 
-pub trait ParserExt<'src, T>: ChumskyParser<'src, &'src str, T, Extra<'src>> + Sized {
-    #[inline]
-    fn to_ecow(self) -> Map<ToSlice<Self, T>, &'src str, impl Fn(&'src str) -> EcoString> {
-        self.to_slice().map(EcoString::from)
-    }
-}
-
-impl<'src, T, P: ChumskyParser<'src, &'src str, T, Extra<'src>> + Sized> ParserExt<'src, T> for P {}
-
-pub fn try_parse<'src>(source: &'src str) -> ParseResult<Ast, Rich<'src, char, Span>> {
-    let parser = ast();
+pub fn try_parse<'src>(source: &'src str) -> ParseResult<Node, Rich<'src, char, Span>> {
+    let parser = parser();
     let mut state = ParserState {};
     parser.parse_with_state(source, &mut state)
 }
