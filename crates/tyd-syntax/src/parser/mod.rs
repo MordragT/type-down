@@ -1,68 +1,42 @@
-use chumsky::{error::Rich, extra, ParseResult, Parser as P};
+use chumsky::prelude::*;
+use tyd_doc::prelude::*;
 
-use self::markup::parser;
 use crate::{
-    error::{SyntaxErrors, SyntaxResult},
-    node::Node,
-    Source, Span,
+    error::{SyntaxError, SyntaxErrors},
+    source::Source,
+    SpanMetadata,
 };
 
 pub mod code;
 pub mod ext;
+pub mod extra;
 pub mod markup;
 
-pub struct Parser {
-    source: Source,
-    state: ParserState,
+pub struct ParseResult {
+    pub doc: Option<Doc>,
+    pub spans: SpanMetadata,
+    pub errors: SyntaxErrors,
 }
 
-impl Parser {
-    pub fn new(source: Source) -> Self {
-        Self {
-            source,
-            state: ParserState::default(),
-        }
-    }
+pub fn parse(source: &Source) -> ParseResult {
+    use self::extra::*;
 
-    pub fn with_state(source: Source, state: ParserState) -> Self {
-        Self { source, state }
-    }
+    let input = source.as_str();
+    let parser = markup::parser();
 
-    pub fn parse(&mut self) -> SyntaxResult<Node> {
-        let parser = parser();
-        let source = self.source.as_str();
+    let mut state = State::from(StateRepr::new());
 
-        let ast = parser
-            .parse_with_state(source, &mut self.state)
-            .into_result()
-            .map_err(|errs| SyntaxErrors {
-                src: self.source.named_source(),
-                related: errs.into_iter().map(Into::into).collect(),
-            })?;
+    let (blocks, errors) = parser
+        .parse_with_state(input, &mut state)
+        .into_output_errors();
 
-        Ok(ast)
-    }
+    let StateRepr { builder, meta } = state.0;
 
-    pub fn try_parse<'src>(&'src mut self) -> ParseResult<Node, Rich<'src, char, Span>> {
-        let parser = parser();
-        let source = self.source.as_str();
+    let spans = Metadata::from(meta);
+    let doc = blocks.map(|blocks| builder.finish(blocks));
 
-        parser.parse_with_state(source, &mut self.state)
-    }
-}
+    let related = errors.into_iter().map(SyntaxError::from).collect();
+    let errors = SyntaxErrors::with_related(source.clone(), related);
 
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct ParserState {}
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Default)]
-pub struct ParserContext {
-    indent: usize,
-}
-
-type Extra<'src> = extra::Full<Rich<'src, char, Span>, ParserState, ParserContext>;
-
-pub fn try_parse<'src>(source: &'src str) -> ParseResult<Node, Rich<'src, char, Span>> {
-    let parser = parser();
-    let mut state = ParserState {};
-    parser.parse_with_state(source, &mut state)
+    return ParseResult { doc, spans, errors };
 }

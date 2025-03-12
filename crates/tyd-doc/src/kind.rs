@@ -1,0 +1,52 @@
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum NodeKind {
+    Error,
+    Tag,
+    Text,
+    Label,
+
+    // Block
+    Block,
+    Raw,
+    Heading,
+    HeadingMarker,
+    Table,
+    TableRow,
+    List,
+    ListItem,
+    Enum,
+    EnumItem,
+    Terms,
+    TermItem,
+    Paragraph,
+    Plain,
+
+    // Inline
+    Inline,
+    Quote,
+    Strikeout,
+    Emphasis,
+    Strong,
+    Subscript,
+    Supscript,
+    Link,
+    Ref,
+    RawInline,
+    MathInline,
+    Comment,
+    Escape,
+    Word,
+    Spacing,
+    SoftBreak,
+
+    // Code
+    Code,
+    Expr,
+    ExprBlock,
+    Ident,
+    Call,
+    Args,
+    Arg,
+    Literal,
+    Content,
+}

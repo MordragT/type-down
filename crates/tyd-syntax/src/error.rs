@@ -1,8 +1,8 @@
-use std::sync::Arc;
-
 use chumsky::error::Rich;
-use miette::{Diagnostic, LabeledSpan, NamedSource, SourceSpan};
+use miette::{Diagnostic, LabeledSpan, SourceSpan};
 use thiserror::Error;
+
+use crate::source::Source;
 
 pub type SyntaxResult<T> = Result<T, SyntaxErrors>;
 
@@ -11,9 +11,22 @@ pub type SyntaxResult<T> = Result<T, SyntaxErrors>;
 #[diagnostic()]
 pub struct SyntaxErrors {
     #[source_code]
-    pub src: NamedSource<Arc<str>>,
+    pub src: Source,
     #[related]
     pub related: Vec<SyntaxError>,
+}
+
+impl SyntaxErrors {
+    pub fn new(src: Source) -> Self {
+        Self {
+            src,
+            related: Vec::new(),
+        }
+    }
+
+    pub fn with_related(src: Source, related: Vec<SyntaxError>) -> Self {
+        Self { src, related }
+    }
 }
 
 #[derive(Error, Debug, Diagnostic)]

@@ -1,3 +1,18 @@
+[workspace]
+members = ["crates/*"]
+
+[workspace.dependencies]
+tyd-syntax = { path = "crates/tyd-syntax" }
+tyd-doc = { path = "crates/tyd-doc" }
+tyd-eval = { path = "crates/tyd-eval" }
+tyd-pandoc = { path = "crates/tyd-pandoc" }
+tyd-util = { path = "crates/tyd-util" }
+clap = { version = "4.5", features = ["derive"] }
+miette = { version = "7.5", features = ["fancy"] }
+thiserror = "2.0"
+ecow = "0.2"
+derive_more = { version = "2", features = ["from"] }
+
 [package]
 name = "type_down"
 version = "0.1.0"
@@ -7,27 +22,9 @@ authors = ["Thomas Wehmoeller"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-clap = { version = "4.4.18", features = ["derive"] }
-miette = { version = "7.1.0", features = ["fancy"] }
-thiserror = "1.0"
-tyd-syntax = { path = "crates/tyd-syntax" }
-tyd-eval = { path = "crates/tyd-eval" }
-tyd-pandoc = { path = "crates/tyd-pandoc" }
-# tyd-html = { path = "crates/tyd-html", optional = true }
-
-[features]
-# default = ["pdf", "docx", "html"]
-# pdf = ["pandoc"]
-# docx = ["pandoc"]
-# html = []
-default = []
-# html = ["tyd-html"]
-
-[workspace]
-members = [
-    # "crates/*"
-    "crates/tyd-language-server",
-    "crates/tyd-pandoc",
-    "crates/tyd-eval",
-    "crates/tyd-syntax",
-]
+clap.workspace = true
+miette.workspace = true
+thiserror.workspace = true
+tyd-syntax.workspace = true
+tyd-eval.workspace = true
+tyd-pandoc.workspace = true

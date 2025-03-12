@@ -1,26 +1,30 @@
+use derive_more::From;
 use ecow::EcoString;
-use std::{collections::BTreeMap, fmt::Debug, sync::Arc};
+use std::{collections::BTreeMap, fmt::Debug};
 
-use crate::{eval::Engine, hir, ty::Type};
+use crate::{ir, ty::Type};
 
 mod cast;
 pub use cast::*;
 
-#[derive(Debug, Clone)]
-pub enum Value<E: Engine> {
-    Map(hir::Map<E>),
-    List(hir::List<E>),
+pub type Map = BTreeMap<EcoString, Value>;
+pub type List = Vec<Value>;
+
+#[derive(Debug, Clone, From)]
+pub enum Value {
+    Map(Map),
+    List(List),
     Bool(bool),
     Str(EcoString),
     Float(f64),
     Int(i64),
-    Inline(E::Inline),
-    Block(E::Block),
+    Inline(ir::Inline),
+    Block(ir::Block),
     None,
-    Func(hir::Func<E>),
+    Func(ir::Func),
 }
 
-impl<E: Engine> Value<E> {
+impl Value {
     pub fn ty(&self) -> Type {
         use Type::*;
 
@@ -51,14 +55,14 @@ impl<E: Engine> Value<E> {
         }
     }
 
-    pub fn into_map(self) -> Option<hir::Map<E>> {
+    pub fn into_map(self) -> Option<Map> {
         match self {
             Self::Map(map) => Some(map),
             _ => None,
         }
     }
 
-    pub fn into_list(self) -> Option<hir::List<E>> {
+    pub fn into_list(self) -> Option<List> {
         match self {
             Self::List(list) => Some(list),
             _ => None,
@@ -93,21 +97,21 @@ impl<E: Engine> Value<E> {
         }
     }
 
-    pub fn into_inline(self) -> Option<E::Inline> {
+    pub fn into_inline(self) -> Option<ir::Inline> {
         match self {
             Self::Inline(c) => Some(c),
             _ => None,
         }
     }
 
-    pub fn into_block(self) -> Option<E::Block> {
+    pub fn into_block(self) -> Option<ir::Block> {
         match self {
             Self::Block(c) => Some(c),
             _ => None,
         }
     }
 
-    pub fn into_func(self) -> Option<hir::Func<E>> {
+    pub fn into_func(self) -> Option<ir::Func> {
         match self {
             Self::Func(f) => Some(f),
             _ => None,
@@ -115,14 +119,14 @@ impl<E: Engine> Value<E> {
     }
 }
 
-impl<E: Engine, T: Into<Value<E>>> From<Option<T>> for Value<E> {
-    fn from(value: Option<T>) -> Self {
-        match value {
-            Some(v) => v.into(),
-            None => Value::None,
-        }
-    }
-}
+// impl<E: Engine, T: Into<Value<E>>> From<Option<T>> for Value<E> {
+//     fn from(value: Option<T>) -> Self {
+//         match value {
+//             Some(v) => v.into(),
+//             None => Value::None,
+//         }
+//     }
+// }
 
 // impl<E: Engine, F: Func<E>> From<F> for Value<E> {
 //     fn from(value: F) -> Self {
@@ -130,44 +134,44 @@ impl<E: Engine, T: Into<Value<E>>> From<Option<T>> for Value<E> {
 //     }
 // }
 
-impl<E: Engine> From<String> for Value<E> {
-    fn from(value: String) -> Self {
-        Self::Str(EcoString::from(value))
-    }
-}
+// impl<E: Engine> From<String> for Value<E> {
+//     fn from(value: String) -> Self {
+//         Self::Str(EcoString::from(value))
+//     }
+// }
 
-impl<'a, E: Engine> From<&'a str> for Value<E> {
-    fn from(value: &'a str) -> Self {
-        Self::Str(EcoString::from(value))
-    }
-}
+// impl<'a, E: Engine> From<&'a str> for Value<E> {
+//     fn from(value: &'a str) -> Self {
+//         Self::Str(EcoString::from(value))
+//     }
+// }
 
-impl<E: Engine> From<bool> for Value<E> {
-    fn from(value: bool) -> Self {
-        Self::Bool(value)
-    }
-}
+// impl<E: Engine> From<bool> for Value<E> {
+//     fn from(value: bool) -> Self {
+//         Self::Bool(value)
+//     }
+// }
 
-impl<E: Engine, T: Into<Value<E>>> From<Vec<T>> for Value<E> {
-    fn from(value: Vec<T>) -> Self {
-        Self::List(Arc::new(value.into_iter().map(Into::into).collect()))
-    }
-}
+// impl<E: Engine, T: Into<Value<E>>> From<Vec<T>> for Value<E> {
+//     fn from(value: Vec<T>) -> Self {
+//         Self::List(Arc::new(value.into_iter().map(Into::into).collect()))
+//     }
+// }
 
-impl<E: Engine> From<BTreeMap<EcoString, Value<E>>> for Value<E> {
-    fn from(value: BTreeMap<EcoString, Value<E>>) -> Self {
-        Self::Map(Arc::new(value))
-    }
-}
+// impl<E: Engine> From<BTreeMap<EcoString, Value<E>>> for Value<E> {
+//     fn from(value: BTreeMap<EcoString, Value<E>>) -> Self {
+//         Self::Map(Arc::new(value))
+//     }
+// }
 
-impl<E: Engine> From<i64> for Value<E> {
-    fn from(value: i64) -> Self {
-        Self::Int(value)
-    }
-}
+// impl<E: Engine> From<i64> for Value<E> {
+//     fn from(value: i64) -> Self {
+//         Self::Int(value)
+//     }
+// }
 
-impl<E: Engine> From<f64> for Value<E> {
-    fn from(value: f64) -> Self {
-        Self::Float(value)
-    }
-}
+// impl<E: Engine> From<f64> for Value<E> {
+//     fn from(value: f64) -> Self {
+//         Self::Float(value)
+//     }
+// }

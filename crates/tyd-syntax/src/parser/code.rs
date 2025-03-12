@@ -1,104 +1,109 @@
 use chumsky::{
     prelude::*,
-    text::{digits, newline, unicode},
+    text::{newline, unicode},
 };
+use tyd_doc::prelude::*;
 
-use super::{
-    ext::{BranchParser, LeafParser},
-    markup, Extra,
-};
-use crate::{kind::SyntaxKind, node::*};
+use super::{ext::ParserExt, extra::Extra, markup};
 
-pub fn code_parser<'src, I>(inline: I) -> impl Parser<'src, &'src str, Node, Extra<'src>>
+pub fn code_parser<'src, I>(
+    inline: I,
+) -> impl Parser<'src, &'src str, NodeId<tree::Code>, Extra<'src>>
 where
-    I: Parser<'src, &'src str, Node, Extra<'src>> + Clone + 'src,
+    I: Parser<'src, &'src str, NodeId<tree::Inline>, Extra<'src>> + Clone + 'src,
 {
     just("#")
-        .to_leaf(SyntaxKind::CodeMarker)
-        .then(expr_parser(inline))
-        .map(|(m, e)| vec![m, e])
-        .to_branch(SyntaxKind::Code)
+        .ignore_then(expr_parser(inline))
+        .map_to_node(tree::Code)
 }
 
-pub fn expr_parser<'src, I>(inline: I) -> impl Parser<'src, &'src str, Node, Extra<'src>>
+pub fn ident_parser<'src>() -> impl Parser<'src, &'src str, NodeId<tree::Ident>, Extra<'src>> {
+    unicode::ident().to_ecow().map_to_node(tree::Ident)
+}
+
+pub fn expr_parser<'src, I>(
+    inline: I,
+) -> impl Parser<'src, &'src str, NodeId<tree::Expr>, Extra<'src>>
 where
-    I: Parser<'src, &'src str, Node, Extra<'src>> + Clone + 'src,
+    I: Parser<'src, &'src str, NodeId<tree::Inline>, Extra<'src>> + Clone + 'src,
 {
     recursive(|expr| {
-        let content = markup::content_parser(inline).boxed();
+        let content = markup::content_parser(inline)
+            .map_to_node(tree::Content)
+            .boxed();
         let args = args_parser(expr.clone(), content.clone());
 
-        let call = unicode::ident()
-            .to_leaf(SyntaxKind::CallIdent)
+        let call = ident_parser()
             .then(args)
-            .map(|(i, a)| vec![i, a])
-            .to_branch(SyntaxKind::Call);
-        let access = unicode::ident().to_leaf(SyntaxKind::Ident);
+            .map_to_node(|(ident, args)| tree::Call { ident, args })
+            .to_expr();
 
         let block = expr
             .separated_by(just(";").padded())
             .collect()
             .padded()
             .delimited_by(just("{"), just("}"))
-            .to_branch(SyntaxKind::ExprBlock);
+            .map_to_node(tree::ExprBlock)
+            .to_expr();
 
-        choice((literal_parser(), call, access, block, content)).boxed()
+        let access = ident_parser().to_expr();
+        let literal = literal_parser().to_expr();
+
+        choice((literal, call, access, block, content.to_expr())).boxed()
     })
 }
 
 pub fn args_parser<'src, E, C>(
     expr: E,
     content: C,
-) -> impl Parser<'src, &'src str, Node, Extra<'src>>
+) -> impl Parser<'src, &'src str, NodeId<tree::Args>, Extra<'src>>
 where
-    E: Parser<'src, &'src str, Node, Extra<'src>>,
-    C: Parser<'src, &'src str, Node, Extra<'src>> + 'src,
+    E: Parser<'src, &'src str, NodeId<tree::Expr>, Extra<'src>>,
+    C: Parser<'src, &'src str, NodeId<tree::Content>, Extra<'src>> + 'src,
 {
-    let arg = unicode::ident()
-        .to_leaf(SyntaxKind::ArgIdent)
+    let arg = ident_parser()
         .then_ignore(just(": "))
         .or_not()
         .then(expr)
-        .map(|(ident, value)| {
-            if let Some(i) = ident {
-                vec![i, value]
-            } else {
-                vec![value]
-            }
-        })
-        .to_branch(SyntaxKind::Arg);
+        .map_to_node(|(key, value)| tree::Arg { key, value });
 
-    let args = arg
-        .separated_by(just(",").padded())
+    arg.separated_by(just(",").padded())
         .allow_trailing()
-        .collect::<Vec<_>>()
+        .collect()
         .padded()
-        .delimited_by(just("("), just(")"));
-
-    let content = content.or_not();
-
-    args.foldl(content, |mut args, c| {
-        args.push(c);
-        args
-    })
-    .to_branch(SyntaxKind::Args)
+        .delimited_by(just("("), just(")"))
+        .then(content.or_not())
+        .map_to_node(|(args, content)| tree::Args { args, content })
 }
 
-pub fn literal_parser<'src>() -> impl Parser<'src, &'src str, Node, Extra<'src>> {
-    let boolean = just("true").or(just("false")).to_leaf(SyntaxKind::Bool);
+pub fn literal_parser<'src>() -> impl Parser<'src, &'src str, NodeId<tree::Literal>, Extra<'src>> {
+    let boolean = just("true")
+        .to(true)
+        .or(just("false").to(false))
+        .map(tree::Literal::Bool);
 
-    let octa = just("0o").ignore_then(digits(8));
-    let hexa = just("0x").ignore_then(digits(16));
-    let decimal = digits(10);
-    let int = choice((octa, hexa, decimal)).to_leaf(SyntaxKind::Int);
+    let int = choice((
+        just("0o").ignore_then(text::int(8)),
+        just("0x").ignore_then(text::int(16)),
+        text::int(10),
+    ))
+    .from_str()
+    .unwrapped()
+    .map(tree::Literal::Int);
 
-    let float = group((digits(10), just("."), digits(10))).to_leaf(SyntaxKind::Float);
+    let float = text::int(10)
+        .then(just('.').then(text::digits(10)))
+        .to_slice()
+        .from_str()
+        .unwrapped()
+        .map(tree::Literal::Float);
 
     let string = none_of("\"")
         .and_is(newline().not())
         .repeated()
-        .to_leaf(SyntaxKind::Str)
+        .to_ecow()
+        .map(tree::Literal::Str)
         .delimited_by(just("\""), just("\""));
 
-    choice((boolean, int, float, string))
+    choice((boolean, int, float, string)).to_node()
 }

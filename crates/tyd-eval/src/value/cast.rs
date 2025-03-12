@@ -1,45 +1,44 @@
 use ecow::EcoString;
 
-use super::Value;
-use crate::{eval::Engine, hir};
+use super::{Map, Value};
 
-pub trait Cast<E: Engine> {
-    fn cast(value: Value<E>) -> Self;
+pub trait Downcast {
+    fn downcast(value: Value) -> Self;
 }
 
-impl<E: Engine> Cast<E> for hir::Map<E> {
-    fn cast(value: Value<E>) -> Self {
+impl Downcast for Map {
+    fn downcast(value: Value) -> Self {
         value.into_map().unwrap()
     }
 }
 
-impl<E: Engine, T: Cast<E>> Cast<E> for Vec<T> {
-    fn cast(value: Value<E>) -> Self {
+impl<T: Downcast> Downcast for Vec<T> {
+    fn downcast(value: Value) -> Self {
         let list = value.into_list().unwrap();
-        list.iter().cloned().map(T::cast).collect()
+        list.iter().cloned().map(T::downcast).collect()
     }
 }
 
-impl<E: Engine> Cast<E> for bool {
-    fn cast(value: Value<E>) -> Self {
+impl Downcast for bool {
+    fn downcast(value: Value) -> Self {
         value.into_bool().unwrap()
     }
 }
 
-impl<E: Engine> Cast<E> for EcoString {
-    fn cast(value: Value<E>) -> Self {
+impl Downcast for EcoString {
+    fn downcast(value: Value) -> Self {
         value.into_string().unwrap()
     }
 }
 
-impl<E: Engine> Cast<E> for f64 {
-    fn cast(value: Value<E>) -> Self {
+impl Downcast for f64 {
+    fn downcast(value: Value) -> Self {
         value.into_float().unwrap()
     }
 }
 
-impl<E: Engine> Cast<E> for i64 {
-    fn cast(value: Value<E>) -> Self {
+impl Downcast for i64 {
+    fn downcast(value: Value) -> Self {
         value.into_int().unwrap()
     }
 }

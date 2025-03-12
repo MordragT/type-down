@@ -6,13 +6,13 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+tyd-syntax.workspace = true
+tyd-eval.workspace = true
+tyd-pandoc.workspace = true
+ecow.workspace = true
 tower-lsp = { version = "0.20.0", default-features = false, features = [
     "runtime-agnostic",
 ] }
 async-std = "1.12.0"
-tyd-syntax = { path = "../tyd-syntax" }
-tyd-eval = { path = "../tyd-eval" }
-tyd-pandoc = { path = "../tyd-pandoc" }
 dashmap = "5.5"
-ecow = "0.2.0"
 ropey = "1.6"

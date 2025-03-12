@@ -5,13 +5,13 @@ use tyd_syntax::{ast, visitor::Visitor};
 
 use crate::{error::PandocError, visitor::PandocVisitor};
 
-impl Cast<PandocEngine> for ir::Inline {
+impl Downcast<PandocEngine> for ir::Inline {
     fn cast(value: Value<PandocEngine>) -> Self {
         value.into_inline().unwrap()
     }
 }
 
-impl Cast<PandocEngine> for ir::Block {
+impl Downcast<PandocEngine> for ir::Block {
     fn cast(value: Value<PandocEngine>) -> Self {
         value.into_block().unwrap()
     }

@@ -1,49 +1,75 @@
 #![feature(array_windows)]
-#![feature(lazy_cell)]
 #![feature(impl_trait_in_assoc_type)]
-
-use std::{fmt::Debug, sync::Arc};
+#![feature(let_chains)]
 
 use chumsky::span::SimpleSpan;
-use miette::NamedSource;
+use tyd_doc::meta::{Metadata, Phase};
 
-pub mod ast;
 pub mod error;
-pub mod kind;
-pub mod node;
 pub mod parser;
-pub mod visitor;
+pub mod source;
 
 pub mod prelude {
-    pub use crate::ast::*;
     pub use crate::error::*;
-    pub use crate::kind::*;
-    pub use crate::node::*;
     pub use crate::parser::*;
-    pub use crate::visitor::*;
-    pub use crate::Source;
-    pub use crate::Span;
+    pub use crate::source::Source;
+    pub use crate::{Span, SpanMetadata, SyntaxPhase};
 }
 
+pub type SpanMetadata = Metadata<SyntaxPhase>;
 pub type Span = SimpleSpan<usize>;
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Source(NamedSource<Arc<str>>);
+#[derive(Clone, Copy, Debug)]
+pub struct SyntaxPhase;
 
-impl Source {
-    pub fn new(name: impl AsRef<str>, source: impl AsRef<str>) -> Self {
-        Self(NamedSource::new(name, Arc::from(source.as_ref())))
-    }
+impl Phase for SyntaxPhase {
+    type Error = Span;
+    type Tag = Span;
+    type Text = Span;
+    type Label = Span;
 
-    pub fn name(&self) -> &str {
-        self.0.name()
-    }
+    // Block
+    type Block = Span;
+    type Raw = Span;
+    type Heading = Span;
+    type HeadingMarker = Span;
+    type Table = Span;
+    type TableRow = Span;
+    type List = Span;
+    type ListItem = Span;
+    type Enum = Span;
+    type EnumItem = Span;
+    type Terms = Span;
+    type TermItem = Span;
+    type Paragraph = Span;
+    type Plain = Span;
 
-    pub fn as_str(&self) -> &str {
-        self.0.inner()
-    }
+    // Inline
+    type Inline = Span;
+    type Quote = Span;
+    type Strikeout = Span;
+    type Emphasis = Span;
+    type Strong = Span;
+    type Subscript = Span;
+    type Supscript = Span;
+    type Link = Span;
+    type Ref = Span;
+    type RawInline = Span;
+    type MathInline = Span;
+    type Comment = Span;
+    type Escape = Span;
+    type Word = Span;
+    type Spacing = Span;
+    type SoftBreak = Span;
 
-    pub fn named_source(&self) -> NamedSource<Arc<str>> {
-        self.0.clone()
-    }
+    // Code
+    type Code = Span;
+    type Expr = Span;
+    type ExprBlock = Span;
+    type Ident = Span;
+    type Call = Span;
+    type Args = Span;
+    type Arg = Span;
+    type Literal = Span;
+    type Content = Span;
 }

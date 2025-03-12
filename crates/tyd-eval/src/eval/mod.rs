@@ -1,8 +1,8 @@
-use tyd_syntax::ast::{self, TypedNode};
+use tyd_doc::{id::NodeId, tree};
 
 use crate::{
     error::{EngineError, EngineMessage},
-    hir,
+    ir, ty,
     value::Value,
 };
 
@@ -15,34 +15,42 @@ pub use scope::*;
 pub use tracer::*;
 
 /// Evaluate an expression.
-pub trait Eval<E: Engine> {
+pub trait Eval {
     type Output;
 
-    fn eval(self, engine: &mut E, visitor: &E::Visitor) -> Self::Output;
+    fn eval(self, engine: &mut Engine) -> Self::Output;
 }
 
-impl<'a, E: Engine> Eval<E> for ast::Expr<'a> {
-    type Output = Option<Value<E>>;
+impl<T: Eval> Eval for NodeId<T> {
+    type Output = T::Output;
 
-    fn eval(self, engine: &mut E, visitor: &E::Visitor) -> Self::Output {
+    fn eval(self, engine: &mut Engine) -> Self::Output {
+        todo!()
+    }
+}
+
+impl Eval for tree::Expr {
+    type Output = Option<Value>;
+
+    fn eval(self, engine: &mut Engine) -> Self::Output {
         match self {
-            ast::Expr::Block(block) => todo!(),
-            ast::Expr::Call(call) => call.eval(engine, visitor),
-            ast::Expr::Ident(ident) => ident.eval(engine, visitor),
-            ast::Expr::Literal(literal) => Some(literal.eval(engine, visitor)),
-            ast::Expr::Content(content) => content.eval(engine, visitor),
+            tree::Expr::Block(block) => todo!(),
+            tree::Expr::Call(call) => call.eval(engine),
+            tree::Expr::Ident(ident) => ident.eval(engine),
+            tree::Expr::Literal(literal) => Some(literal.eval(engine)),
+            tree::Expr::Content(content) => content.eval(engine),
         }
     }
 }
 
-impl<'a, E: Engine> Eval<E> for ast::Content<'a> {
-    type Output = Option<Value<E>>;
+impl Eval for tree::Content {
+    type Output = Option<Value>;
 
-    fn eval(self, engine: &mut E, visitor: &E::Visitor) -> Self::Output {
+    fn eval(self, engine: &mut Engine) -> Self::Output {
         let mut result = Vec::new();
 
         for inline in self {
-            let evaluated = engine.eval_inline(visitor, inline)?;
+            let evaluated = engine.eval_inline(inline)?;
             result.push(Value::Inline(evaluated));
         }
 
@@ -50,10 +58,10 @@ impl<'a, E: Engine> Eval<E> for ast::Content<'a> {
     }
 }
 
-impl<'a, E: Engine> Eval<E> for ast::Ident<'a> {
-    type Output = Option<Value<E>>;
+impl Eval for tree::Ident {
+    type Output = Option<Value>;
 
-    fn eval(self, engine: &mut E, _visitor: &E::Visitor) -> Self::Output {
+    fn eval(self, engine: &mut Engine) -> Self::Output {
         let key = self.get();
 
         match engine.scopes().symbol(key) {
@@ -69,14 +77,14 @@ impl<'a, E: Engine> Eval<E> for ast::Ident<'a> {
     }
 }
 
-impl<E: Engine> Eval<E> for hir::Call<E> {
-    type Output = Option<Value<E>>;
+impl Eval for ir::Call {
+    type Output = Option<Value>;
 
-    fn eval(self, engine: &mut E, visitor: &E::Visitor) -> Self::Output {
-        let hir::Call { ident, args, span } = self;
+    fn eval(self, engine: &mut Engine) -> Self::Output {
+        let ir::Call { ident, args, span } = self;
 
         match engine.scopes().func(&ident) {
-            Some(f) => f.call(args, engine, visitor),
+            Some(f) => f.call(args, engine),
             None => {
                 engine.tracer_mut().error(EngineError::new(
                     span,
@@ -88,31 +96,31 @@ impl<E: Engine> Eval<E> for hir::Call<E> {
     }
 }
 
-impl<'a, E: Engine> Eval<E> for ast::Call<'a> {
-    type Output = Option<Value<E>>;
+impl Eval for tree::Call {
+    type Output = Option<Value>;
 
-    fn eval(self, engine: &mut E, visitor: &E::Visitor) -> Self::Output {
+    fn eval(self, engine: &mut Engine) -> Self::Output {
         let ident = self.ident().get();
         let args = self.args();
 
-        let args = args.eval(engine, visitor)?;
+        let args = args.eval(engine)?;
         let call = hir::Call {
             ident: ident.clone(),
             args,
             span: self.span(),
         };
-        call.eval(engine, visitor)
+        call.eval(engine)
     }
 }
 
-impl<'a, E: Engine> Eval<E> for ast::Args<'a> {
-    type Output = Option<hir::Args<E>>;
+impl Eval for tree::Args {
+    type Output = Option<ir::Args>;
 
-    fn eval(self, engine: &mut E, visitor: &E::Visitor) -> Self::Output {
-        let mut result = hir::Args::new(self.span());
+    fn eval(self, engine: &mut Engine) -> Self::Output {
+        let mut result = ir::Args::new(self.span());
 
         for arg in self {
-            let arg = arg.eval(engine, visitor)?;
+            let arg = arg.eval(engine)?;
             result.insert(arg);
         }
 
@@ -120,10 +128,10 @@ impl<'a, E: Engine> Eval<E> for ast::Args<'a> {
             let span = content.span();
 
             engine.scopes_mut().enter();
-            let value = content.eval(engine, visitor)?;
+            let value = content.eval(engine)?;
             engine.scopes_mut().exit();
 
-            result.insert(hir::Arg {
+            result.insert(ir::Arg {
                 name: None,
                 span,
                 value,
@@ -134,16 +142,16 @@ impl<'a, E: Engine> Eval<E> for ast::Args<'a> {
     }
 }
 
-impl<'a, E: Engine> Eval<E> for ast::Arg<'a> {
-    type Output = Option<hir::Arg<E>>;
+impl Eval for tree::Arg {
+    type Output = Option<ir::Arg>;
 
-    fn eval(self, engine: &mut E, visitor: &E::Visitor) -> Self::Output {
+    fn eval(self, engine: &mut Engine) -> Self::Output {
         let name = self.ident();
         let value = self.value();
 
-        let value = value.eval(engine, visitor)?;
+        let value = value.eval(engine)?;
 
-        Some(hir::Arg {
+        Some(ir::Arg {
             name: name.as_ref().map(|ident| ident.get().clone()),
             span: self.span(),
             value,
@@ -151,17 +159,17 @@ impl<'a, E: Engine> Eval<E> for ast::Arg<'a> {
     }
 }
 
-impl<'a, E: Engine> Eval<E> for ast::Literal<'a> {
-    type Output = Value<E>;
+impl Eval for tree::Literal {
+    type Output = Value;
 
-    fn eval(self, _engine: &mut E, _visitor: &E::Visitor) -> Self::Output {
-        use ast::Literal::*;
+    fn eval(self, _engine: &mut Engine) -> Self::Output {
+        use tree::Literal::*;
 
         match self {
-            Bool(b) => Value::Bool(b.get()),
-            Str(s) => Value::Str(s.get().clone()),
-            Int(i) => Value::Int(i.get()),
-            Float(f) => Value::Float(f.get()),
+            Bool(b) => Value::Bool(b),
+            Str(s) => Value::Str(s),
+            Int(i) => Value::Int(i),
+            Float(f) => Value::Float(f),
         }
     }
 }

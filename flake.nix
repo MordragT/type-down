@@ -24,46 +24,49 @@
           overlays = [fenix.overlays.default];
         };
         toolchain = pkgs.fenix.complete;
+        platform = pkgs.makeRustPlatform {
+          # Use nightly rustc and cargo provided by fenix for building
+          inherit (toolchain) cargo rustc;
+        };
       in rec
       {
-        packages.parol = pkgs.rustPlatform.buildRustPackage rec {
+        packages.parol = platform.buildRustPackage rec {
           pname = "parol";
-          version = "0.22.1";
+          version = "3.0.1";
 
           src = pkgs.fetchCrate {
             inherit pname version;
-            sha256 = "4+FAmQfCk0mkz13f5mfk2674CN2n4Y/OYeRFfbv0MvI=";
+            hash = "sha256-CSPlFplnlVqm3vCE3a2k01z+MuqtNLa/eml0f8exa9U=";
           };
 
-          cargoSha256 = "cd2Sh0Q/+h8VGRRJcX+qNl8z1l1PKxyHt+e9a10wjto=";
+          useFetchCargoVendor = true;
+          cargoHash = "sha256-xMV3VmvxYLehBuedLAYSHvOWuP4bOENVLtYZpsAWe0c=";
           doCheck = false;
         };
 
-        packages.parol-ls = pkgs.rustPlatform.buildRustPackage rec {
+        packages.parol-ls = platform.buildRustPackage rec {
           pname = "parol-ls";
-          version = "0.14.0";
+          version = "3.0.1";
 
           src = pkgs.fetchCrate {
             inherit pname version;
-            sha256 = "jc/khhYOntTa79+uu33m7xDVKuNvtJTDxeKLBsyaT/Y="; # 0.14
-            #sha256 = "ZAKa6JWRoLZi55rdW0t8egDbWa3JSK9+wOPDfOqrXo0="; # 0.13
+            hash = "sha256-C9JADDcTM/8b5K14wL5StXYqeN12KACIv5FQvFdSFy8=";
           };
 
-          buildInputs = [
+          nativeBuildInputs = [
             packages.parol
           ];
 
-          cargoSha256 = "mUl+MXE0ZcmSYEx1/kpr/RzTtyop9gbjJDMUp8z7NtM="; # 0.14
-          #cargoSha256 = "qbVF6lsnZyx7IraHZlXXT2jvizkP4+G96kscHUi0wq0="; # 0.13
+          useFetchCargoVendor = true;
+          cargoHash = "sha256-NDrSdr1+EIZVi8cj8Lyj6WiWg4ZehdwanumLwdlcYLo=";
           doCheck = false;
+
+          meta.broken = true;
         };
 
         # Executed by `nix build`
         packages.default =
-          (pkgs.makeRustPlatform {
-            # Use nightly rustc and cargo provided by fenix for building
-            inherit (toolchain) cargo rustc;
-          })
+          platform
           .buildRustPackage {
             pname = "template";
             version = "0.1.0";
@@ -90,7 +93,7 @@
             ])
             cargo-flamegraph
             packages.parol
-            #packages.parol-ls
+            # packages.parol-ls
             pkg-config
             pandoc
             typst

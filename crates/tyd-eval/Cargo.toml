@@ -6,7 +6,10 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tyd-syntax = { path = "../tyd-syntax" }
-miette = "7.1.0"
-thiserror = "1.0"
-ecow = "0.2.0"
+tyd-doc.workspace = true
+tyd-syntax.workspace = true
+miette.workspace = true
+thiserror.workspace = true
+ecow.workspace = true
+derive_more.workspace = true
+pandoc_ast = "0.8.6"

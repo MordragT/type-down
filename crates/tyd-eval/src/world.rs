@@ -5,28 +5,27 @@ use std::{
     sync::Arc,
 };
 
-use miette::NamedSource;
-use tyd_syntax::Source;
+use tyd_syntax::source::Source;
 
-use crate::eval::{Engine, Scope};
+use crate::eval::Scope;
 
 /// Environment in which typesetting occurs
 #[derive(Debug, Clone)]
-pub struct World<E: Engine>(Arc<Repr<E>>);
+pub struct World(Arc<Repr>);
 
 #[derive(Debug, Clone)]
-struct Repr<E: Engine> {
+struct Repr {
     source: Source,
     path: PathBuf,
-    scope: Arc<Scope<E>>,
+    scope: Arc<Scope>,
 }
 
-impl<E: Engine> World<E> {
-    pub fn new(path: impl AsRef<Path>, scope: impl Into<Arc<Scope<E>>>) -> io::Result<Self> {
+impl World {
+    pub fn new(path: impl AsRef<Path>, scope: impl Into<Arc<Scope>>) -> io::Result<Self> {
         let path = path.as_ref().canonicalize()?;
         let name = path.file_name().unwrap().to_string_lossy();
         let source = fs::read_to_string(&path)?;
-        let source = Source::new(name, source);
+        let source = Source::new(&path, name, source);
         let repr = Repr {
             source,
             path,
@@ -40,10 +39,6 @@ impl<E: Engine> World<E> {
         self.0.source.clone()
     }
 
-    pub fn named_source(&self) -> NamedSource<Arc<str>> {
-        self.0.source.named_source()
-    }
-
     pub fn file_path(&self) -> &Path {
         &self.0.path
     }
@@ -52,7 +47,7 @@ impl<E: Engine> World<E> {
         self.0.path.parent().unwrap()
     }
 
-    pub fn global_scope(&self) -> Arc<Scope<E>> {
+    pub fn global_scope(&self) -> Arc<Scope> {
         self.0.scope.clone()
     }
 }
