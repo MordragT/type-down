@@ -1,36 +1,23 @@
-use pandoc_ast as ir;
-use tyd_eval::{
-    error::EngineError,
-    hir,
-    plugin::{PluginFunc, Signature},
-    ty::Type,
-    value::Value,
-};
-
-use crate::{attr::AttrBuilder, engine::PandocEngine, visitor::PandocVisitor};
+use tyd_eval::prelude::*;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Figure;
 
-impl PluginFunc<PandocEngine> for Figure {
-    fn signature() -> Signature<PandocEngine> {
+impl Plugin for Figure {
+    fn signature() -> Signature {
         Signature::new("figure")
-            .required("caption", Type::list(Type::Inline))
-            .positional(Type::list(Type::Inline))
+            .required("caption", Type::Content)
+            .positional(Type::Content)
     }
 
-    fn call(
-        mut args: hir::Args<PandocEngine>,
-        _engine: &mut PandocEngine,
-        _visitor: &PandocVisitor,
-    ) -> Result<Value<PandocEngine>, EngineError> {
-        let caption = args.remove_named::<Vec<ir::Inline>>("caption");
-        let content = args.pop_positional::<Vec<ir::Inline>>();
+    fn call(mut args: ir::Arguments, tracer: &mut Tracer) -> Value {
+        let caption = args.remove::<ir::Content>("caption").unwrap();
+        let content = args.pop::<ir::Content>().unwrap();
 
         let caption = (None, vec![ir::Block::Plain(caption)]);
         let content = ir::Block::Plain(content);
-        let block = ir::Block::Figure(AttrBuilder::empty(), caption, vec![content]);
+        let block = ir::Block::Figure(ir::AttrBuilder::empty(), caption, vec![content]);
 
-        Ok(Value::Block(block))
+        Value::Block(block)
     }
 }

@@ -1,4 +1,8 @@
-use std::{fmt, fs, io, path::Path, sync::Arc};
+use std::{
+    fmt, fs, io,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use miette::SourceCode;
 
@@ -34,6 +38,14 @@ impl Source {
 
     pub fn as_str(&self) -> &str {
         &self.source
+    }
+
+    pub fn path(&self) -> Arc<Path> {
+        self.path.clone()
+    }
+
+    pub fn work_path(&self) -> &Path {
+        self.path.parent().unwrap()
     }
 
     pub fn len(&self) -> usize {

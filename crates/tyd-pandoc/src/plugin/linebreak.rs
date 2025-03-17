@@ -1,26 +1,14 @@
-use pandoc_ast as ir;
-use tyd_eval::{
-    error::EngineError,
-    hir,
-    plugin::{PluginFunc, Signature},
-    value::Value,
-};
-
-use crate::{engine::PandocEngine, visitor::PandocVisitor};
+use tyd_eval::prelude::*;
 
 #[derive(Debug, Clone, Copy)]
 pub struct LineBreak;
 
-impl PluginFunc<PandocEngine> for LineBreak {
-    fn signature() -> Signature<PandocEngine> {
+impl Plugin for LineBreak {
+    fn signature() -> Signature {
         Signature::new("linebreak")
     }
 
-    fn call(
-        _args: hir::Args<PandocEngine>,
-        _engine: &mut PandocEngine,
-        _visitor: &PandocVisitor,
-    ) -> Result<Value<PandocEngine>, EngineError> {
-        Ok(Value::Inline(ir::Inline::LineBreak))
+    fn call(_args: ir::Arguments, tracer: &mut Tracer) -> Value {
+        Value::Inline(ir::Inline::LineBreak)
     }
 }

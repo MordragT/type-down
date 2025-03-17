@@ -15,7 +15,7 @@ pub struct Context {
 #[derive(Debug, Clone, Default)]
 pub struct StateRepr {
     pub builder: DocBuilder,
-    pub meta: Vec<Meta<SyntaxPhase>>,
+    pub meta: MetaVec<SyntaxPhase>,
 }
 
 impl StateRepr {

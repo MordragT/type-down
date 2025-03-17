@@ -1,7 +1,7 @@
 use derive_more::From;
 
 use super::{Label, Tag, Text, inline::Inline};
-use crate::id::NodeId;
+use crate::{id::NodeId, kind::NodeKind};
 
 #[derive(Debug, From, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Block {
@@ -13,6 +13,21 @@ pub enum Block {
     Terms(NodeId<Terms>),
     Paragraph(NodeId<Paragraph>),
     Plain(NodeId<Plain>),
+}
+
+impl Block {
+    pub fn kind(&self) -> NodeKind {
+        match self {
+            Self::Raw(_) => NodeKind::Raw,
+            Self::Heading(_) => NodeKind::Heading,
+            Self::Table(_) => NodeKind::Table,
+            Self::List(_) => NodeKind::List,
+            Self::Enum(_) => NodeKind::Enum,
+            Self::Terms(_) => NodeKind::Terms,
+            Self::Paragraph(_) => NodeKind::Paragraph,
+            Self::Plain(_) => NodeKind::Plain,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -34,6 +49,7 @@ pub struct HeadingMarker(pub u8);
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Table {
     pub rows: Vec<NodeId<TableRow>>,
+    pub columns: usize,
     pub label: Option<NodeId<Label>>,
 }
 

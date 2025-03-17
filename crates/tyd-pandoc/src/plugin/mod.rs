@@ -1,5 +1,4 @@
-use crate::engine::PandocEngine;
-use tyd_eval::plugin::Plugin;
+use tyd_eval::{plugin::dispatch, scope::Scope, value::Value};
 
 mod figure;
 mod highlight;
@@ -19,13 +18,13 @@ pub use linebreak::*;
 pub use smallcaps::*;
 pub use underline::*;
 
-pub fn plugin() -> Plugin<PandocEngine> {
-    Plugin::new()
-        .register_func::<Figure>("figure")
-        .register_func::<Highlight>("highlight")
-        .register_func::<HorizontalRule>("hrule")
-        .register_func::<Image>("image")
-        .register_func::<LineBreak>("linebreak")
-        .register_func::<SmallCaps>("smallcaps")
-        .register_func::<Underline>("underline")
+pub fn plugin() -> Scope {
+    Scope::empty()
+        .with("figure", Value::Func(dispatch::<Figure>))
+        .with("highlight", Value::Func(dispatch::<Highlight>))
+        .with("hrule", Value::Func(dispatch::<HorizontalRule>))
+        .with("image", Value::Func(dispatch::<Image>))
+        .with("linebreak", Value::Func(dispatch::<LineBreak>))
+        .with("smallcaps", Value::Func(dispatch::<SmallCaps>))
+        .with("underline", Value::Func(dispatch::<Underline>))
 }

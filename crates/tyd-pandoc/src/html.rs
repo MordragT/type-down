@@ -6,13 +6,10 @@ use pandoc::{
 use std::io;
 use thiserror::Error;
 use tyd_eval::{
-    eval::Engine,
+    error::EngineErrors,
+    ir,
     render::{Output, Render},
-    world::World,
 };
-use tyd_syntax::ast::Document;
-
-use crate::engine::PandocEngine;
 
 #[derive(Debug, Error, Diagnostic)]
 #[error(transparent)]
@@ -21,31 +18,23 @@ pub enum HtmlError {
     #[error(transparent)]
     Io(#[from] io::Error),
     #[error(transparent)]
-    PandocExec(#[from] pandoc::PandocError),
+    Pandoc(#[from] pandoc::PandocError),
     #[error(transparent)]
-    Pandoc(#[from] crate::error::PandocError),
+    Engine(#[from] EngineErrors),
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct HtmlCompiler;
 
 impl Render for HtmlCompiler {
     type Error = HtmlError;
-    type Engine = PandocEngine;
 
-    fn render(
-        doc: Document,
-        world: World<Self::Engine>,
-        output: Output,
-    ) -> Result<(), Self::Error> {
+    fn render(pandoc: ir::Pandoc, output: Output) -> Result<(), Self::Error> {
         let output_kind = match output {
             Output::File(path) => OutputKind::File(path),
             Output::Stdout => OutputKind::Pipe,
         };
 
-        let engine = PandocEngine::from_world(world);
-        let pandoc = engine.build(doc)?;
         let contents = pandoc.to_json();
-
         let mut pandoc = Pandoc::new();
 
         use MarkdownExtension::*;

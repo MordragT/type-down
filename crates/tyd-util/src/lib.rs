@@ -62,3 +62,39 @@ macro_rules! impl_try_as_mut {
         )*
     };
 }
+
+#[macro_export]
+macro_rules! impl_try_into {
+    ($enum_type:ident, $($variant:ident($variant_type:ty)),*) => {
+        $(
+            impl TryInto<$variant_type> for $enum_type {
+                type Error = ();
+
+                fn try_into(self) -> Result<$variant_type, Self::Error> {
+                    match self {
+                        $enum_type::$variant(val) => Ok(val),
+                        _ => Err(()),
+                    }
+                }
+            }
+        )*
+    };
+}
+
+#[macro_export]
+macro_rules! impl_try_from {
+    ($enum_type:ident, $($variant:ident($variant_type:ty)),*) => {
+        $(
+            impl TryFrom<$enum_type> for $variant_type {
+                type Error = ();
+
+                fn try_from(value: $enum_type) -> Result<Self, Self::Error> {
+                    match value {
+                        $enum_type::$variant(val) => Ok(val),
+                        _ => Err(()),
+                    }
+                }
+            }
+        )*
+    };
+}

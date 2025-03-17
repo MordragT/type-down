@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 tyd-doc.workspace = true
 tyd-syntax.workspace = true
+tyd-util.workspace = true
 miette.workspace = true
 thiserror.workspace = true
 ecow.workspace = true

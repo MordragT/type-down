@@ -1,6 +1,6 @@
 use chumsky::{
     prelude::*,
-    text::{newline, unicode},
+    text::{inline_whitespace, newline, unicode},
 };
 use tyd_doc::prelude::*;
 
@@ -28,6 +28,9 @@ where
     I: Parser<'src, &'src str, NodeId<tree::Inline>, Extra<'src>> + Clone + 'src,
 {
     recursive(|expr| {
+        let ident = ident_parser().to_expr();
+        let literal = literal_parser().to_expr();
+
         let content = markup::content_parser(inline)
             .map_to_node(tree::Content)
             .boxed();
@@ -36,20 +39,55 @@ where
         let call = ident_parser()
             .then(args)
             .map_to_node(|(ident, args)| tree::Call { ident, args })
+            .to_expr()
+            .boxed();
+
+        let for_ = just("for")
+            .then(inline_whitespace().at_least(1))
+            .ignore_then(ident_parser())
+            .then_ignore(just("in").then(inline_whitespace().at_least(1)))
+            .then(ident_parser().to_expr().or(call.clone()))
+            .then(content.clone())
+            .map_to_node(|((el, inside), content)| tree::For {
+                el,
+                inside,
+                content,
+            })
+            .to_expr()
+            .boxed();
+
+        let if_ = just("if")
+            .then(inline_whitespace().at_least(1))
+            .ignore_then(expr.clone())
+            .then_ignore(just("then").padded())
+            .then(content.clone())
+            .then_ignore(just("else").padded())
+            .then(content.clone())
+            .map_to_node(|((predicate, then), or)| tree::If {
+                predicate,
+                then,
+                or,
+            })
+            .to_expr()
+            .boxed();
+
+        let bind = ident_parser()
+            .then_ignore(just("=").padded_by(inline_whitespace().at_least(1)))
+            .then(expr.clone())
+            .map_to_node(|(name, value)| tree::Bind { name, value });
+
+        let let_ = just("let")
+            .then(inline_whitespace().at_least(1))
+            .ignore_then(
+                bind.separated_by(just(";"))
+                    .at_least(1)
+                    .allow_trailing()
+                    .collect(),
+            )
+            .map_to_node(tree::Let)
             .to_expr();
 
-        let block = expr
-            .separated_by(just(";").padded())
-            .collect()
-            .padded()
-            .delimited_by(just("{"), just("}"))
-            .map_to_node(tree::ExprBlock)
-            .to_expr();
-
-        let access = ident_parser().to_expr();
-        let literal = literal_parser().to_expr();
-
-        choice((literal, call, access, block, content.to_expr())).boxed()
+        choice((literal, for_, if_, let_, call, ident, content.to_expr())).boxed()
     })
 }
 
@@ -65,7 +103,7 @@ where
         .then_ignore(just(": "))
         .or_not()
         .then(expr)
-        .map_to_node(|(key, value)| tree::Arg { key, value });
+        .map_to_node(|(key, value)| tree::Arg { name: key, value });
 
     arg.separated_by(just(",").padded())
         .allow_trailing()

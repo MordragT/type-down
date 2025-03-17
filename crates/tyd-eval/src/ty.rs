@@ -3,6 +3,10 @@ use std::fmt::Debug;
 
 use ecow::EcoString;
 
+pub trait Typed {
+    const TYPE: Type;
+}
+
 #[derive(Debug, Clone, PartialOrd, Ord)]
 pub enum Type {
     Map(Vec<(EcoString, Self)>),
@@ -13,6 +17,7 @@ pub enum Type {
     Int,
     Inline,
     Block,
+    Content,
     Any,
     None,
     Func,
@@ -41,6 +46,7 @@ impl fmt::Display for Type {
             Type::Int => write!(f, "Int"),
             Type::Inline => write!(f, "Inline"),
             Type::Block => write!(f, "Block"),
+            Type::Content => write!(f, "Content"),
             Type::Any => write!(f, "Any"),
             Type::None => write!(f, "None"),
             Type::Func => write!(f, "Func"),
@@ -61,6 +67,7 @@ impl PartialEq for Type {
             (Int, Int) => true,
             (Inline, Inline) => true,
             (Block, Block) => true,
+            (Content, Content) => true,
             (Func, Func) => true,
             (Any, _) => true,
             (_, Any) => true,

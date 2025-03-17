@@ -1,5 +1,7 @@
 use std::{hash::Hash, marker::PhantomData};
 
+use crate::meta::{MetaCast, MetaContainer, Phase};
+
 #[derive(Debug)]
 pub struct NodeId<T> {
     id: u32,
@@ -66,13 +68,13 @@ impl<T> NodeId<T> {
     //     tree.node(self)
     // }
 
-    // pub fn meta<P>(self, metadata: &impl MetaContainer<P>) -> &T::Meta
-    // where
-    //     P: Phase,
-    //     T: Attached<P>,
-    // {
-    //     metadata.meta(self)
-    // }
+    pub fn meta<P>(self, metadata: &impl MetaContainer<P>) -> &T::Meta
+    where
+        P: Phase,
+        T: MetaCast<P>,
+    {
+        metadata.meta(self)
+    }
 
     // pub fn meta_mut<P, M>(self, metadata: &mut impl MetaContainer<P>) -> &mut T::Meta
     // where

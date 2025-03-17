@@ -3,13 +3,10 @@ use pandoc::{InputFormat, InputKind, OutputFormat, OutputKind, Pandoc};
 use std::io;
 use thiserror::Error;
 use tyd_eval::{
-    eval::Engine,
+    error::EngineErrors,
+    ir,
     render::{Output, Render},
-    world::World,
 };
-use tyd_syntax::ast::Document;
-
-use crate::engine::PandocEngine;
 
 #[derive(Debug, Error, Diagnostic)]
 #[error(transparent)]
@@ -18,9 +15,9 @@ pub enum DocxError {
     #[error(transparent)]
     Io(#[from] io::Error),
     #[error(transparent)]
-    PandocExec(#[from] pandoc::PandocError),
+    Pandoc(#[from] pandoc::PandocError),
     #[error(transparent)]
-    Pandoc(#[from] crate::error::PandocError),
+    Engine(#[from] EngineErrors),
     #[error("Stdout is unsupported for pdf")]
     StdoutUnsupported,
 }
@@ -29,20 +26,13 @@ pub struct DocxCompiler;
 
 impl Render for DocxCompiler {
     type Error = DocxError;
-    type Engine = PandocEngine;
 
-    fn render(
-        doc: Document,
-        world: World<Self::Engine>,
-        output: Output,
-    ) -> Result<(), Self::Error> {
+    fn render(pandoc: ir::Pandoc, output: Output) -> Result<(), Self::Error> {
         let dest = match output {
             Output::File(path) => path,
             Output::Stdout => return Err(DocxError::StdoutUnsupported),
         };
 
-        let engine = PandocEngine::from_world(world);
-        let pandoc = engine.build(doc)?;
         let contents = pandoc.to_json();
 
         let mut pandoc = Pandoc::new();

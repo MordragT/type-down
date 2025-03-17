@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use tyd_util::{TryAsMut, TryAsRef};
 
-use crate::{id::NodeId, node::Node, tree::Block};
+use crate::{Full, id::NodeId, node::Node, tree::Block, visit::Visitor};
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct DocBuilder {
@@ -60,8 +60,14 @@ pub struct Doc {
 }
 
 impl Doc {
+    #[inline]
     pub fn blocks(&self) -> &Vec<NodeId<Block>> {
         &self.blocks
+    }
+
+    #[inline]
+    pub fn get(&self, id: usize) -> &Node {
+        &self.nodes[id]
     }
 
     pub fn node<T>(&self, id: NodeId<T>) -> &T
@@ -72,7 +78,24 @@ impl Doc {
         node.try_as_ref().unwrap()
     }
 
+    pub fn full<T>(&self, id: NodeId<T>) -> Full<'_, T>
+    where
+        Node: TryAsRef<T>,
+    {
+        let node = &self.nodes[id.as_usize()];
+        (node.try_as_ref().unwrap(), id)
+    }
+
+    #[inline]
     pub fn iter_nodes(&self) -> std::slice::Iter<'_, Node> {
         self.nodes.iter()
+    }
+
+    pub fn visit_by<V: Visitor>(&self, visitor: &mut V) -> Result<(), V::Error> {
+        for id in &self.blocks {
+            visitor.visit_block(self.full(*id), self)?;
+        }
+
+        Ok(())
     }
 }

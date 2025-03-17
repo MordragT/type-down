@@ -1474,6 +1474,7 @@ dependencies = [
  "thiserror 2.0.12",
  "tyd-doc",
  "tyd-syntax",
+ "tyd-util",
 ]
 
 [[package]]
@@ -1497,8 +1498,9 @@ dependencies = [
  "ecow",
  "miette",
  "pandoc",
- "pandoc_ast",
+ "serde_json",
  "thiserror 2.0.12",
+ "tyd-doc",
  "tyd-eval",
  "tyd-syntax",
 ]

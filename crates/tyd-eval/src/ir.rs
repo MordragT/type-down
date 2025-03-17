@@ -1,115 +1,113 @@
-use ecow::EcoString;
-use std::sync::Arc;
-use tyd_syntax::Span;
+use std::collections::BTreeMap;
 
-use crate::{
-    eval::Engine,
-    value::{Downcast, Value},
-};
+use ecow::EcoString;
+use tyd_syntax::{source::Source, Span};
+
+use crate::{tracer::Tracer, value::Value};
 
 pub use pandoc_ast::*;
 
-type Repr = fn(Args, &mut Engine) -> Option<Value>;
+pub type Definition = (Vec<Inline>, Vec<Vec<Block>>);
+
+pub type Map = BTreeMap<EcoString, Value>;
+pub type List = Vec<Value>;
+pub type Content = Vec<Inline>;
 
 #[derive(Debug, Clone)]
-pub struct Func(Arc<Repr>);
+pub struct Arguments {
+    pub named: Map,
+    pub positional: List,
+    pub span: Span,
+    pub source: Source,
+}
 
-impl Func {
-    pub fn new(f: fn(Args, &mut Engine) -> Option<Value>) -> Self {
-        Self(Arc::new(f))
+impl Arguments {
+    pub fn pop<T>(&mut self) -> Option<T>
+    where
+        T: TryFrom<Value>,
+    {
+        let value = self.positional.pop()?;
+        value.try_into().ok()
     }
 
-    pub fn call(&self, args: Args, engine: &mut Engine) -> Option<Value> {
-        (self.0)(args, engine)
+    pub fn remove<T>(&mut self, name: impl AsRef<str>) -> Option<T>
+    where
+        T: TryFrom<Value>,
+    {
+        let value = self.named.remove(name.as_ref())?;
+        value.try_into().ok()
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct Call {
-    pub ident: EcoString,
-    pub args: Args,
-    pub span: Span,
+pub type Func = fn(Arguments, &mut Tracer) -> Value;
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct AttrBuilder {
+    ident: String,
+    classes: Vec<String>,
+    pairs: Vec<(String, String)>,
 }
 
-#[derive(Debug, Clone)]
-pub struct Arg {
-    pub name: Option<EcoString>,
-    pub value: Value,
-    pub span: Span,
-}
-
-#[derive(Debug, Clone)]
-pub struct NamedArg {
-    pub name: EcoString,
-    pub value: Value,
-    pub span: Span,
-}
-
-#[derive(Debug, Clone)]
-pub struct PositionalArg {
-    pub value: Value,
-    pub span: Span,
-}
-
-#[derive(Debug, Clone)]
-pub struct Args {
-    pub named: Vec<NamedArg>,
-    pub positional: Vec<PositionalArg>,
-    pub span: Span,
-}
-
-impl Args {
-    pub fn new(span: Span) -> Self {
+impl AttrBuilder {
+    pub fn new() -> Self {
         Self {
-            named: Vec::new(),
-            positional: Vec::new(),
-            span,
+            ident: String::new(),
+            classes: Vec::new(),
+            pairs: Vec::new(),
         }
     }
 
-    pub fn names(&self) -> impl Iterator<Item = EcoString> + '_ {
-        self.named.iter().map(|arg| arg.name.clone())
+    pub fn ident(mut self, ident: impl Into<String>) -> Self {
+        self.ident = ident.into();
+        self
     }
 
-    pub fn insert(&mut self, arg: Arg) {
-        let Arg { name, value, span } = arg;
-
-        if let Some(name) = name {
-            self.named.push(NamedArg { name, value, span });
-        } else {
-            self.positional.push(PositionalArg { value, span });
+    pub fn ident_opt(mut self, ident: Option<impl Into<String>>) -> Self {
+        if let Some(ident) = ident {
+            self.ident = ident.into();
         }
+        self
     }
 
-    pub fn add_named(&mut self, name: EcoString, value: Value, span: Span) {
-        self.named.push(NamedArg { name, value, span });
+    pub fn class(mut self, class: impl Into<String>) -> Self {
+        self.classes.push(class.into());
+        self
     }
 
-    pub fn add_positional(&mut self, value: Value, span: Span) {
-        self.positional.push(PositionalArg { value, span });
+    pub fn class_opt(mut self, class: Option<impl Into<String>>) -> Self {
+        if let Some(class) = class {
+            self.classes.push(class.into())
+        }
+        self
     }
 
-    pub fn is_empty(&self) -> bool {
-        self.named.is_empty() && self.positional.is_empty()
+    pub fn attr<K, V>(mut self, key: K, value: V) -> Self
+    where
+        K: Into<String>,
+        V: Into<String>,
+    {
+        self.pairs.push((key.into(), value.into()));
+        self
     }
 
-    pub fn remove_named<T: Downcast>(&mut self, name: impl AsRef<str>) -> T {
-        let pos = self
-            .named
-            .iter()
-            .position(|arg| arg.name.as_str() == name.as_ref())
-            .unwrap();
-        let arg = self.named.remove(pos);
-        T::downcast(arg.value)
+    pub fn add_attr<K, V>(&mut self, key: K, value: V)
+    where
+        K: Into<String>,
+        V: Into<String>,
+    {
+        self.pairs.push((key.into(), value.into()));
     }
 
-    pub fn remove_positonal<T: Downcast>(&mut self, pos: usize) -> T {
-        let arg = self.positional.remove(pos);
-        T::downcast(arg.value)
+    pub fn build(self) -> Attr {
+        let Self {
+            ident,
+            classes,
+            pairs,
+        } = self;
+        (ident, classes, pairs)
     }
 
-    pub fn pop_positional<T: Downcast>(&mut self) -> T {
-        let arg = self.positional.pop().unwrap();
-        T::downcast(arg.value)
+    pub fn empty() -> Attr {
+        (String::new(), Vec::new(), Vec::new())
     }
 }

@@ -208,10 +208,14 @@ pub fn block_parser<'src>() -> impl Parser<'src, &'src str, NodeId<tree::Block>,
                 }
             }
 
-            rows
+            (rows, count.unwrap())
         })
         .then(just(" ").ignore_then(label_parser()).or_not())
-        .map_to_node(|(rows, label)| tree::Table { rows, label })
+        .map_to_node(|((rows, columns), label)| tree::Table {
+            rows,
+            columns,
+            label,
+        })
         .to_block();
 
     choice((heading, raw, list, enumeration, terms, table, paragraph))
@@ -298,7 +302,8 @@ where
         .collect()
         .delimited_by(just("["), just("]"));
 
-    let nested = level_parser()
+    let nested = newline()
+        .then(level_parser())
         .ignore_then(text_parser(inline))
         .with_ctx(Context { indent: 1 })
         .delimited_by(just("["), newline().then(just("]")));
@@ -362,13 +367,20 @@ pub fn inline_parser<'src>(
 
         let content = content_parser(inline.clone()).boxed();
 
+        let letter = none_of(special)
+            .to_ecow()
+            .map_to_node(tree::Word)
+            .to_inline()
+            .map(|w| vec![w])
+            .boxed();
+
         let subscript = just("_")
-            .ignore_then(content.clone().or(word.clone().map(|w| vec![w])))
+            .ignore_then(content.clone().or(letter.clone()))
             .map_to_node(tree::Subscript)
             .to_inline();
 
         let supscript = just("^")
-            .ignore_then(content.clone().or(word.clone().map(|w| vec![w])))
+            .ignore_then(content.clone().or(letter))
             .map_to_node(tree::Supscript)
             .to_inline();
 
@@ -455,7 +467,6 @@ pub fn inline_parser<'src>(
             strikeout,
             strong,
             emphasis,
-            word,
             subscript,
             supscript,
             link,
@@ -465,6 +476,7 @@ pub fn inline_parser<'src>(
             escape,
             spacing,
             comment,
+            word,
         ))
         .boxed()
         .labelled("inline")

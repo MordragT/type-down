@@ -1,28 +1,16 @@
-use pandoc_ast as ir;
-use tyd_eval::{
-    error::EngineError,
-    hir,
-    plugin::{PluginFunc, Signature},
-    value::Value,
-};
-
-use crate::{engine::PandocEngine, visitor::PandocVisitor};
+use tyd_eval::prelude::*;
 
 #[derive(Debug, Clone, Copy)]
 pub struct HorizontalRule;
 
-impl PluginFunc<PandocEngine> for HorizontalRule {
-    fn signature() -> Signature<PandocEngine> {
+impl Plugin for HorizontalRule {
+    fn signature() -> Signature {
         Signature::new("hrule")
     }
 
-    fn call(
-        _args: hir::Args<PandocEngine>,
-        _engine: &mut PandocEngine,
-        _visitor: &PandocVisitor,
-    ) -> Result<Value<PandocEngine>, EngineError> {
+    fn call(_args: ir::Arguments, tracer: &mut Tracer) -> Value {
         let block = ir::Block::HorizontalRule;
 
-        Ok(Value::Block(block))
+        Value::Block(block)
     }
 }

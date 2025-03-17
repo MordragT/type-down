@@ -48,12 +48,15 @@ pub enum Node {
     // Code
     Code(Code),
     Expr(Expr),
-    ExprBlock(ExprBlock),
-    Ident(Ident),
+    Let(Let),
+    Bind(Bind),
+    If(If),
+    For(For),
     Call(Call),
     Args(Args),
     Arg(Arg),
     Literal(Literal),
+    Ident(Ident),
     Content(Content),
 }
 
@@ -98,12 +101,15 @@ impl_try_as!(
     // Code
     Code(Code),
     Expr(Expr),
-    ExprBlock(ExprBlock),
-    Ident(Ident),
+    Let(Let),
+    Bind(Bind),
+    If(If),
+    For(For),
     Call(Call),
     Args(Args),
     Arg(Arg),
     Literal(Literal),
+    Ident(Ident),
     Content(Content)
 );
 
@@ -152,12 +158,15 @@ impl Node {
             // Code
             Self::Code(_) => NodeKind::Code,
             Self::Expr(_) => NodeKind::Expr,
-            Self::ExprBlock(_) => NodeKind::ExprBlock,
-            Self::Ident(_) => NodeKind::Ident,
+            Self::Let(_) => NodeKind::Let,
+            Self::Bind(_) => NodeKind::Bind,
+            Self::If(_) => NodeKind::If,
+            Self::For(_) => NodeKind::For,
             Self::Call(_) => NodeKind::Call,
             Self::Args(_) => NodeKind::Args,
             Self::Arg(_) => NodeKind::Arg,
             Self::Literal(_) => NodeKind::Literal,
+            Self::Ident(_) => NodeKind::Ident,
             Self::Content(_) => NodeKind::Content,
         }
     }
@@ -205,10 +214,15 @@ impl Node {
             self,
             Self::Code(_)
                 | Self::Expr(_)
-                | Self::ExprBlock(_)
-                | Self::Ident(_)
+                | Self::Let(_)
+                | Self::Bind(_)
+                | Self::If(_)
+                | Self::For(_)
                 | Self::Call(_)
+                | Self::Args(_)
+                | Self::Arg(_)
                 | Self::Literal(_)
+                | Self::Ident(_)
                 | Self::Content(_)
         )
     }

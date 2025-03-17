@@ -42,11 +42,14 @@ pub enum NodeKind {
     // Code
     Code,
     Expr,
-    ExprBlock,
-    Ident,
+    Let,
+    Bind,
+    If,
+    For,
     Call,
     Args,
     Arg,
     Literal,
+    Ident,
     Content,
 }

@@ -1,13 +1,12 @@
 use miette::Diagnostic;
 use std::path::PathBuf;
-use tyd_doc::doc::Doc;
 
-use crate::world::World;
+use crate::ir;
 
 pub trait Render {
     type Error: Diagnostic;
 
-    fn render(doc: Doc, world: World, output: Output) -> Result<(), Self::Error>;
+    fn render(pandoc: ir::Pandoc, output: Output) -> Result<(), Self::Error>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]

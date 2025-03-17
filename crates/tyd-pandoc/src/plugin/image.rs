@@ -1,48 +1,32 @@
 use std::env::current_dir;
 
 use ecow::EcoString;
-use pandoc_ast as ir;
-use tyd_eval::{
-    error::{EngineError, EngineMessage},
-    eval::Engine,
-    hir,
-    plugin::{PluginFunc, Signature},
-    ty::Type,
-    value::Value,
-};
-
-use crate::{attr::AttrBuilder, engine::PandocEngine, visitor::PandocVisitor};
+use tyd_eval::prelude::*;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Image;
 
-impl PluginFunc<PandocEngine> for Image {
-    fn signature() -> Signature<PandocEngine> {
+impl Plugin for Image {
+    fn signature() -> Signature {
         Signature::new("image")
             .required("src", Type::Str)
-            .optional("alt", String::new())
+            .optional("alt", EcoString::new())
             .optional("width", "auto")
             .optional("height", "auto")
     }
 
-    fn call(
-        mut args: hir::Args<PandocEngine>,
-        engine: &mut PandocEngine,
-        _visitor: &PandocVisitor,
-    ) -> Result<Value<PandocEngine>, EngineError> {
-        let src = args.remove_named::<EcoString>("src");
-        let alt = args.remove_named::<EcoString>("alt");
-        let width = args.remove_named::<EcoString>("width");
-        let height = args.remove_named::<EcoString>("height");
+    fn call(mut args: ir::Arguments, tracer: &mut Tracer) -> Value {
+        let src = args.remove::<EcoString>("src").unwrap();
+        let alt = args.remove::<EcoString>("alt").unwrap();
+        let width = args.remove::<EcoString>("width").unwrap();
+        let height = args.remove::<EcoString>("height").unwrap();
 
         // work_path is the parent path of the file which is compiled at the moment
-        let path = engine.world().work_path().join(src.as_str());
+        let path = args.source.work_path().join(src.as_str());
 
         if !path.exists() {
-            return Err(EngineError::new(
-                args.span,
-                EngineMessage::FileNotFound(path),
-            ));
+            tracer.error(args.span, EngineMessage::FileNotFound(path));
+            return Value::None;
         }
 
         // FIXME does some magic here to get the src path relative to the working directory
@@ -56,7 +40,7 @@ impl PluginFunc<PandocEngine> for Image {
             .to_string_lossy()
             .to_string();
 
-        let attrs = AttrBuilder::new()
+        let attrs = ir::AttrBuilder::new()
             .attr("width", width)
             .attr("height", height)
             .build();
@@ -64,6 +48,6 @@ impl PluginFunc<PandocEngine> for Image {
 
         let image = ir::Inline::Image(attrs, vec![ir::Inline::Str(alt.to_string())], target);
 
-        Ok(Value::Inline(image))
+        Value::Inline(image)
     }
 }

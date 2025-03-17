@@ -2,15 +2,9 @@ use miette::{Diagnostic, NamedSource, Result};
 use std::{io, path::PathBuf};
 use thiserror::Error;
 
-use tyd_eval::{builtin, prelude::*};
-#[cfg(feature = "html")]
-use tyd_html::HtmlCompiler;
-#[cfg(not(feature = "html"))]
-use tyd_pandoc::format::HtmlCompiler;
-use tyd_pandoc::{
-    format::{DocxCompiler, PandocCompiler, PdfCompiler},
-    plugin,
-};
+use tyd_eval::{builtin, engine::Engine, prelude::*, scope::Scope};
+
+use tyd_pandoc::{plugin, DocxCompiler, HtmlCompiler, PandocCompiler, PdfCompiler};
 use tyd_syntax::prelude::*;
 
 #[derive(Debug, clap::Parser)]
@@ -57,34 +51,23 @@ pub enum TydError {
 fn main() -> Result<()> {
     let args: Args = clap::Parser::parse();
 
-    let scope = plugin::plugin()
-        .into_scope()
-        .register_symbol("title", "Default title")
-        .register_symbol("author", vec![Value::from("Max Mustermann")])
-        // Builtins
-        .register_func("let", builtin::Let)
-        .register_func("List", builtin::List)
-        .register_func("Map", builtin::Map);
+    let global_scope = plugin::plugin()
+        .with("title", "Default title")
+        .with("author", vec![Value::from("Max Mustermann")])
+        .with("List", builtin::List)
+        .with("Map", builtin::Map);
 
     match args.command {
         Commands::Check { path } => {
-            let world = World::new(path, scope).map_err(TydError::Io)?;
-            let mut parser = Parser::new(world.source());
-            let result = parser.try_parse();
+            let source = Source::from_path(path).map_err(TydError::Io)?;
 
-            if result.has_errors() {
-                let related = result.errors().cloned().map(Into::into).collect::<Vec<_>>();
-                let report: miette::Report = SyntaxErrors {
-                    related,
-                    src: world.named_source(),
-                }
-                .into();
-                println!("{report:?}");
-            }
+            let ParseResult { doc, spans, errors } = parse(&source);
 
-            if let Some(ast) = result.into_output() {
-                println!("{ast:?}");
-            }
+            let doc = doc.ok_or(errors)?;
+
+            let pandoc = Engine::new(global_scope, spans, source).run(doc)?;
+
+            PandocCompiler::render(pandoc, Output::Stdout)?;
         }
         Commands::Format { path } => {
             todo!()
@@ -94,10 +77,13 @@ fn main() -> Result<()> {
             output,
             format,
         } => {
-            let world = World::new(input, scope).map_err(TydError::Io)?;
-            let mut parser = Parser::new(world.source());
-            let node = parser.parse()?;
-            let doc = Document::from_node(&node).expect("what the hell happened here ? ;)");
+            let source = Source::from_path(input).map_err(TydError::Io)?;
+
+            let ParseResult { doc, spans, errors } = parse(&source);
+
+            let doc = doc.ok_or(errors)?;
+
+            let pandoc = Engine::new(global_scope, spans, source).run(doc)?;
 
             let output = match output {
                 Some(path) => Output::File(path),
@@ -105,10 +91,10 @@ fn main() -> Result<()> {
             };
 
             match format {
-                Format::Html => HtmlCompiler::render(doc, world, output)?,
-                Format::Pdf => PdfCompiler::render(doc, world, output)?,
-                Format::Docx => DocxCompiler::render(doc, world, output)?,
-                Format::Json => PandocCompiler::render(doc, world, output)?,
+                Format::Html => HtmlCompiler::render(pandoc, output)?,
+                Format::Pdf => PdfCompiler::render(pandoc, output)?,
+                Format::Docx => DocxCompiler::render(pandoc, output)?,
+                Format::Json => PandocCompiler::render(pandoc, output)?,
             }
         }
     }

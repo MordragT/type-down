@@ -18,6 +18,7 @@ pub mod prelude {
 
 pub type SpanMetadata = Metadata<SyntaxPhase>;
 pub type Span = SimpleSpan<usize>;
+pub type Spanned<T> = (T, Span);
 
 #[derive(Clone, Copy, Debug)]
 pub struct SyntaxPhase;
@@ -65,11 +66,14 @@ impl Phase for SyntaxPhase {
     // Code
     type Code = Span;
     type Expr = Span;
-    type ExprBlock = Span;
-    type Ident = Span;
+    type Let = Span;
+    type Bind = Span;
+    type If = Span;
+    type For = Span;
     type Call = Span;
     type Args = Span;
     type Arg = Span;
     type Literal = Span;
+    type Ident = Span;
     type Content = Span;
 }

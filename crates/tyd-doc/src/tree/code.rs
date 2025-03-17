@@ -9,39 +9,58 @@ pub struct Code(pub NodeId<Expr>);
 
 #[derive(Debug, From, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Expr {
-    Ident(NodeId<Ident>),
+    Let(NodeId<Let>),
+    If(NodeId<If>),
+    For(NodeId<For>),
     Call(NodeId<Call>),
     Literal(NodeId<Literal>),
-    Block(NodeId<ExprBlock>),
+    Ident(NodeId<Ident>),
     Content(NodeId<Content>),
 }
 
 #[derive(Debug, From, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[from(forward)]
-pub struct Ident(pub EcoString);
+pub struct Let(pub Vec<NodeId<Bind>>);
 
-#[derive(Debug, From, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ExprBlock(pub Vec<NodeId<Expr>>);
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Bind {
+    pub name: NodeId<Ident>,
+    pub value: NodeId<Expr>,
+}
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct If {
+    pub predicate: NodeId<Expr>,
+    pub then: NodeId<Content>,
+    pub or: NodeId<Content>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct For {
+    pub el: NodeId<Ident>,
+    pub inside: NodeId<Expr>,
+    pub content: NodeId<Content>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Call {
     pub ident: NodeId<Ident>,
     pub args: NodeId<Args>,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Args {
     pub args: Vec<NodeId<Arg>>,
     pub content: Option<NodeId<Content>>,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Arg {
-    pub key: Option<NodeId<Ident>>,
+    pub name: Option<NodeId<Ident>>,
     pub value: NodeId<Expr>,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug, From, Clone, PartialEq, PartialOrd)]
 pub enum Literal {
     Str(EcoString),
     Int(i64),
@@ -49,5 +68,10 @@ pub enum Literal {
     Bool(bool),
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug, From, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[from(forward)]
+pub struct Ident(pub EcoString);
+
+#[derive(Debug, From, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[from(forward)]
 pub struct Content(pub Vec<NodeId<Inline>>);

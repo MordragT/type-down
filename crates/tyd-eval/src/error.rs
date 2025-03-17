@@ -1,9 +1,9 @@
-use std::{path::PathBuf, sync::Arc};
+use std::path::PathBuf;
 
 use ecow::EcoString;
-use miette::{Diagnostic, NamedSource, SourceSpan};
+use miette::{Diagnostic, SourceSpan};
 use thiserror::Error;
-use tyd_syntax::Span;
+use tyd_syntax::{source::Source, Span};
 
 use crate::ty::Type;
 
@@ -14,7 +14,7 @@ pub type EngineResult<T> = Result<T, Vec<EngineError>>;
 #[diagnostic()]
 pub struct EngineErrors {
     #[source_code]
-    pub src: NamedSource<Arc<str>>,
+    pub src: Source,
     #[related]
     pub related: Vec<EngineError>,
 }
@@ -49,6 +49,8 @@ impl EngineError {
 
 #[derive(Clone, Error, Debug, Diagnostic)]
 pub enum EngineMessage {
+    #[error("Tree Error: {0:?}")]
+    Doc(tyd_doc::tree::Error),
     #[error(transparent)]
     Argument(#[from] ArgumentError),
     #[error("Function '{0}' not found")]
