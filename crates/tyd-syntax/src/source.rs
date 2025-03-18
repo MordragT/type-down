@@ -1,8 +1,4 @@
-use std::{
-    fmt, fs, io,
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::{fmt, fs, io, path::Path, sync::Arc};
 
 use miette::SourceCode;
 

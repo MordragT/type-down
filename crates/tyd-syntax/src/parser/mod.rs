@@ -1,11 +1,7 @@
 use chumsky::prelude::*;
-use tyd_doc::prelude::*;
+use tyd_core::prelude::*;
 
-use crate::{
-    error::{SyntaxError, SyntaxErrors},
-    source::Source,
-    SpanMetadata,
-};
+use crate::{error::SourceDiagnostic, source::Source, SpanMetadata};
 
 pub mod code;
 pub mod ext;
@@ -15,7 +11,7 @@ pub mod markup;
 pub struct ParseResult {
     pub doc: Option<Doc>,
     pub spans: SpanMetadata,
-    pub errors: SyntaxErrors,
+    pub errors: Vec<SourceDiagnostic>,
 }
 
 pub fn parse(source: &Source) -> ParseResult {
@@ -35,8 +31,7 @@ pub fn parse(source: &Source) -> ParseResult {
     let spans = Metadata::from(meta);
     let doc = blocks.map(|blocks| builder.finish(blocks));
 
-    let related = errors.into_iter().map(SyntaxError::from).collect();
-    let errors = SyntaxErrors::with_related(source.clone(), related);
+    let errors = errors.into_iter().map(SourceDiagnostic::from).collect();
 
     return ParseResult { doc, spans, errors };
 }

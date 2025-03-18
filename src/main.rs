@@ -1,10 +1,7 @@
-use miette::{Diagnostic, NamedSource, Result};
-use std::{io, path::PathBuf};
-use thiserror::Error;
+use miette::{IntoDiagnostic, Report, Result};
+use std::path::PathBuf;
 
-use tyd_eval::{builtin, engine::Engine, prelude::*, scope::Scope};
-
-use tyd_pandoc::{plugin, DocxCompiler, HtmlCompiler, PandocCompiler, PdfCompiler};
+use tyd_eval::prelude::*;
 use tyd_syntax::prelude::*;
 
 #[derive(Debug, clap::Parser)]
@@ -38,36 +35,41 @@ pub enum Format {
     Json,
 }
 
-#[derive(Debug, Error, Diagnostic)]
-pub enum TydError {
-    #[diagnostic(transparent)]
-    #[error(transparent)]
-    Parse(#[from] SyntaxErrors),
-    #[error(transparent)]
-    #[diagnostic(code(type_down::TydError::Io))]
-    Io(#[from] io::Error),
-}
-
 fn main() -> Result<()> {
     let args: Args = clap::Parser::parse();
 
-    let global_scope = plugin::plugin()
+    let mut global_scope = Scope::empty();
+
+    global_scope
+        .register::<BuiltinPlugin>()
         .with("title", "Default title")
-        .with("author", vec![Value::from("Max Mustermann")])
-        .with("List", builtin::List)
-        .with("Map", builtin::Map);
+        .with("author", vec![Value::from("Max Mustermann")]);
 
     match args.command {
         Commands::Check { path } => {
-            let source = Source::from_path(path).map_err(TydError::Io)?;
+            let source = Source::from_path(path).into_diagnostic()?;
 
             let ParseResult { doc, spans, errors } = parse(&source);
 
-            let doc = doc.ok_or(errors)?;
+            let tracer = Tracer::with_diagnostics(errors, source, spans);
 
-            let pandoc = Engine::new(global_scope, spans, source).run(doc)?;
+            let doc = if let Some(doc) = doc {
+                doc
+            } else {
+                return Err(tracer.into());
+            };
 
-            PandocCompiler::render(pandoc, Output::Stdout)?;
+            let EngineResult { pandoc, mut tracer } = Engine::new(global_scope, tracer).run(doc);
+
+            let pandoc = if let Some(pandoc) = pandoc {
+                pandoc
+            } else {
+                return Err(tracer.into());
+            };
+
+            PandocCompiler::render(pandoc, Output::Stdout, &mut tracer);
+
+            eprintln!("{:?}", Report::new(tracer))
         }
         Commands::Format { path } => {
             todo!()
@@ -77,13 +79,25 @@ fn main() -> Result<()> {
             output,
             format,
         } => {
-            let source = Source::from_path(input).map_err(TydError::Io)?;
+            let source = Source::from_path(input).into_diagnostic()?;
 
             let ParseResult { doc, spans, errors } = parse(&source);
 
-            let doc = doc.ok_or(errors)?;
+            let tracer = Tracer::with_diagnostics(errors, source, spans);
 
-            let pandoc = Engine::new(global_scope, spans, source).run(doc)?;
+            let doc = if let Some(doc) = doc {
+                doc
+            } else {
+                return Err(tracer.into());
+            };
+
+            let EngineResult { pandoc, mut tracer } = Engine::new(global_scope, tracer).run(doc);
+
+            let pandoc = if let Some(pandoc) = pandoc {
+                pandoc
+            } else {
+                return Err(tracer.into());
+            };
 
             let output = match output {
                 Some(path) => Output::File(path),
@@ -91,11 +105,13 @@ fn main() -> Result<()> {
             };
 
             match format {
-                Format::Html => HtmlCompiler::render(pandoc, output)?,
-                Format::Pdf => PdfCompiler::render(pandoc, output)?,
-                Format::Docx => DocxCompiler::render(pandoc, output)?,
-                Format::Json => PandocCompiler::render(pandoc, output)?,
+                Format::Html => HtmlCompiler::render(pandoc, output, &mut tracer),
+                Format::Pdf => PdfCompiler::render(pandoc, output, &mut tracer),
+                Format::Docx => DocxCompiler::render(pandoc, output, &mut tracer),
+                Format::Json => PandocCompiler::render(pandoc, output, &mut tracer),
             }
+
+            eprintln!("{:?}", Report::new(tracer))
         }
     }
 

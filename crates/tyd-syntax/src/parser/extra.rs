@@ -1,6 +1,5 @@
 use chumsky::prelude::*;
-use tyd_doc::prelude::*;
-use tyd_util::TryAsRef;
+use tyd_core::prelude::*;
 
 use crate::{Span, SyntaxPhase};
 

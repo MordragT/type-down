@@ -1,6 +1,6 @@
 use chumsky::{combinator::*, prelude::*};
 use ecow::EcoString;
-use tyd_doc::prelude::*;
+use tyd_core::prelude::*;
 
 use crate::{Span, SyntaxPhase};
 

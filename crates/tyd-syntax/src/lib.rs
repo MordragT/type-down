@@ -3,7 +3,7 @@
 #![feature(let_chains)]
 
 use chumsky::span::SimpleSpan;
-use tyd_doc::meta::{Metadata, Phase};
+use tyd_core::meta::{Metadata, Phase};
 
 pub mod error;
 pub mod parser;

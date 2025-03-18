@@ -1,12 +1,20 @@
 use ecow::EcoString;
-use tyd_util::TryAsRef;
+use std::collections::{
+    btree_map::{IntoKeys, IntoValues, Keys, Values},
+    BTreeMap,
+};
 
-use crate::{ir, value::Value};
+use crate::{
+    ir,
+    ty::Type,
+    value::{TypeCast, Value},
+    Plugin,
+};
 
 #[derive(Debug, Clone, Default)]
 pub struct Scope {
-    pub parent: Option<Box<Self>>,
-    pub scope: ir::Map,
+    parent: Option<Box<Self>>,
+    scope: BTreeMap<EcoString, Value>,
 }
 
 impl Scope {
@@ -21,10 +29,12 @@ impl Scope {
         Self::default()
     }
 
-    pub fn with<T>(mut self, name: impl Into<EcoString>, value: T) -> Self
-    where
-        T: Into<Value>,
-    {
+    pub fn register<P: Plugin>(&mut self) -> &mut Self {
+        P::init(self);
+        self
+    }
+
+    pub fn with(&mut self, name: impl Into<EcoString>, value: impl Into<Value>) -> &mut Self {
         self.insert(name.into(), value);
         self
     }
@@ -33,30 +43,60 @@ impl Scope {
         self.scope.clear();
     }
 
-    pub fn lookup<T>(&self, name: &EcoString) -> Option<T>
-    where
-        Value: TryAsRef<T>,
-        T: Clone,
-    {
-        self.scope
-            .get(name)
-            .and_then(|value| value.try_as_ref().cloned())
-            .or_else(|| self.parent.as_ref().and_then(|parent| parent.lookup(name)))
+    pub fn symbols(&self) -> Keys<EcoString, Value> {
+        self.scope.keys()
     }
 
-    pub fn lookup_str(&self, name: &EcoString) -> Option<EcoString> {
-        self.lookup::<EcoString>(name)
+    pub fn values(&self) -> Values<EcoString, Value> {
+        self.scope.values()
     }
 
-    pub fn insert<T>(&mut self, name: EcoString, value: T) -> Option<Value>
+    pub fn into_symbols(self) -> IntoKeys<EcoString, Value> {
+        self.scope.into_keys()
+    }
+
+    pub fn into_values(self) -> IntoValues<EcoString, Value> {
+        self.scope.into_values()
+    }
+
+    pub fn get(&self, name: impl AsRef<str>) -> Option<Value> {
+        if let Some(val) = self.scope.get(name.as_ref()) {
+            Some(val.clone())
+        } else if let Some(p) = self.parent.as_ref() {
+            p.get(name)
+        } else {
+            None
+        }
+    }
+
+    pub fn try_get<T>(&self, name: impl AsRef<str>) -> Option<Result<T, Type>>
     where
-        T: Into<Value>,
+        T: TypeCast + Clone,
     {
+        if let Some(val) = self.scope.get(name.as_ref()) {
+            Some(T::try_downcast_cloned(val))
+        } else if let Some(p) = self.parent.as_ref() {
+            p.try_get(name)
+        } else {
+            None
+        }
+    }
+
+    pub fn insert(&mut self, name: EcoString, value: impl Into<Value>) -> Option<Value> {
         self.scope.insert(name, value.into())
     }
 
-    pub fn remove(&mut self, name: &EcoString) -> Option<Value> {
-        self.scope.remove(name)
+    pub fn remove(&mut self, name: impl AsRef<str>) -> Option<Value> {
+        self.scope.remove(name.as_ref())
+    }
+
+    pub fn try_remove<T>(&mut self, name: impl AsRef<str>) -> Option<Result<T, Type>>
+    where
+        T: TypeCast,
+    {
+        let value = self.remove(name);
+
+        value.map(T::try_downcast)
     }
 
     pub fn extend(&mut self, iter: impl IntoIterator<Item = (EcoString, Value)>) {
@@ -73,136 +113,8 @@ impl Scope {
         std::mem::swap(self, &mut parent);
         *parent
     }
+
+    pub fn into_inner(self) -> BTreeMap<EcoString, Value> {
+        self.scope
+    }
 }
-
-// /// A stack of scopes.
-// #[derive(Debug, Clone)]
-// pub struct Scopes {
-//     scopes: Vec<Scope>,
-//     base: Arc<Scope>,
-// }
-
-// impl Scopes {
-//     pub fn new(base: Arc<Scope>) -> Self {
-//         Self {
-//             base,
-//             scopes: vec![Scope::new()],
-//         }
-//     }
-
-//     pub fn with_scope(base: Arc<Scope>, scope: Scope) -> Self {
-//         Self {
-//             base,
-//             scopes: vec![scope],
-//         }
-//     }
-
-//     pub fn enter(&mut self) {
-//         self.scopes.push(Scope::new())
-//     }
-
-//     pub fn exit(&mut self) {
-//         self.scopes.pop().expect("no active scope");
-//     }
-
-//     pub fn symbol(&self, name: impl AsRef<str>) -> Option<Value> {
-//         let name = name.as_ref();
-
-//         self.scopes
-//             .iter()
-//             .rev()
-//             .chain(std::iter::once(self.base.as_ref()))
-//             .find_map(|scope| scope.symbol(name))
-//     }
-
-//     pub fn func(&self, name: impl AsRef<str>) -> Option<ir::Func> {
-//         let name = name.as_ref();
-
-//         self.scopes
-//             .iter()
-//             .rev()
-//             .chain(std::iter::once(self.base.as_ref()))
-//             .find_map(|scope| scope.func(name))
-//     }
-
-//     pub fn define_symbol<N, V>(&mut self, name: N, value: V) -> Option<Value>
-//     where
-//         N: Into<EcoString>,
-//         V: Into<Value>,
-//     {
-//         self.scopes
-//             .last_mut()
-//             .expect("no active scope")
-//             .define_symbol(name, value)
-//     }
-
-//     pub fn define_func<N, F>(&mut self, name: N, func: F) -> Option<Value>
-//     where
-//         N: Into<EcoString>,
-//         F: Into<ir::Func>,
-//     {
-//         self.scopes
-//             .last_mut()
-//             .expect("no active scope")
-//             .define_func(name, func)
-//     }
-// }
-
-// /// A scoped table binding names to values.
-// #[derive(Debug, Clone)]
-// pub struct Scope {
-//     symbols: Map,
-// }
-
-// impl Scope {
-//     pub fn new() -> Self {
-//         Self {
-//             symbols: Map::new(),
-//         }
-//     }
-
-//     pub fn symbol(&self, name: impl AsRef<str>) -> Option<Value> {
-//         self.symbols.get(name.as_ref()).cloned()
-//     }
-
-//     pub fn func(&self, name: impl AsRef<str>) -> Option<ir::Func> {
-//         self.symbols
-//             .get(name.as_ref())
-//             .cloned()
-//             .and_then(|value| value.into_func())
-//     }
-
-//     pub fn register_symbol<N, V>(mut self, name: N, value: V) -> Self
-//     where
-//         N: Into<EcoString>,
-//         V: Into<Value>,
-//     {
-//         self.define_symbol(name, value);
-//         self
-//     }
-
-//     pub fn register_func<N, F>(mut self, name: N, func: F) -> Self
-//     where
-//         N: Into<EcoString>,
-//         F: Into<ir::Func>,
-//     {
-//         self.define_func(name, func);
-//         self
-//     }
-
-//     pub fn define_symbol<N, V>(&mut self, name: N, value: V) -> Option<Value>
-//     where
-//         N: Into<EcoString>,
-//         V: Into<Value>,
-//     {
-//         self.symbols.insert(name.into(), value.into())
-//     }
-
-//     pub fn define_func<N, F>(&mut self, name: N, func: F) -> Option<Value>
-//     where
-//         N: Into<EcoString>,
-//         F: Into<ir::Func>,
-//     {
-//         self.symbols.insert(name.into(), Value::Func(func.into()))
-//     }
-// }

@@ -2,7 +2,7 @@ use chumsky::{
     prelude::*,
     text::{inline_whitespace, newline, unicode},
 };
-use tyd_doc::prelude::*;
+use tyd_core::prelude::*;
 
 use super::{ext::ParserExt, extra::Extra, markup};
 

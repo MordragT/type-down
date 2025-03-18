@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use ecow::EcoString;
 use tyd_syntax::{source::Source, Span};
 
-use crate::{tracer::Tracer, value::Value};
+use crate::{scope::Scope, stack::Stack, tracer::Tracer, value::Value};
 
 pub use pandoc_ast::*;
 
@@ -13,33 +13,7 @@ pub type Map = BTreeMap<EcoString, Value>;
 pub type List = Vec<Value>;
 pub type Content = Vec<Inline>;
 
-#[derive(Debug, Clone)]
-pub struct Arguments {
-    pub named: Map,
-    pub positional: List,
-    pub span: Span,
-    pub source: Source,
-}
-
-impl Arguments {
-    pub fn pop<T>(&mut self) -> Option<T>
-    where
-        T: TryFrom<Value>,
-    {
-        let value = self.positional.pop()?;
-        value.try_into().ok()
-    }
-
-    pub fn remove<T>(&mut self, name: impl AsRef<str>) -> Option<T>
-    where
-        T: TryFrom<Value>,
-    {
-        let value = self.named.remove(name.as_ref())?;
-        value.try_into().ok()
-    }
-}
-
-pub type Func = fn(Arguments, &mut Tracer) -> Value;
+pub type Func = fn(Stack, Scope, Source, Span, &mut Tracer) -> Value;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct AttrBuilder {

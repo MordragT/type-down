@@ -6,11 +6,12 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tyd-doc.workspace = true
+tyd-core.workspace = true
 tyd-syntax.workspace = true
-tyd-util.workspace = true
 miette.workspace = true
 thiserror.workspace = true
 ecow.workspace = true
 derive_more.workspace = true
 pandoc_ast = "0.8.6"
+pandoc = "0.8.11"
+serde_json = "1.0"

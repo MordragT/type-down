@@ -6,8 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tyd-util.workspace = true
-tyd-doc.workspace = true
+tyd-core.workspace = true
 miette.workspace = true
 thiserror.workspace = true
 ecow.workspace = true

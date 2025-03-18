@@ -8,7 +8,6 @@ edition = "2021"
 [dependencies]
 tyd-syntax.workspace = true
 tyd-eval.workspace = true
-tyd-pandoc.workspace = true
 ecow.workspace = true
 tower-lsp = { version = "0.20.0", default-features = false, features = [
     "runtime-agnostic",

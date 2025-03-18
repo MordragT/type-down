@@ -1,19 +1,26 @@
 use ecow::EcoString;
 use std::{collections::BTreeMap, fmt::Debug, mem};
-use tyd_doc::prelude::*;
+use tyd_core::prelude::*;
 use tyd_syntax::{source::Source, SpanMetadata};
 
 use crate::{
-    error::{ArgumentError, EngineErrors, EngineMessage},
+    error::{EngineError, SymbolError, TypeError},
     ir,
     scope::Scope,
+    stack::Stack,
     tracer::Tracer,
     ty::Type,
-    value::Value,
+    value::{TypeCast, Value},
 };
 
+#[derive(Debug)]
+pub struct EngineResult {
+    pub pandoc: Option<ir::Pandoc>,
+    pub tracer: Tracer,
+}
+
 /// The core component, responsible for typesetting
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Engine {
     pub inlines: Vec<ir::Inline>,
     pub blocks: Vec<ir::Block>,
@@ -21,14 +28,15 @@ pub struct Engine {
     pub definitions: Vec<ir::Definition>,
     pub bullet_list: Vec<Vec<ir::Block>>,
     pub ordered_list: Vec<Vec<ir::Block>>,
-    pub stack: Vec<Value>,
+    pub stack: Stack,
     pub scope: Scope,
     pub tracer: Tracer,
     pub source: Source,
+    pub spans: SpanMetadata,
 }
 
 impl Engine {
-    pub fn new(global_scope: Scope, spans: SpanMetadata, source: Source) -> Self {
+    pub fn new(global_scope: Scope, tracer: Tracer) -> Self {
         Self {
             inlines: Vec::new(),
             blocks: Vec::new(),
@@ -36,15 +44,21 @@ impl Engine {
             definitions: Vec::new(),
             bullet_list: Vec::new(),
             ordered_list: Vec::new(),
-            stack: Vec::new(),
+            stack: Stack::new(),
             scope: Scope::new(global_scope),
-            tracer: Tracer::new(spans),
-            source,
+            source: tracer.source.clone(),
+            spans: tracer.spans.clone(),
+            tracer,
         }
     }
 
-    pub fn run(mut self, doc: Doc) -> Result<ir::Pandoc, EngineErrors> {
-        doc.visit_by(&mut self)?;
+    pub fn run(mut self, doc: Doc) -> EngineResult {
+        if let Err(tracer) = doc.visit_by(&mut self) {
+            return EngineResult {
+                pandoc: None,
+                tracer,
+            };
+        }
 
         let Self {
             blocks,
@@ -55,8 +69,9 @@ impl Engine {
             ordered_list,
             stack,
             scope,
-            tracer,
-            source,
+            mut tracer,
+            source: _,
+            spans: _,
         } = self;
 
         assert!(inlines.is_empty());
@@ -67,26 +82,39 @@ impl Engine {
         assert!(stack.is_empty());
 
         if tracer.has_errors() {
-            return Err(EngineErrors {
-                src: source,
-                related: tracer.into_errors(),
-            })?;
+            return EngineResult {
+                pandoc: None,
+                tracer,
+            };
         }
 
         let mut meta = BTreeMap::new();
 
-        if let Some(title) = scope.lookup_str(&EcoString::from("title")) {
-            meta.insert(
-                "title".to_owned(),
-                ir::MetaValue::MetaString(title.to_string()),
-            );
+        if let Some(title) = scope.try_get::<EcoString>("title") {
+            match title {
+                Ok(tittle) => {
+                    meta.insert(
+                        "title".to_owned(),
+                        ir::MetaValue::MetaString(tittle.to_string()),
+                    );
+                }
+                Err(got) => tracer.error(TypeError::WrongType {
+                    got,
+                    expected: Type::Str,
+                }),
+            };
         }
 
-        Ok(ir::Pandoc {
+        let pandoc = ir::Pandoc {
             pandoc_api_version: vec![1, 23, 1],
             meta,
             blocks,
-        })
+        };
+
+        EngineResult {
+            pandoc: Some(pandoc),
+            tracer,
+        }
     }
 
     pub fn take_blocks(&mut self) -> Vec<ir::Block> {
@@ -113,10 +141,6 @@ impl Engine {
         mem::take(&mut self.ordered_list)
     }
 
-    pub fn take_stack(&mut self) -> Vec<Value> {
-        mem::take(&mut self.stack)
-    }
-
     pub fn replace_blocks(&mut self, src: Vec<ir::Block>) -> Vec<ir::Block> {
         mem::replace(&mut self.blocks, src)
     }
@@ -140,22 +164,17 @@ impl Engine {
     pub fn replace_ordered_list(&mut self, src: Vec<Vec<ir::Block>>) -> Vec<Vec<ir::Block>> {
         mem::replace(&mut self.ordered_list, src)
     }
-
-    pub fn replace_stack(&mut self, src: Vec<Value>) -> Vec<Value> {
-        mem::replace(&mut self.stack, src)
-    }
 }
 
 impl Visitor for Engine {
-    type Error = EngineErrors;
+    type Error = Tracer;
 
     fn visit_error(
         &mut self,
         (error, id): Full<tree::Error>,
         _doc: &Doc,
     ) -> Result<(), Self::Error> {
-        self.tracer
-            .node_error(id, EngineMessage::Doc(error.clone()));
+        self.tracer.node_error(id, error);
         Ok(())
     }
 
@@ -539,7 +558,7 @@ impl Visitor for Engine {
                 if self.inlines.is_empty() {
                     self.blocks.push(block);
                 } else {
-                    self.tracer.node_error(id, EngineMessage::ExpectedInline);
+                    self.tracer.node_error(id, EngineError::ExpectedInline);
                 }
 
                 return Ok(());
@@ -566,7 +585,7 @@ impl Visitor for Engine {
             self.visit_bind(doc.full(*id), doc)?;
         }
 
-        self.stack.push(Value::None);
+        self.stack.push_none();
         Ok(())
     }
 
@@ -593,16 +612,13 @@ impl Visitor for Engine {
 
         self.visit_expr(doc.full(*predicate), doc)?;
 
-        let pred = self.stack.pop().unwrap();
-        let got = pred.ty();
-
-        let pred = match pred.into_bool() {
-            Some(p) => p,
-            None => {
-                self.stack.push(Value::None);
+        let pred = match self.stack.try_pop::<bool>().unwrap() {
+            Ok(p) => p,
+            Err(got) => {
+                self.stack.push_none();
                 self.tracer.node_error(
                     id,
-                    ArgumentError::WrongType {
+                    TypeError::WrongType {
                         got,
                         expected: Type::Bool,
                     },
@@ -631,16 +647,13 @@ impl Visitor for Engine {
 
         // TODO allow maps
 
-        let collection = self.stack.pop().unwrap();
-        let got = collection.ty();
-
-        let collection = match collection.into_list() {
-            Some(list) => list,
-            None => {
-                self.stack.push(Value::None);
+        let collection = match self.stack.try_pop::<ir::List>().unwrap() {
+            Ok(list) => list,
+            Err(got) => {
+                self.stack.push_none();
                 self.tracer.node_error(
                     id,
-                    ArgumentError::WrongType {
+                    TypeError::WrongType {
                         got,
                         expected: Type::list(Type::Any),
                     },
@@ -649,7 +662,7 @@ impl Visitor for Engine {
             }
         };
 
-        let stack = self.take_stack();
+        let stack = self.stack.take();
 
         let name = doc.node(*el).0.clone();
         for value in collection {
@@ -659,9 +672,10 @@ impl Visitor for Engine {
         }
 
         let content = self
-            .replace_stack(stack)
+            .stack
+            .replace(stack)
             .into_iter()
-            .flat_map(|val| val.into_content().unwrap())
+            .flat_map(|val| ir::Content::try_downcast(val).unwrap())
             .collect();
         self.stack.push(Value::Content(content));
 
@@ -673,28 +687,38 @@ impl Visitor for Engine {
 
         let ident = &doc.node(*ident).0;
 
-        match self.scope.lookup::<ir::Func>(ident) {
-            Some(f) => {
-                let stack = self.take_stack();
+        match self.scope.try_get::<ir::Func>(ident) {
+            Some(Ok(f)) => {
+                let stack = self.stack.take();
 
                 self.scope.enter();
                 self.visit_args(doc.full(*args), doc)?;
-                let args = ir::Arguments {
-                    named: self.scope.exit().scope,
-                    positional: self.take_stack(),
-                    span: self.tracer.span(id),
-                    source: self.source.clone(),
-                };
 
-                let result = f(args, &mut self.tracer);
+                let result = f(
+                    self.stack.take(),
+                    self.scope.exit(),
+                    self.source.clone(),
+                    self.spans.get(id).inner_copied(),
+                    &mut self.tracer,
+                );
 
-                self.replace_stack(stack);
+                self.stack.replace(stack);
                 self.stack.push(result);
             }
+            Some(Err(got)) => {
+                self.tracer.node_error(
+                    id,
+                    TypeError::WrongType {
+                        got,
+                        expected: Type::Func,
+                    },
+                );
+                self.stack.push_none();
+            }
             None => {
-                self.stack.push(Value::None);
+                self.stack.push_none();
                 self.tracer
-                    .node_error(id, EngineMessage::FunctionNotFound(ident.clone()));
+                    .node_error(id, SymbolError::NotFound(ident.clone()));
             }
         }
 
@@ -737,12 +761,12 @@ impl Visitor for Engine {
         (ident, id): Full<tree::Ident>,
         _doc: &Doc,
     ) -> Result<(), Self::Error> {
-        match self.scope.lookup(&ident.0) {
+        match self.scope.get(&ident.0) {
             Some(v) => self.stack.push(v),
             None => {
-                self.stack.push(Value::None);
+                self.stack.push_none();
                 self.tracer
-                    .node_error(id, EngineMessage::SymbolNotFound(ident.0.clone()));
+                    .node_error(id, SymbolError::NotFound(ident.0.clone()));
             }
         }
 

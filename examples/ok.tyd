@@ -42,7 +42,7 @@ $ \forall x \in X, \quad \exists y \leq \epsilon $
 
 #List("a", "b", 3)
 
-#hrule()
+#hrule(test: "a")
 
 == heading \@
 

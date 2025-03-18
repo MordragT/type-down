@@ -3,11 +3,7 @@ use std::fmt::Debug;
 
 use ecow::EcoString;
 
-pub trait Typed {
-    const TYPE: Type;
-}
-
-#[derive(Debug, Clone, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialOrd, Ord, Hash)]
 pub enum Type {
     Map(Vec<(EcoString, Self)>),
     List(Box<Self>),

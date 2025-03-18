@@ -3,7 +3,7 @@ use chumsky::{
     text::{newline, unicode},
 };
 use constcat::concat_slices;
-use tyd_doc::prelude::*;
+use tyd_core::prelude::*;
 
 use super::{
     code::code_parser,
