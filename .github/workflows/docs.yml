@@ -62,10 +62,8 @@ jobs:
         run: pnpm docs:build
         working-directory: ./docs
 
-      - name: Upload docs.rs artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: target/doc
+      - name: Move docs.rs
+        run: mv ./target/doc/* ./docs/.vitepress/dist
       - name: Upload VitePress artifact
         uses: actions/upload-pages-artifact@v3
         with:
