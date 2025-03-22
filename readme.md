@@ -2,7 +2,15 @@
 
 # TypeDown ✒️
 
- [![NixOS](https://img.shields.io/badge/Flakes-Nix-informational.svg?logo=nixos&style=for-the-badge)](https://nixos.org) ![License](https://img.shields.io/github/license/mordragt/type-down?style=for-the-badge) 
+ [![NixOS][nixos-badge]][nixos-url]
+ [![Docs][docs.rs-badge]][docs.rs-url]
+ ![License][license]
+
+[docs.rs-badge]: https://img.shields.io/badge/docs.rs-typedown-4d76ae?style=for-the-badge
+[docs.rs-url]: https://mordragt.github.io/type-down/
+[nixos-badge]: https://img.shields.io/badge/Flakes-Nix-informational.svg?logo=nixos&style=for-the-badge
+[nixos-url]: https://nixos.org
+[license]: https://img.shields.io/github/license/mordragt/type-down?style=for-the-badge
 
 Simple Markup language, easily embeddable and extendable.
 

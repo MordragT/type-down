@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/*"]
+members = ["crates/tyd-syntax", "crates/tyd-core", "crates/tyd-eval"]
 
 [workspace.dependencies]
 tyd-syntax = { path = "crates/tyd-syntax" }
