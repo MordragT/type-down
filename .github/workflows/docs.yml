@@ -1,5 +1,5 @@
 
-name: VitePress Docs
+name: VitePress & Docs.rs Documentation
 
 on:
   push:
@@ -23,15 +23,19 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./docs
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0 # Not needed if lastUpdated is not enabled
-      - uses: pnpm/action-setup@v3
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@nightly
+      - name: Configure Rust Cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
         with:
           version: 10 # Not needed if you've set "packageManager" in package.json
       - name: Setup Node
@@ -40,15 +44,29 @@ jobs:
           node-version: 20
           cache: pnpm
           cache-dependency-path: ./docs/pnpm-lock.yaml
+
       - name: Setup Pages
-        uses: actions/configure-pages@v4
-        with:
-          path: ./docs
-      - name: Install dependencies
+        uses: actions/configure-pages@v5
+
+      - name: Clean docs.rs folder
+        run: cargo clean --doc
+      - name: Build docs.rs
+        run: cargo doc --workspace --no-deps
+      - name: Remove lock file
+        run: rm target/doc/.lock
+
+      - name: Install VitePress dependencies
         run: pnpm install
+        working-directory: ./docs
       - name: Build with VitePress
         run: pnpm docs:build
-      - name: Upload artifact
+        working-directory: ./docs
+
+      - name: Upload docs.rs artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: target/doc
+      - name: Upload VitePress artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: ./docs/.vitepress/dist
