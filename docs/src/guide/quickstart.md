@@ -7,7 +7,7 @@
 - Rust Nightly with Cargo.
 - Terminal for accessing TypeDown via its command line interface (CLI).
 - Text Editor
-  - VSCode is recommend, along with the [official extension](example.com) <!-- TODO -->
+  - VSCode is recommend, along with the [official extension](https://example.com) <!-- TODO -->
 
 TypeDown can be used on its own, or be installed as dependency into an existing Rust project. For the former run the following command.
 
