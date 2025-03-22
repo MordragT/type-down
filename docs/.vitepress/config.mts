@@ -5,6 +5,7 @@ export default defineConfig({
   title: "TypeDown",
   description: "TypeDown Documentation",
   srcDir: './src',
+  base: '/type-down/',
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
     nav: [
