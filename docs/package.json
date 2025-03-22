@@ -1,0 +1,13 @@
+{
+    "name": "type-down-docs",
+    "version": "0.1.0",
+    "scripts": {
+        "docs:dev": "vitepress dev",
+        "docs:build": "vitepress build",
+        "docs:preview": "vitepress preview"
+    },
+    "license": "MIT",
+    "devDependencies": {
+        "vitepress": "^1.6.3"
+    }
+}
