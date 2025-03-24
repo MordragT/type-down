@@ -2,9 +2,9 @@
 //!
 //! This library re-exports the core components of the TypeDown interpreter system:
 //!
-//! - `core`: Core types, traits, and utilities for the TypeDown language
-//! - `eval`: Evaluation engine and runtime for TypeDown documents
-//! - `syntax`: Syntax parsing, AST definitions, and lexical analysis
+//! - `core`: Core types, traits, AST definitions and utilities for the TypeDown language
+//! - `eval`: Evaluation engine and rendering for TypeDown documents
+//! - `syntax`: Syntax parsing and lexical analysis
 //!
 //! These modules provide a complete implementation of the TypeDown language interpreter,
 //! allowing embedding, extension, and use of TypeDown in Rust applications.

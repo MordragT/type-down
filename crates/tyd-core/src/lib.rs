@@ -1,7 +1,7 @@
 //! Core data structure manipulation library
 //!
 //! This crate provides a collection of modules for handling hierarchical representations of the AST.
-//! It includes utilities for node identification, traversal, manipulation, and documentation.
+//! It includes utilities for node identification, traversal and manipulation.
 
 /// Document generation module
 pub mod doc;
@@ -13,7 +13,7 @@ pub mod kind;
 pub mod meta;
 /// Base node structure module
 pub mod node;
-/// Tree structure and operations module
+/// Tree structure module
 pub mod tree;
 /// Tree traversal and visitor pattern module
 pub mod visit;

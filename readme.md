@@ -8,7 +8,7 @@
  ![License][license]
 
 [website-badge]: https://img.shields.io/website?url=https%3A%2F%2Fmordragt.github.io%2Ftype-down&style=for-the-badge
-[website-url]: https://mordragt.github.io
+[website-url]: https://mordragt.github.io/type-down
 [docs.rs-badge]: https://img.shields.io/badge/docs.rs-typedown-4d76ae?style=for-the-badge
 [docs.rs-url]: https://mordragt.github.io/type-down/type_down
 [nixos-badge]: https://img.shields.io/badge/Flakes-Nix-informational.svg?logo=nixos&style=for-the-badge
