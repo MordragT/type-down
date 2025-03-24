@@ -4,24 +4,43 @@ use ecow::EcoString;
 use tyd_syntax::{source::Source, Span};
 
 use crate::{
-    error::{ArgumentError, TypeError},
     ir,
     scope::Scope,
     stack::Stack,
     tracer::Tracer,
-    ty::Type,
-    value::Value,
+    value::{TypeChecker, Value},
 };
 
+/// Represents an image that can be embedded in a document.
+///
+/// This struct is used as a constructor for the `image` function.
 #[derive(Debug, Clone, Copy)]
 pub struct Image;
 
 impl Into<Value> for Image {
+    /// Converts the Image struct into a function Value.
     fn into(self) -> Value {
         Value::Func(image)
     }
 }
 
+/// Creates an image element with specified attributes.
+///
+/// # Parameters
+///
+/// * `stack` - Stack of positional arguments (not used by this function)
+/// * `scope` - Named parameters including:
+///   * `src` - (required) Path to the image file, relative to the current document
+///   * `alt` - (optional) Alternative text for the image, defaults to empty string
+///   * `width` - (optional) Width specification for the image, defaults to "auto"
+///   * `height` - (optional) Height specification for the image, defaults to "auto"
+/// * `source` - Source information for the current document being processed
+/// * `span` - Span in the source code where this function is called
+/// * `tracer` - Error tracer for reporting issues
+///
+/// # Returns
+///
+/// Returns a Value containing the inline image element or Value::None if an error occurred.
 pub fn image(
     stack: Stack,
     mut scope: Scope,
@@ -29,78 +48,34 @@ pub fn image(
     span: Span,
     tracer: &mut Tracer,
 ) -> Value {
-    let src = match scope.try_remove::<EcoString>("src") {
-        Some(Ok(c)) => c,
-        Some(Err(got)) => {
-            tracer.source_error(
-                span,
-                TypeError::WrongType {
-                    got,
-                    expected: Type::Str,
-                },
-            );
-            return Value::None;
-        }
-        None => {
-            tracer.source_error(
-                span,
-                ArgumentError::MissingRequired {
-                    name: "src".into(),
-                    ty: Type::Str,
-                },
-            );
-            return Value::None;
-        }
+    let mut checker = TypeChecker::new(tracer, span);
+
+    // Required 'src' parameter
+    let src = match checker.remove_from_scope::<EcoString>(&mut scope, "src") {
+        Some(src) => src,
+        None => return Value::None,
     };
 
-    let alt = match scope.try_remove::<EcoString>("src") {
-        Some(Ok(c)) => c,
-        Some(Err(got)) => {
-            tracer.source_error(
-                span,
-                TypeError::WrongType {
-                    got,
-                    expected: Type::Str,
-                },
-            );
-            return Value::None;
-        }
-        None => EcoString::new(),
-    };
+    // Optional 'alt' parameter (with empty default)
+    let alt = checker
+        .remove_from_scope::<EcoString>(&mut scope, "alt")
+        .unwrap_or(EcoString::new());
 
-    let width = match scope.try_remove::<EcoString>("width") {
-        Some(Ok(c)) => c,
-        Some(Err(got)) => {
-            tracer.source_error(
-                span,
-                TypeError::WrongType {
-                    got,
-                    expected: Type::Str,
-                },
-            );
-            return Value::None;
-        }
-        None => "auto".into(),
-    };
+    // Optional 'width' parameter (with "auto" default)
+    let width = checker
+        .remove_from_scope::<EcoString>(&mut scope, "width")
+        .unwrap_or("auto".into());
 
-    let height = match scope.try_remove::<EcoString>("height") {
-        Some(Ok(c)) => c,
-        Some(Err(got)) => {
-            tracer.source_error(
-                span,
-                TypeError::WrongType {
-                    got,
-                    expected: Type::Str,
-                },
-            );
-            return Value::None;
-        }
-        None => "auto".into(),
-    };
+    // Optional 'height' parameter (with "auto" default)
+    let height = checker
+        .remove_from_scope::<EcoString>(&mut scope, "height")
+        .unwrap_or("auto".into());
 
-    for (pos, _) in stack.into_iter().enumerate() {
-        tracer.source_warn(span, ArgumentError::UnknownPositional { pos });
-    }
+    // Warn about unknown positional arguments
+    checker.warn_unknown_positional(stack, 0);
+
+    // Warn about unknown named arguments
+    checker.warn_unknown_named(scope);
 
     // work_path is the parent path of the file which is compiled at the moment
     let path = source.work_path().join(src.as_str());

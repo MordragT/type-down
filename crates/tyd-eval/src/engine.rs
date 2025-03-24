@@ -9,33 +9,68 @@ use crate::{
     scope::Scope,
     stack::Stack,
     tracer::Tracer,
-    ty::Type,
-    value::{TypeCast, Value},
+    value::{Type, TypeCast, Value},
 };
 
+/// Result of running the document processing engine
+///
+/// Contains the processed Pandoc document and a tracer with potential errors
 #[derive(Debug)]
 pub struct EngineResult {
+    /// The optional Pandoc document output
+    /// Will be None if errors occurred during processing
     pub pandoc: Option<ir::Pandoc>,
+
+    /// Tracer containing any errors that occurred during processing
     pub tracer: Tracer,
 }
 
-/// The core component, responsible for typesetting
+/// Document processing engine that transforms a TypeDown document into Pandoc format
+///
+/// The engine implements the Visitor pattern to traverse the document and build
+/// the Pandoc representation with appropriate error handling.
 #[derive(Debug)]
 pub struct Engine {
-    pub inlines: Vec<ir::Inline>,
-    pub blocks: Vec<ir::Block>,
-    pub rows: Vec<ir::Row>,
-    pub definitions: Vec<ir::Definition>,
-    pub bullet_list: Vec<Vec<ir::Block>>,
-    pub ordered_list: Vec<Vec<ir::Block>>,
-    pub stack: Stack,
-    pub scope: Scope,
-    pub tracer: Tracer,
-    pub source: Source,
-    pub spans: SpanMetadata,
+    /// Inline elements being constructed
+    inlines: Vec<ir::Inline>,
+
+    /// Block elements being constructed
+    blocks: Vec<ir::Block>,
+
+    /// Table rows being constructed
+    rows: Vec<ir::Row>,
+
+    /// Definition list items being constructed
+    definitions: Vec<ir::Definition>,
+
+    /// Bullet list items being constructed
+    bullet_list: Vec<Vec<ir::Block>>,
+
+    /// Ordered list items being constructed
+    ordered_list: Vec<Vec<ir::Block>>,
+
+    /// Value stack for expression evaluation
+    stack: Stack,
+
+    /// Variable scope for document processing
+    scope: Scope,
+
+    /// Error tracking and reporting
+    tracer: Tracer,
+
+    /// Document source reference
+    source: Source,
+
+    /// Span metadata for error reporting
+    spans: SpanMetadata,
 }
 
 impl Engine {
+    /// Creates a new document processing engine
+    ///
+    /// # Arguments
+    /// * `global_scope` - The global variable scope to use for document processing
+    /// * `tracer` - Error tracker for collecting and reporting errors
     pub fn new(global_scope: Scope, tracer: Tracer) -> Self {
         Self {
             inlines: Vec::new(),
@@ -52,6 +87,16 @@ impl Engine {
         }
     }
 
+    /// Processes a document and produces a result
+    ///
+    /// Visits all nodes in the document, applies transformations, and collects
+    /// metadata to produce a Pandoc document.
+    ///
+    /// # Arguments
+    /// * `doc` - The document to process
+    ///
+    /// # Returns
+    /// An `EngineResult` containing either the Pandoc document or error information
     pub fn run(mut self, doc: Doc) -> EngineResult {
         if let Err(tracer) = doc.visit_by(&mut self) {
             return EngineResult {
@@ -117,51 +162,65 @@ impl Engine {
         }
     }
 
-    pub fn take_blocks(&mut self) -> Vec<ir::Block> {
+    /// Takes all accumulated blocks, leaving an empty collection
+    fn take_blocks(&mut self) -> Vec<ir::Block> {
         mem::take(&mut self.blocks)
     }
 
-    pub fn take_inlines(&mut self) -> Vec<ir::Inline> {
+    /// Takes all accumulated inlines, leaving an empty collection
+    fn take_inlines(&mut self) -> Vec<ir::Inline> {
         mem::take(&mut self.inlines)
     }
 
-    pub fn take_rows(&mut self) -> Vec<ir::Row> {
+    /// Takes all accumulated table rows, leaving an empty collection
+    fn take_rows(&mut self) -> Vec<ir::Row> {
         mem::take(&mut self.rows)
     }
 
-    pub fn take_definitions(&mut self) -> Vec<ir::Definition> {
+    /// Takes all accumulated definition items, leaving an empty collection
+    fn take_definitions(&mut self) -> Vec<ir::Definition> {
         mem::take(&mut self.definitions)
     }
 
-    pub fn take_bullet_list(&mut self) -> Vec<Vec<ir::Block>> {
+    /// Takes all accumulated bullet list items, leaving an empty collection
+    fn take_bullet_list(&mut self) -> Vec<Vec<ir::Block>> {
         mem::take(&mut self.bullet_list)
     }
 
-    pub fn take_ordered_list(&mut self) -> Vec<Vec<ir::Block>> {
+    /// Takes all accumulated ordered list items, leaving an empty collection
+    fn take_ordered_list(&mut self) -> Vec<Vec<ir::Block>> {
         mem::take(&mut self.ordered_list)
     }
 
-    pub fn replace_blocks(&mut self, src: Vec<ir::Block>) -> Vec<ir::Block> {
+    /// Replaces blocks with a new collection and returns the old one
+    fn replace_blocks(&mut self, src: Vec<ir::Block>) -> Vec<ir::Block> {
         mem::replace(&mut self.blocks, src)
     }
 
-    pub fn replace_inlines(&mut self, src: Vec<ir::Inline>) -> Vec<ir::Inline> {
+    /// Replaces inlines with a new collection and returns the old one
+    fn replace_inlines(&mut self, src: Vec<ir::Inline>) -> Vec<ir::Inline> {
         mem::replace(&mut self.inlines, src)
     }
 
-    pub fn replace_rows(&mut self, src: Vec<ir::Row>) -> Vec<ir::Row> {
+    /// Replaces rows with a new collection and returns the old one
+    #[allow(unused)]
+    fn replace_rows(&mut self, src: Vec<ir::Row>) -> Vec<ir::Row> {
         mem::replace(&mut self.rows, src)
     }
 
-    pub fn replace_definitions(&mut self, src: Vec<ir::Definition>) -> Vec<ir::Definition> {
+    /// Replaces definitions with a new collection and returns the old one
+    #[allow(unused)]
+    fn replace_definitions(&mut self, src: Vec<ir::Definition>) -> Vec<ir::Definition> {
         mem::replace(&mut self.definitions, src)
     }
 
-    pub fn replace_bullet_list(&mut self, src: Vec<Vec<ir::Block>>) -> Vec<Vec<ir::Block>> {
+    /// Replaces bullet list items with a new collection and returns the old one
+    fn replace_bullet_list(&mut self, src: Vec<Vec<ir::Block>>) -> Vec<Vec<ir::Block>> {
         mem::replace(&mut self.bullet_list, src)
     }
 
-    pub fn replace_ordered_list(&mut self, src: Vec<Vec<ir::Block>>) -> Vec<Vec<ir::Block>> {
+    /// Replaces ordered list items with a new collection and returns the old one
+    fn replace_ordered_list(&mut self, src: Vec<Vec<ir::Block>>) -> Vec<Vec<ir::Block>> {
         mem::replace(&mut self.ordered_list, src)
     }
 }
@@ -169,6 +228,7 @@ impl Engine {
 impl Visitor for Engine {
     type Error = Tracer;
 
+    /// Handles error nodes in the document
     fn visit_error(
         &mut self,
         (error, id): Full<tree::Error>,
@@ -178,6 +238,7 @@ impl Visitor for Engine {
         Ok(())
     }
 
+    /// Processes raw code blocks
     fn visit_raw(&mut self, raw: Full<tree::Raw>, doc: &Doc) -> Result<(), Self::Error> {
         let tree::Raw { lang, text } = raw.0;
 
@@ -190,6 +251,7 @@ impl Visitor for Engine {
         Ok(())
     }
 
+    /// Processes heading elements
     fn visit_heading(
         &mut self,
         heading: Full<tree::Heading>,
@@ -215,6 +277,7 @@ impl Visitor for Engine {
         Ok(())
     }
 
+    /// Processes table elements
     fn visit_table(&mut self, table: Full<tree::Table>, doc: &Doc) -> Result<(), Self::Error> {
         let tree::Table {
             rows,
@@ -243,6 +306,7 @@ impl Visitor for Engine {
         Ok(())
     }
 
+    /// Processes table rows
     fn visit_table_row(
         &mut self,
         table_row: Full<tree::TableRow>,
@@ -272,6 +336,7 @@ impl Visitor for Engine {
         Ok(())
     }
 
+    /// Processes unordered lists
     fn visit_list(&mut self, list: Full<tree::List>, doc: &Doc) -> Result<(), Self::Error> {
         let bullet_list = self.take_bullet_list();
 
@@ -283,6 +348,7 @@ impl Visitor for Engine {
         Ok(())
     }
 
+    /// Processes unordered list items
     fn visit_list_item(
         &mut self,
         list_item: Full<tree::ListItem>,
@@ -300,6 +366,7 @@ impl Visitor for Engine {
         Ok(())
     }
 
+    /// Processes ordered lists (enumerations)
     fn visit_enum(&mut self, enumeration: Full<tree::Enum>, doc: &Doc) -> Result<(), Self::Error> {
         let ordered_list = self.take_ordered_list();
 
@@ -312,6 +379,7 @@ impl Visitor for Engine {
         Ok(())
     }
 
+    /// Processes ordered list items
     fn visit_enum_item(
         &mut self,
         enum_item: Full<tree::EnumItem>,
@@ -329,6 +397,7 @@ impl Visitor for Engine {
         Ok(())
     }
 
+    /// Processes definition term lists
     fn visit_terms(&mut self, terms: Full<tree::Terms>, doc: &Doc) -> Result<(), Self::Error> {
         self.walk_terms(terms, doc)?;
 
@@ -339,6 +408,7 @@ impl Visitor for Engine {
         Ok(())
     }
 
+    /// Processes individual definition term items
     fn visit_term_item(
         &mut self,
         term_item: Full<tree::TermItem>,
@@ -365,6 +435,7 @@ impl Visitor for Engine {
         Ok(())
     }
 
+    /// Processes paragraph blocks
     fn visit_paragraph(
         &mut self,
         paragraph: Full<tree::Paragraph>,
@@ -377,6 +448,7 @@ impl Visitor for Engine {
         Ok(())
     }
 
+    /// Processes plain text blocks
     fn visit_plain(&mut self, plain: Full<tree::Plain>, doc: &Doc) -> Result<(), Self::Error> {
         self.walk_plain(plain, doc)?;
 
@@ -385,6 +457,7 @@ impl Visitor for Engine {
         Ok(())
     }
 
+    /// Processes quoted text
     fn visit_quote(&mut self, quote: Full<tree::Quote>, doc: &Doc) -> Result<(), Self::Error> {
         let inlines = self.take_inlines();
 
@@ -396,6 +469,7 @@ impl Visitor for Engine {
         Ok(())
     }
 
+    /// Processes strikeout text formatting
     fn visit_strikeout(
         &mut self,
         strikeout: Full<tree::Strikeout>,
@@ -411,6 +485,7 @@ impl Visitor for Engine {
         Ok(())
     }
 
+    /// Processes emphasized text formatting
     fn visit_emphasis(
         &mut self,
         emphasis: Full<tree::Emphasis>,
@@ -426,6 +501,7 @@ impl Visitor for Engine {
         Ok(())
     }
 
+    /// Processes strong (bold) text formatting
     fn visit_strong(&mut self, strong: Full<tree::Strong>, doc: &Doc) -> Result<(), Self::Error> {
         let inlines = self.take_inlines();
 
@@ -437,6 +513,7 @@ impl Visitor for Engine {
         Ok(())
     }
 
+    /// Processes subscript text formatting
     fn visit_subscript(
         &mut self,
         subscript: Full<tree::Subscript>,
@@ -452,6 +529,7 @@ impl Visitor for Engine {
         Ok(())
     }
 
+    /// Processes superscript text formatting
     fn visit_supscript(
         &mut self,
         supscript: Full<tree::Supscript>,
@@ -467,6 +545,7 @@ impl Visitor for Engine {
         Ok(())
     }
 
+    /// Processes hyperlinks
     fn visit_link(&mut self, link: Full<tree::Link>, doc: &Doc) -> Result<(), Self::Error> {
         let tree::Link { href, content } = link.0;
 
@@ -491,6 +570,7 @@ impl Visitor for Engine {
         Ok(())
     }
 
+    /// Processes references to document elements
     fn visit_ref(&mut self, reference: Full<tree::Ref>, _doc: &Doc) -> Result<(), Self::Error> {
         let href = format!("#{}", reference.0 .0);
         let content = vec![ir::Inline::Str(reference.0 .0.to_string())];
@@ -500,6 +580,7 @@ impl Visitor for Engine {
         Ok(())
     }
 
+    /// Processes raw inline code
     fn visit_raw_inline(
         &mut self,
         raw_inline: Full<tree::RawInline>,
@@ -510,6 +591,7 @@ impl Visitor for Engine {
         Ok(())
     }
 
+    /// Processes inline math elements
     fn visit_math_inline(
         &mut self,
         math_inline: Full<tree::MathInline>,
@@ -520,18 +602,21 @@ impl Visitor for Engine {
         Ok(())
     }
 
+    /// Processes escaped characters
     fn visit_escape(&mut self, escape: Full<tree::Escape>, _doc: &Doc) -> Result<(), Self::Error> {
         let inline = ir::Inline::Str(escape.0 .0.to_string());
         self.inlines.push(inline);
         Ok(())
     }
 
+    /// Processes word elements
     fn visit_word(&mut self, word: Full<tree::Word>, _doc: &Doc) -> Result<(), Self::Error> {
         let inline = ir::Inline::Str(word.0 .0.to_string());
         self.inlines.push(inline);
         Ok(())
     }
 
+    /// Processes spacing elements
     fn visit_spacing(
         &mut self,
         _spacing: Full<tree::Spacing>,
@@ -541,6 +626,7 @@ impl Visitor for Engine {
         Ok(())
     }
 
+    /// Processes soft break elements
     fn visit_soft_break(
         &mut self,
         _soft_break: Full<tree::SoftBreak>,
@@ -550,6 +636,7 @@ impl Visitor for Engine {
         Ok(())
     }
 
+    /// Processes code execution blocks
     fn visit_code(&mut self, (code, id): Full<tree::Code>, doc: &Doc) -> Result<(), Self::Error> {
         self.walk_code((code, id), doc)?;
 
@@ -580,6 +667,7 @@ impl Visitor for Engine {
         Ok(())
     }
 
+    /// Processes variable declarations
     fn visit_let(&mut self, let_: Full<tree::Let>, doc: &Doc) -> Result<(), Self::Error> {
         for id in &let_.0 .0 {
             self.visit_bind(doc.full(*id), doc)?;
@@ -589,6 +677,7 @@ impl Visitor for Engine {
         Ok(())
     }
 
+    /// Processes variable bindings
     fn visit_bind(&mut self, bind: Full<tree::Bind>, doc: &Doc) -> Result<(), Self::Error> {
         let tree::Bind { name, value } = bind.0;
 
@@ -603,6 +692,7 @@ impl Visitor for Engine {
         Ok(())
     }
 
+    /// Processes conditional statements
     fn visit_if(&mut self, (if_, id): Full<tree::If>, doc: &Doc) -> Result<(), Self::Error> {
         let tree::If {
             predicate,
@@ -636,6 +726,7 @@ impl Visitor for Engine {
         Ok(())
     }
 
+    /// Processes for loop constructs
     fn visit_for(&mut self, (for_, id): Full<tree::For>, doc: &Doc) -> Result<(), Self::Error> {
         let tree::For {
             el,
@@ -682,6 +773,7 @@ impl Visitor for Engine {
         Ok(())
     }
 
+    /// Processes function calls
     fn visit_call(&mut self, (call, id): Full<tree::Call>, doc: &Doc) -> Result<(), Self::Error> {
         let tree::Call { ident, args } = call;
 
@@ -725,6 +817,7 @@ impl Visitor for Engine {
         Ok(())
     }
 
+    /// Processes function arguments
     fn visit_arg(&mut self, arg: Full<tree::Arg>, doc: &Doc) -> Result<(), Self::Error> {
         let tree::Arg { name: key, value } = arg.0;
 
@@ -740,6 +833,7 @@ impl Visitor for Engine {
         Ok(())
     }
 
+    /// Processes literal values
     fn visit_literal(
         &mut self,
         literal: Full<tree::Literal>,
@@ -756,6 +850,7 @@ impl Visitor for Engine {
         Ok(())
     }
 
+    /// Processes identifier references
     fn visit_ident(
         &mut self,
         (ident, id): Full<tree::Ident>,
@@ -773,6 +868,7 @@ impl Visitor for Engine {
         Ok(())
     }
 
+    /// Processes content blocks
     fn visit_content(
         &mut self,
         content: Full<tree::Content>,

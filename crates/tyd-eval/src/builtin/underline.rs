@@ -1,24 +1,46 @@
 use tyd_syntax::{source::Source, Span};
 
 use crate::{
-    error::{ArgumentError, TypeError},
     ir,
     scope::Scope,
     stack::Stack,
     tracer::Tracer,
-    ty::Type,
-    value::Value,
+    value::{TypeChecker, Value},
 };
 
+/// Represents the underline function that creates underlined text.
+///
+/// The underline function converts its content argument into underlined text.
 #[derive(Debug, Clone, Copy)]
 pub struct Underline;
 
 impl Into<Value> for Underline {
+    /// Converts an Underline instance into a Value containing the underline function.
     fn into(self) -> Value {
         Value::Func(underline)
     }
 }
 
+/// Creates underlined text from the provided content.
+///
+/// # Arguments
+///
+/// * `stack` - The stack of positional arguments, expected to contain content to be underlined
+/// * `scope` - The scope containing named arguments (none are used by this function)
+/// * `_source` - The source document (unused)
+/// * `span` - The source span where this function is being called from
+/// * `tracer` - Error tracer for reporting issues
+///
+/// # Returns
+///
+/// * `Value::Inline` containing the underlined content if successful
+/// * `Value::None` if required arguments are missing or of incorrect types
+///
+/// # Example
+///
+/// ```tyd
+/// @underline("text to underline")
+/// ```
 pub fn underline(
     mut stack: Stack,
     scope: Scope,
@@ -26,38 +48,19 @@ pub fn underline(
     span: Span,
     tracer: &mut Tracer,
 ) -> Value {
-    let content = match stack.try_pop::<ir::Content>() {
-        Some(Ok(c)) => c,
-        Some(Err(got)) => {
-            tracer.source_error(
-                span,
-                TypeError::WrongType {
-                    got,
-                    expected: Type::Content,
-                },
-            );
-            return Value::None;
-        }
-        None => {
-            tracer.source_error(
-                span,
-                ArgumentError::MissingPositional {
-                    pos: 0,
-                    ty: Type::Content,
-                },
-            );
-            return Value::None;
-        }
+    let mut checker = TypeChecker::new(tracer, span);
+
+    // Extract the content to underline from the first position
+    let content = match checker.pop_from_stack::<ir::Content>(&mut stack, 0) {
+        Some(content) => content,
+        None => return Value::None,
     };
 
-    for (pos, _) in stack.into_iter().enumerate() {
-        tracer.source_warn(span, ArgumentError::UnknownPositional { pos: pos + 1 });
-    }
+    // Warn about any unused arguments
+    checker.warn_unknown_positional(stack, 1);
+    checker.warn_unknown_named(scope);
 
-    for name in scope.into_symbols() {
-        tracer.source_warn(span, ArgumentError::UnknownNamed { name });
-    }
-
+    // Create an underlined inline element with the content
     let inline = ir::Inline::Underline(content);
 
     Value::Inline(inline)

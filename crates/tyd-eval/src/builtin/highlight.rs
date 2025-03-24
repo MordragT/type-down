@@ -1,24 +1,41 @@
 use tyd_syntax::{source::Source, Span};
 
 use crate::{
-    error::{ArgumentError, TypeError},
     ir,
     scope::Scope,
     stack::Stack,
     tracer::Tracer,
-    ty::Type,
-    value::Value,
+    value::{TypeChecker, Value},
 };
 
+/// Represents a function that highlights text by applying a "mark" class to it.
+///
+/// When used in a document, this function wraps the provided content in a span
+/// with the CSS class "mark", which typically renders as highlighted text.
 #[derive(Debug, Clone, Copy)]
 pub struct Highlight;
 
 impl Into<Value> for Highlight {
+    /// Converts this highlighter into a Value containing the highlight function.
     fn into(self) -> Value {
         Value::Func(highlight)
     }
 }
 
+/// Highlights the given content by wrapping it in a span with the "mark" class.
+///
+/// # Arguments
+///
+/// * `stack` - Stack containing positional arguments, where the first position should be the content to highlight
+/// * `scope` - Scope containing named arguments (none are used by this function)
+/// * `_source` - Source information (unused)
+/// * `span` - The span in the source document for error reporting
+/// * `tracer` - Error tracer for reporting type or argument errors
+///
+/// # Returns
+///
+/// * `Value::Inline` - An inline element wrapping the content with highlighting
+/// * `Value::None` - If required arguments are missing or of incorrect type
 pub fn highlight(
     mut stack: Stack,
     scope: Scope,
@@ -26,38 +43,19 @@ pub fn highlight(
     span: Span,
     tracer: &mut Tracer,
 ) -> Value {
-    let content = match stack.try_pop::<ir::Content>() {
-        Some(Ok(c)) => c,
-        Some(Err(got)) => {
-            tracer.source_error(
-                span,
-                TypeError::WrongType {
-                    got,
-                    expected: Type::Content,
-                },
-            );
-            return Value::None;
-        }
-        None => {
-            tracer.source_error(
-                span,
-                ArgumentError::MissingPositional {
-                    pos: 0,
-                    ty: Type::Content,
-                },
-            );
-            return Value::None;
-        }
+    let mut type_checker = TypeChecker::new(tracer, span);
+
+    // Extract the content to highlight from the first positional argument
+    let content = match type_checker.pop_from_stack::<ir::Content>(&mut stack, 0) {
+        Some(content) => content,
+        None => return Value::None,
     };
 
-    for (pos, _) in stack.into_iter().enumerate() {
-        tracer.source_warn(span, ArgumentError::UnknownPositional { pos: pos + 1 });
-    }
+    // Warn about any unused arguments
+    type_checker.warn_unknown_positional(stack, 1);
+    type_checker.warn_unknown_named(scope);
 
-    for name in scope.into_symbols() {
-        tracer.source_warn(span, ArgumentError::UnknownNamed { name });
-    }
-
+    // Create an inline span with the "mark" class containing the content
     let inline = ir::Inline::Span(ir::AttrBuilder::new().class("mark").build(), content);
 
     Value::Inline(inline)

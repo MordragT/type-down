@@ -4,10 +4,25 @@ use crate::{ir, tracer::Tracer};
 
 use super::{Output, Render};
 
+/// `DocxCompiler` is responsible for compiling documents into DOCX format.
+///
+/// This compiler uses the Pandoc library to convert the intermediate representation
+/// to a Microsoft Word document.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct DocxCompiler;
 
 impl Render for DocxCompiler {
+    /// Renders a Pandoc document into DOCX format.
+    ///
+    /// # Arguments
+    ///
+    /// * `pandoc` - The Pandoc intermediate representation to be rendered
+    /// * `output` - The output destination (only file output is supported)
+    /// * `tracer` - A tracer for error reporting and logging
+    ///
+    /// # Note
+    ///
+    /// This function does not support stdout output and will return an error if attempted.
     fn render(pandoc: ir::Pandoc, output: Output, tracer: &mut Tracer) {
         let dest = match output {
             Output::File(path) => path,
