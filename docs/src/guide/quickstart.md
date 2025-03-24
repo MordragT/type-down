@@ -2,14 +2,14 @@
 
 ## Installation
 
-### Prequisites
+### Prerequisites
 
-- Rust Nightly with Cargo.
-- Terminal for accessing TypeDown via its command line interface (CLI).
+- Rust Nightly with Cargo
+- Terminal for accessing TypeDown via its command line interface (CLI)
 - Text Editor
-  - VSCode is recommend, along with the [official extension](https://example.com) <!-- TODO -->
+  - VSCode is recommended, along with the [official extension](https://example.com) <!-- TODO -->
 
-TypeDown can be used on its own, or be installed as dependency into an existing Rust project. For the former run the following command.
+TypeDown can be used as a standalone tool or integrated as a dependency in an existing Rust project. For standalone installation, run:
 
 ::: code-group
 
@@ -21,12 +21,11 @@ $ cargo install --git https://github.com/MordragT/type-down
 
 ## Embedding
 
-### Prequisites
+### Prerequisites
 
-- Rust Nightly with Cargo.
+- Rust Nightly with Cargo
 
-To embed TypeDown into your existing Rust project either run the following command,
-or add it by hand to your `Cargo.toml` file.
+To integrate TypeDown into your existing Rust project, either run the command below or manually add it to your `Cargo.toml` file:
 
 ::: code-group
 

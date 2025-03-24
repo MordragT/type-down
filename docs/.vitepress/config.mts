@@ -1,67 +1,76 @@
-import { defineConfig } from 'vitepress'
+import { defineConfig } from "vitepress";
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
   title: "TypeDown",
   description: "TypeDown Documentation",
-  srcDir: './src',
-  base: '/type-down/',
+  srcDir: "./src",
+  base: "/type-down/",
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
     nav: [
-      { text: 'Guide', link: '/guide/about' },
-      { text: 'Reference', link: '/reference/cli' }
+      { text: "Guide", link: "/guide/about" },
+      { text: "Reference", link: "/reference/cli" },
     ],
 
     sidebar: {
-      '/guide/': {
-        base: '/guide/', items: [
+      "/guide/": {
+        base: "/guide/",
+        items: [
           {
-            text: 'Introduction',
+            text: "Introduction",
             collapsed: false,
             items: [
-              { text: 'What is TypeDown?', link: 'about' },
-              { text: 'Getting Started', link: 'quickstart' },
-            ]
+              { text: "What is TypeDown?", link: "about" },
+              { text: "Getting Started", link: "quickstart" },
+            ],
           },
           {
-            text: 'Writing',
+            text: "Writing",
             collapsed: false,
             items: [],
           },
           {
-            text: 'Customization',
+            text: "Customization",
             collapsed: false,
             items: [],
-          }
-        ]
+          },
+        ],
       },
-      'reference/': {
-        base: '/reference/', items: [
+      "reference/": {
+        base: "/reference/",
+        items: [
           {
-            text: 'Reference',
+            text: "Reference",
             items: [
-              { text: 'CLI', link: 'cli' },
+              { text: "CLI", link: "cli" },
               {
-                text: 'Blocks', items: [
-                  { text: 'Heading', link: 'heading' },
-                  { text: 'List', link: 'list' },
-                  { text: 'Enum', link: 'enum' }
-                ]
-              }
-            ]
-          }
-        ]
-      }
+                text: "Blocks",
+                items: [
+                  { text: "Heading", link: "heading" },
+                  { text: "List", link: "list" },
+                  { text: "Enum", link: "enum" },
+                  { text: "Terms", link: "terms" },
+                  { text: "Table", link: "table" },
+                  { text: "Raw", link: "raw" },
+                  { text: "Paragraph", link: "paragraph" },
+                ],
+              },
+              { text: "Inline", link: "inline" },
+              { text: "Code", link: "code" },
+            ],
+          },
+        ],
+      },
     },
 
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/mordragt/type-down' }
+      { icon: "github", link: "https://github.com/mordragt/type-down" },
     ],
 
     footer: {
-      message: 'Released under the MIT License.',
-      copyright: 'Copyright © 2025-present Thomas Wehmöller'
-    }
-  }
-})
+      message: "Released under the MIT License.",
+      copyright: "Copyright © 2025-present Thomas Wehmöller",
+    },
+  },
+});

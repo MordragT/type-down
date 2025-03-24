@@ -1,24 +1,53 @@
-# Heading
+# Headings in TypeDown
 
-The Heading element defines a heading for a section of text.
-Heading levels are indicated by the number of consecutive equal signs ('=') at the beginning of the line,
-followed by a space.
-There are six heading levels (H1-H6), with a single '=' representing H1 and '=====' representing H6.
+Headings are essential elements in TypeDown that help organize your document into sections and subsections.
+They provide structure and make your content easier to navigate.
 
-::: info
-Labels can be attached to Headings.
-:::
+## Syntax
 
-## Example
+In TypeDown, headings are created using equal signs (`=`) at the beginning of a line:
+
+- `= Heading 1` - Creates an H1 heading (highest level)
+- `== Heading 2` - Creates an H2 heading
+- `=== Heading 3` - Creates an H3 heading
+- `==== Heading 4` - Creates an H4 heading
+- `===== Heading 5` - Creates an H5 heading
+- `====== Heading 6` - Creates an H6 heading
+
+The number of equal signs determines the heading level, with more equal signs creating lower-level headings.
+
+## Labels and References
+
+You can attach labels to headings using curly braces after the heading text:
 
 ```
-= This is an H1 Heading {label}
+= Introduction {intro}
+```
 
-== This is an H2 Heading
+These labels can then be referenced elsewhere in your document using the `@` symbol:
 
-This is some text content following the H2 Heading.
+```
+See @intro for more information.
+```
 
-=== This is an H3 Heading
+::: info
+Labels make it easy to create cross-references within your document that will update automatically if you reorganize your content.
+:::
 
-Another paragraph of text referencing the first heading @label.
+## Examples
+
+```
+= TypeDown Documentation {doc-main}
+
+== Getting Started
+
+This section covers the basics of TypeDown syntax.
+
+=== Headings
+
+As you can see, TypeDown uses = symbols for headings.
+
+== Advanced Features
+
+Please refer to @doc-main for a complete overview.
 ```

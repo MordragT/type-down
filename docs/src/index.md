@@ -16,13 +16,15 @@ hero:
 
 features:
   - icon: 💡
-    title: Intuitive
-    details: If you understand MarkDown, you will learn TypeDown in no time at all.
+    title: Intuitively Familiar
+    details: Hit the ground running! If you know Markdown, you'll master TypeDown in minutes, not hours.
   - icon: ⚙️
-    title: Vscode Extension
-    details: Get instant feedback on what your writing.
+    title: Real-time VS Code Integration
+    details: See your documents come to life instantly with our powerful VS Code extension.
   - icon: 🚀
-    title: Embeddable
-    details: Add TypeDown to your existing Rust project and customize it to your needs.
+    title: Seamlessly Embeddable
+    details: Effortlessly integrate TypeDown into your Rust projects with a flexible API designed for customization.
+  - icon: 🧩
+    title: Extensible Architecture
+    details: Build your own custom components and expand TypeDown to meet your specific requirements.
 ---
-
