@@ -2,59 +2,113 @@ use derive_more::From;
 
 use crate::{TryAsMut, TryAsRef, impl_try_as, kind::NodeKind, tree::*};
 
+/// Represents a node in the abstract syntax tree (AST).
+///
+/// The `Node` enum encompasses all possible elements that can exist in the document structure,
+/// organized into several categories:
+/// - General nodes (Error, Tag, Text, Label)
+/// - Block-level elements (Block, Raw, Heading, etc.)
+/// - Inline elements (Inline, Quote, Emphasis, etc.)
+/// - Code elements (Code, Expr, Let, etc.)
 #[derive(Clone, Debug, PartialEq, From)]
 pub enum Node {
+    /// Represents an error in the document
     Error(Error),
+    /// A tag element
     Tag(Tag),
+    /// Plain text content
     Text(Text),
+    /// A label element
     Label(Label),
 
     // Block
+    /// A block-level container
     Block(Block),
+    /// Raw block content
     Raw(Raw),
+    /// A heading element (like h1, h2, etc.)
     Heading(Heading),
+    /// The marker for a heading (e.g., '=', '==')
     HeadingMarker(HeadingMarker),
+    /// A table element
     Table(Table),
+    /// A row within a table
     TableRow(TableRow),
+    /// An unordered list
     List(List),
+    /// An item within a list
     ListItem(ListItem),
+    /// An enumerated (ordered) list
     Enum(Enum),
+    /// An item within an enumerated list
     EnumItem(EnumItem),
+    /// A definition list/terms list
     Terms(Terms),
+    /// An item within a terms list
     TermItem(TermItem),
+    /// A paragraph element
     Paragraph(Paragraph),
+    /// Plain content without specific formatting
     Plain(Plain),
 
     // Inline
+    /// An inline container element
     Inline(Inline),
+    /// Quoted text
     Quote(Quote),
+    /// Text with strikethrough formatting
     Strikeout(Strikeout),
+    /// Emphasized text (typically italic)
     Emphasis(Emphasis),
+    /// Strongly emphasized text (typically bold)
     Strong(Strong),
+    /// Subscript text
     Subscript(Subscript),
+    /// Superscript text
     Supscript(Supscript),
+    /// A hyperlink
     Link(Link),
+    /// A reference to another element
     Ref(Ref),
+    /// Raw inline content
     RawInline(RawInline),
+    /// Inline mathematical notation
     MathInline(MathInline),
+    /// A comment
     Comment(Comment),
+    /// An escaped character
     Escape(Escape),
+    /// A word unit
     Word(Word),
+    /// Whitespace or other spacing
     Spacing(Spacing),
+    /// A soft line break
     SoftBreak(SoftBreak),
 
     // Code
+    /// A code section
     Code(Code),
+    /// An expression in code
     Expr(Expr),
+    /// A let binding in code
     Let(Let),
+    /// A binding in code
     Bind(Bind),
+    /// An if statement/expression
     If(If),
+    /// A for loop
     For(For),
+    /// A function or method call
     Call(Call),
+    /// Arguments to a function call
     Args(Args),
+    /// A single argument
     Arg(Arg),
+    /// A literal value (number, string, etc.)
     Literal(Literal),
+    /// An identifier in code
     Ident(Ident),
+    /// Content within a code structure
     Content(Content),
 }
 
@@ -112,6 +166,10 @@ impl_try_as!(
 );
 
 impl Node {
+    /// Returns the kind of this node as a `NodeKind` enum value.
+    ///
+    /// This method provides a way to determine the type of node without
+    /// pattern matching on the entire enum.
     pub fn kind(&self) -> NodeKind {
         match self {
             Self::Error(_) => NodeKind::Error,
@@ -169,6 +227,10 @@ impl Node {
         }
     }
 
+    /// Determines if this node is a block-level element.
+    ///
+    /// Block-level elements include Block, Raw, Heading, Table, List, Enum,
+    /// Terms, Paragraph, and Plain nodes.
     pub fn is_block(&self) -> bool {
         matches!(
             self,
@@ -184,6 +246,11 @@ impl Node {
         )
     }
 
+    /// Determines if this node is an inline element.
+    ///
+    /// Inline elements include Inline, Quote, Strikeout, Emphasis, Strong, Subscript,
+    /// Supscript, Link, Ref, RawInline, MathInline, Comment, Escape, Word, Spacing,
+    /// SoftBreak, and Code nodes.
     pub fn is_inline(&self) -> bool {
         matches!(
             self,
@@ -207,6 +274,10 @@ impl Node {
         )
     }
 
+    /// Determines if this node is a code element.
+    ///
+    /// Code elements include Code, Expr, Let, Bind, If, For, Call, Args, Arg,
+    /// Literal, Ident, and Content nodes.
     pub fn is_code(&self) -> bool {
         matches!(
             self,

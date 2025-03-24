@@ -2,70 +2,137 @@ use crate::{id::NodeId, tree::*};
 
 use std::{fmt::Debug, marker::PhantomData, ops::Deref, sync::Arc};
 
+/// Defines a processing phase for a document tree.
+///
+/// This trait specifies all associated types that can be attached as metadata
+/// to each node kind in the document tree. Each phase can define its own
+/// metadata types to associate with nodes during processing.
 pub trait Phase: 'static + Debug + Copy {
+    /// Metadata for error nodes
     type Error: Debug + Clone;
+    /// Metadata for tag nodes
     type Tag: Debug + Clone;
+    /// Metadata for text nodes
     type Text: Debug + Clone;
+    /// Metadata for label nodes
     type Label: Debug + Clone;
 
     // Block
+    /// Metadata for block nodes
     type Block: Debug + Clone;
+    /// Metadata for raw block nodes
     type Raw: Debug + Clone;
+    /// Metadata for heading nodes
     type Heading: Debug + Clone;
+    /// Metadata for heading marker nodes
     type HeadingMarker: Debug + Clone;
+    /// Metadata for table nodes
     type Table: Debug + Clone;
+    /// Metadata for table row nodes
     type TableRow: Debug + Clone;
+    /// Metadata for list nodes
     type List: Debug + Clone;
+    /// Metadata for list item nodes
     type ListItem: Debug + Clone;
+    /// Metadata for enumeration nodes
     type Enum: Debug + Clone;
+    /// Metadata for enumeration item nodes
     type EnumItem: Debug + Clone;
+    /// Metadata for terms nodes
     type Terms: Debug + Clone;
+    /// Metadata for term item nodes
     type TermItem: Debug + Clone;
+    /// Metadata for paragraph nodes
     type Paragraph: Debug + Clone;
+    /// Metadata for plain text block nodes
     type Plain: Debug + Clone;
 
     // Inline
+    /// Metadata for inline nodes
     type Inline: Debug + Clone;
+    /// Metadata for quote nodes
     type Quote: Debug + Clone;
+    /// Metadata for strikeout nodes
     type Strikeout: Debug + Clone;
+    /// Metadata for emphasis nodes
     type Emphasis: Debug + Clone;
+    /// Metadata for strong emphasis nodes
     type Strong: Debug + Clone;
+    /// Metadata for subscript nodes
     type Subscript: Debug + Clone;
+    /// Metadata for superscript nodes
     type Supscript: Debug + Clone;
+    /// Metadata for link nodes
     type Link: Debug + Clone;
+    /// Metadata for reference nodes
     type Ref: Debug + Clone;
+    /// Metadata for raw inline nodes
     type RawInline: Debug + Clone;
+    /// Metadata for inline math nodes
     type MathInline: Debug + Clone;
+    /// Metadata for comment nodes
     type Comment: Debug + Clone;
+    /// Metadata for escape sequence nodes
     type Escape: Debug + Clone;
+    /// Metadata for word nodes
     type Word: Debug + Clone;
+    /// Metadata for spacing nodes
     type Spacing: Debug + Clone;
+    /// Metadata for soft break nodes
     type SoftBreak: Debug + Clone;
 
     // Code
+    /// Metadata for code nodes
     type Code: Debug + Clone;
+    /// Metadata for expression nodes
     type Expr: Debug + Clone;
+    /// Metadata for let binding nodes
     type Let: Debug + Clone;
+    /// Metadata for bind nodes
     type Bind: Debug + Clone;
+    /// Metadata for if expression nodes
     type If: Debug + Clone;
+    /// Metadata for for loop nodes
     type For: Debug + Clone;
+    /// Metadata for function call nodes
     type Call: Debug + Clone;
+    /// Metadata for function arguments nodes
     type Args: Debug + Clone;
+    /// Metadata for single argument nodes
     type Arg: Debug + Clone;
+    /// Metadata for literal value nodes
     type Literal: Debug + Clone;
+    /// Metadata for identifier nodes
     type Ident: Debug + Clone;
+    /// Metadata for content nodes
     type Content: Debug + Clone;
 }
 
+/// Provides type-safe casting between node-specific metadata and the generic `Meta` enum.
+///
+/// This trait enables conversion between specific node metadata types and the generic
+/// metadata representation, allowing for type-safe metadata manipulation.
 pub trait MetaCast<P: Phase> {
+    /// The specific metadata type associated with this node type
     type Meta;
 
+    /// Convert a specific metadata type to the generic `Meta` enum
     fn upcast(this: Self::Meta) -> Meta<P>;
+
+    /// Try to extract the specific metadata from a generic `Meta` enum
     fn try_downcast(meta: Meta<P>) -> Option<Self::Meta>;
+
+    /// Try to get a reference to specific metadata from a reference to a generic `Meta` enum
     fn try_downcast_ref(meta: &Meta<P>) -> Option<&Self::Meta>;
+
+    /// Try to get a mutable reference to specific metadata from a mutable reference to a generic `Meta` enum
     fn try_downcast_mut(meta: &mut Meta<P>) -> Option<&mut Self::Meta>;
 }
 
+/// Implements the `MetaCast` trait for a list of node types.
+///
+/// This macro generates implementations of `MetaCast` for all the specified node types,
+/// avoiding repetitive boilerplate code.
 macro_rules! impl_meta_cast {
     ($($node:ident),*) => {
         $(
@@ -101,6 +168,7 @@ macro_rules! impl_meta_cast {
     };
 }
 
+// Implement MetaCast for all node types in the AST
 impl_meta_cast!(
     Error,
     Tag,
@@ -153,59 +221,109 @@ impl_meta_cast!(
     Content
 );
 
+/// A generic container for node metadata in a specific processing phase.
+///
+/// This enum can hold metadata for any node type in the document tree,
+/// providing a unified type for metadata storage while maintaining type safety.
 #[derive(Clone, Debug)]
 pub enum Meta<P: Phase> {
+    /// Error node metadata
     Error(<Error as MetaCast<P>>::Meta),
+    /// Tag node metadata
     Tag(<Tag as MetaCast<P>>::Meta),
+    /// Text node metadata
     Text(<Text as MetaCast<P>>::Meta),
+    /// Label node metadata
     Label(<Label as MetaCast<P>>::Meta),
 
     // Block
+    /// Block node metadata
     Block(<Block as MetaCast<P>>::Meta),
+    /// Raw block node metadata
     Raw(<Raw as MetaCast<P>>::Meta),
+    /// Heading node metadata
     Heading(<Heading as MetaCast<P>>::Meta),
+    /// Heading marker node metadata
     HeadingMarker(<HeadingMarker as MetaCast<P>>::Meta),
+    /// Table node metadata
     Table(<Table as MetaCast<P>>::Meta),
+    /// Table row node metadata
     TableRow(<TableRow as MetaCast<P>>::Meta),
+    /// List node metadata
     List(<List as MetaCast<P>>::Meta),
+    /// List item node metadata
     ListItem(<ListItem as MetaCast<P>>::Meta),
+    /// Enumeration node metadata
     Enum(<Enum as MetaCast<P>>::Meta),
+    /// Enumeration item node metadata
     EnumItem(<EnumItem as MetaCast<P>>::Meta),
+    /// Terms node metadata
     Terms(<Terms as MetaCast<P>>::Meta),
+    /// Term item node metadata
     TermItem(<TermItem as MetaCast<P>>::Meta),
+    /// Paragraph node metadata
     Paragraph(<Paragraph as MetaCast<P>>::Meta),
+    /// Plain text block node metadata
     Plain(<Plain as MetaCast<P>>::Meta),
 
     // Inline
+    /// Inline node metadata
     Inline(<Inline as MetaCast<P>>::Meta),
+    /// Quote node metadata
     Quote(<Quote as MetaCast<P>>::Meta),
+    /// Strikeout node metadata
     Strikeout(<Strikeout as MetaCast<P>>::Meta),
+    /// Emphasis node metadata
     Emphasis(<Emphasis as MetaCast<P>>::Meta),
+    /// Strong emphasis node metadata
     Strong(<Strong as MetaCast<P>>::Meta),
+    /// Subscript node metadata
     Subscript(<Subscript as MetaCast<P>>::Meta),
+    /// Superscript node metadata
     Supscript(<Supscript as MetaCast<P>>::Meta),
+    /// Link node metadata
     Link(<Link as MetaCast<P>>::Meta),
+    /// Reference node metadata
     Ref(<Ref as MetaCast<P>>::Meta),
+    /// Raw inline node metadata
     RawInline(<RawInline as MetaCast<P>>::Meta),
+    /// Inline math node metadata
     MathInline(<MathInline as MetaCast<P>>::Meta),
+    /// Comment node metadata
     Comment(<Comment as MetaCast<P>>::Meta),
+    /// Escape sequence node metadata
     Escape(<Escape as MetaCast<P>>::Meta),
+    /// Word node metadata
     Word(<Word as MetaCast<P>>::Meta),
+    /// Spacing node metadata
     Spacing(<Spacing as MetaCast<P>>::Meta),
+    /// Soft break node metadata
     SoftBreak(<SoftBreak as MetaCast<P>>::Meta),
 
     // Code
+    /// Code node metadata
     Code(<Code as MetaCast<P>>::Meta),
+    /// Expression node metadata
     Expr(<Expr as MetaCast<P>>::Meta),
+    /// Let binding node metadata
     Let(<Let as MetaCast<P>>::Meta),
+    /// Bind node metadata
     Bind(<Bind as MetaCast<P>>::Meta),
+    /// If expression node metadata
     If(<If as MetaCast<P>>::Meta),
+    /// For loop node metadata
     For(<For as MetaCast<P>>::Meta),
+    /// Function call node metadata
     Call(<Call as MetaCast<P>>::Meta),
+    /// Function arguments node metadata
     Args(<Args as MetaCast<P>>::Meta),
+    /// Single argument node metadata
     Arg(<Arg as MetaCast<P>>::Meta),
+    /// Literal value node metadata
     Literal(<Literal as MetaCast<P>>::Meta),
+    /// Identifier node metadata
     Ident(<Ident as MetaCast<P>>::Meta),
+    /// Content node metadata
     Content(<Content as MetaCast<P>>::Meta),
 }
 
@@ -264,6 +382,10 @@ where
             Content = M,
         >,
 {
+    /// Returns a copy of the inner metadata value.
+    ///
+    /// This method is useful when all metadata types for a phase are the same type
+    /// and you need to get a copy of the inner value regardless of the variant.
     pub fn inner_copied(&self) -> M
     where
         M: Copy,
@@ -324,6 +446,10 @@ where
         }
     }
 
+    /// Returns a reference to the inner metadata value.
+    ///
+    /// This method is useful when all metadata types for a phase are the same type
+    /// and you need to get a reference to the inner value regardless of the variant.
     pub fn inner_ref(&self) -> &M {
         match self {
             Self::Error(m) => m,
@@ -381,6 +507,10 @@ where
         }
     }
 
+    /// Returns a mutable reference to the inner metadata value.
+    ///
+    /// This method is useful when all metadata types for a phase are the same type
+    /// and you need to get a mutable reference to the inner value regardless of the variant.
     pub fn inner_mut(&mut self) -> &mut M {
         match self {
             Self::Error(m) => m,
@@ -439,13 +569,20 @@ where
     }
 }
 
+/// A wrapper for metadata containers that provides thread-safe sharing.
+///
+/// This struct wraps a metadata container in an `Arc` for efficient
+/// sharing across threads, with type parameters for the processing phase
+/// and the specific container type.
 #[derive(Debug, Clone)]
 pub struct Metadata<P, C = MetaVec<P>>
 where
     P: Phase,
     C: MetaContainer<P>,
 {
+    /// The thread-safe shared metadata container
     container: Arc<C>,
+    /// Phantom data to track the phase type parameter
     phase: PhantomData<P>,
 }
 
@@ -474,16 +611,29 @@ where
     }
 }
 
+/// A vector-based metadata container.
+///
+/// This type alias represents a simple vector of metadata entries,
+/// indexed by node IDs.
 pub type MetaVec<P> = Vec<Meta<P>>;
 
+/// Defines operations for storing and retrieving node metadata.
+///
+/// This trait provides a common interface for different metadata storage
+/// implementations, allowing for flexible metadata management strategies.
 pub trait MetaContainer<P: Phase>: Sized {
+    /// Get a reference to the metadata for a node
     fn get<T>(&self, id: NodeId<T>) -> &Meta<P>;
+
+    /// Get a mutable reference to the metadata for a node
     fn get_mut<T>(&mut self, id: NodeId<T>) -> &mut Meta<P>;
 
+    /// Insert metadata for a node
     fn insert_meta<T>(&mut self, id: NodeId<T>, meta: T::Meta)
     where
         T: MetaCast<P>;
 
+    /// Get a type-specific reference to the metadata for a node
     fn meta<T>(&self, id: NodeId<T>) -> &T::Meta
     where
         T: MetaCast<P>,
@@ -492,6 +642,7 @@ pub trait MetaContainer<P: Phase>: Sized {
         T::try_downcast_ref(meta).unwrap()
     }
 
+    /// Get a type-specific mutable reference to the metadata for a node
     fn meta_mut<T>(&mut self, id: NodeId<T>) -> &mut T::Meta
     where
         T: MetaCast<P>,
@@ -500,6 +651,7 @@ pub trait MetaContainer<P: Phase>: Sized {
         T::try_downcast_mut(meta).unwrap()
     }
 
+    /// Update the metadata for a node and return the old value
     fn update_meta<T>(&mut self, id: NodeId<T>, meta: T::Meta) -> T::Meta
     where
         T: MetaCast<P>,
@@ -508,6 +660,10 @@ pub trait MetaContainer<P: Phase>: Sized {
     }
 }
 
+/// Implementation of `MetaContainer` for vector-based storage.
+///
+/// This implementation uses a vector to store metadata, with node IDs directly
+/// mapping to vector indices for efficient access.
 impl<P: Phase> MetaContainer<P> for MetaVec<P> {
     fn get<T>(&self, id: NodeId<T>) -> &Meta<P> {
         &self[id.as_usize()]
@@ -527,14 +683,20 @@ impl<P: Phase> MetaContainer<P> for MetaVec<P> {
     }
 }
 
+/// A cache-based metadata container that lazily stores metadata.
+///
+/// This container optimizes for scenarios where not all nodes may need
+/// metadata, using `Option` wrappers to indicate presence or absence.
 #[derive(Debug, Clone)]
 pub struct MetaCache<P: Phase>(Vec<Option<Meta<P>>>);
 
 impl<P: Phase> MetaCache<P> {
+    /// Create a new metadata cache with the specified capacity
     pub fn new(size: usize) -> Self {
         Self(vec![None; size])
     }
 
+    /// Extract and take ownership of metadata for a node, removing it from the cache
     pub fn take<T>(&mut self, id: NodeId<T>) -> T::Meta
     where
         T: MetaCast<P>,
@@ -545,6 +707,10 @@ impl<P: Phase> MetaCache<P> {
     }
 }
 
+/// Implementation of `MetaContainer` for cache-based storage.
+///
+/// This implementation allows for sparse metadata storage, where entries
+/// can be absent (None) when not needed.
 impl<P: Phase> MetaContainer<P> for MetaCache<P> {
     fn get<T>(&self, id: NodeId<T>) -> &Meta<P> {
         self.0[id.as_usize()].as_ref().unwrap()
