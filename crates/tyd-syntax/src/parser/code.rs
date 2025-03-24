@@ -6,6 +6,15 @@ use tyd_core::prelude::*;
 
 use super::{ext::ParserExt, extra::Extra, markup};
 
+/// Parses code expressions that start with a hash (#) symbol
+///
+/// # Arguments
+///
+/// * `inline` - Parser for inline elements that can appear within code expressions
+///
+/// # Returns
+///
+/// A parser that recognizes code expressions and produces a `tree::Code` node
 pub fn code_parser<'src, I>(
     inline: I,
 ) -> impl Parser<'src, &'src str, NodeId<tree::Code>, Extra<'src>>
@@ -17,10 +26,33 @@ where
         .map_to_node(tree::Code)
 }
 
+/// Parses identifier tokens
+///
+/// # Returns
+///
+/// A parser that recognizes valid identifiers and produces a `tree::Ident` node
 pub fn ident_parser<'src>() -> impl Parser<'src, &'src str, NodeId<tree::Ident>, Extra<'src>> {
     unicode::ident().to_ecow().map_to_node(tree::Ident)
 }
 
+/// Parses expressions recursively
+///
+/// Handles various expression types including:
+/// - Identifiers
+/// - Literals
+/// - Function calls
+/// - For loops
+/// - If-then-else conditionals
+/// - Let bindings
+/// - Content blocks
+///
+/// # Arguments
+///
+/// * `inline` - Parser for inline elements that can appear within expressions
+///
+/// # Returns
+///
+/// A parser that recognizes expressions and produces a `tree::Expr` node
 pub fn expr_parser<'src, I>(
     inline: I,
 ) -> impl Parser<'src, &'src str, NodeId<tree::Expr>, Extra<'src>>
@@ -91,6 +123,16 @@ where
     })
 }
 
+/// Parses function arguments and optional content block
+///
+/// # Arguments
+///
+/// * `expr` - Parser for expressions that can appear as argument values
+/// * `content` - Parser for content blocks that can follow the argument list
+///
+/// # Returns
+///
+/// A parser that recognizes argument lists and produces a `tree::Args` node
 pub fn args_parser<'src, E, C>(
     expr: E,
     content: C,
@@ -114,6 +156,17 @@ where
         .map_to_node(|(args, content)| tree::Args { args, content })
 }
 
+/// Parses literal values
+///
+/// Supports the following literal types:
+/// - Booleans (`true` or `false`)
+/// - Integers (decimal, octal with `0o` prefix, hexadecimal with `0x` prefix)
+/// - Floating point numbers
+/// - String literals enclosed in double quotes
+///
+/// # Returns
+///
+/// A parser that recognizes literals and produces a `tree::Literal` node
 pub fn literal_parser<'src>() -> impl Parser<'src, &'src str, NodeId<tree::Literal>, Extra<'src>> {
     let boolean = just("true")
         .to(true)
