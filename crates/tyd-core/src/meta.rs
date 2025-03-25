@@ -2,6 +2,70 @@ use crate::{id::NodeId, tree::*};
 
 use std::{fmt::Debug, marker::PhantomData, ops::Deref, sync::Arc};
 
+/// A trait for phases that use a single metadata type for all node kinds.
+///
+/// This simplifies the implementation of `Phase` by allowing a single metadata type
+/// to be used for all node kinds in the document tree.
+pub trait UniformPhase: 'static + Debug + Copy {
+    /// The metadata type to use for all nodes in this phase
+    type Meta: Debug + Clone;
+}
+
+impl<T: UniformPhase> Phase for T {
+    type Error = T::Meta;
+    type Tag = T::Meta;
+    type Text = T::Meta;
+    type Label = T::Meta;
+
+    // Block
+    type Block = T::Meta;
+    type Raw = T::Meta;
+    type Heading = T::Meta;
+    type HeadingMarker = T::Meta;
+    type Table = T::Meta;
+    type TableRow = T::Meta;
+    type List = T::Meta;
+    type ListItem = T::Meta;
+    type Enum = T::Meta;
+    type EnumItem = T::Meta;
+    type Terms = T::Meta;
+    type TermItem = T::Meta;
+    type Paragraph = T::Meta;
+    type Plain = T::Meta;
+
+    // Inline
+    type Inline = T::Meta;
+    type Quote = T::Meta;
+    type Strikeout = T::Meta;
+    type Emphasis = T::Meta;
+    type Strong = T::Meta;
+    type Subscript = T::Meta;
+    type Supscript = T::Meta;
+    type Link = T::Meta;
+    type Ref = T::Meta;
+    type RawInline = T::Meta;
+    type MathInline = T::Meta;
+    type Comment = T::Meta;
+    type Escape = T::Meta;
+    type Word = T::Meta;
+    type Spacing = T::Meta;
+    type SoftBreak = T::Meta;
+
+    // Code
+    type Code = T::Meta;
+    type Expr = T::Meta;
+    type Let = T::Meta;
+    type Bind = T::Meta;
+    type If = T::Meta;
+    type For = T::Meta;
+    type Call = T::Meta;
+    type Args = T::Meta;
+    type Arg = T::Meta;
+    type Literal = T::Meta;
+    type Ident = T::Meta;
+    type Content = T::Meta;
+}
+
 /// Defines a processing phase for a document tree.
 ///
 /// This trait specifies all associated types that can be attached as metadata

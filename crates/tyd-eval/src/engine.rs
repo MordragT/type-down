@@ -1,7 +1,7 @@
 use ecow::EcoString;
 use std::{collections::BTreeMap, fmt::Debug, mem};
 use tyd_core::prelude::*;
-use tyd_syntax::{source::Source, SpanMetadata};
+use tyd_syntax::{source::Source, Spans};
 
 use crate::{
     error::{EngineError, SymbolError, TypeError},
@@ -62,7 +62,7 @@ pub struct Engine {
     source: Source,
 
     /// Span metadata for error reporting
-    spans: SpanMetadata,
+    spans: Spans,
 }
 
 impl Engine {

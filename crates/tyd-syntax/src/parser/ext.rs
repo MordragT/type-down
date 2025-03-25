@@ -2,7 +2,7 @@ use chumsky::{combinator::*, prelude::*};
 use ecow::EcoString;
 use tyd_core::prelude::*;
 
-use crate::{Span, SyntaxPhase};
+use crate::{LocationPhase, Span};
 
 use super::extra::{Extra, State};
 
@@ -26,7 +26,7 @@ pub trait ParserExt<'src, T>: Parser<'src, &'src str, T, Extra<'src>> + Sized {
     #[inline]
     fn to_node(self) -> impl Parser<'src, &'src str, NodeId<T>, Extra<'src>>
     where
-        T: MetaCast<SyntaxPhase, Meta = Span>,
+        T: MetaCast<LocationPhase, Meta = Span>,
         Node: From<T>,
     {
         self.map_with(|node, e| {
@@ -44,7 +44,7 @@ pub trait ParserExt<'src, T>: Parser<'src, &'src str, T, Extra<'src>> + Sized {
     fn map_to_node<F, U>(self, f: F) -> impl Parser<'src, &'src str, NodeId<U>, Extra<'src>>
     where
         F: Fn(T) -> U,
-        U: MetaCast<SyntaxPhase, Meta = Span>,
+        U: MetaCast<LocationPhase, Meta = Span>,
         Node: From<U>,
     {
         self.map(f).to_node()

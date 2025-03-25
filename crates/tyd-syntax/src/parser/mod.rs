@@ -2,7 +2,7 @@
 use chumsky::prelude::*;
 use tyd_core::prelude::*;
 
-use crate::{error::SourceDiagnostic, source::Source, SpanMetadata};
+use crate::{error::SourceDiagnostic, source::Source, Spans};
 
 pub mod code;
 pub mod ext;
@@ -16,7 +16,7 @@ pub struct ParseResult {
     /// The parsed document, if parsing was successful enough to produce one.
     pub doc: Option<Doc>,
     /// Metadata about spans in the source text.
-    pub spans: SpanMetadata,
+    pub spans: Spans,
     /// Collection of diagnostics for any errors encountered during parsing.
     pub errors: Vec<SourceDiagnostic>,
 }

@@ -1,0 +1,7 @@
+id = "tyd-zed-extension"
+name = "TypeDown Extension"
+version = "0.0.1"
+schema_version = 1
+authors = ["Thomas Wehmöller <contact.mordrag+zed@gmail.com>"]
+description = "Provides TypeDown support for Zed."
+repository = "https://github.com/MordragT/type-down"

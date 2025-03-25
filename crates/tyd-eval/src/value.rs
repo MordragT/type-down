@@ -285,6 +285,37 @@ impl<'a> TypeChecker<'a> {
         }
     }
 
+    /// Removes and extracts a typed value from a scope by name, or returns a default value if not found.
+    ///
+    /// This method attempts to extract a value of type T from the scope using the given name.
+    /// If the value is present but of the wrong type, it reports an error via the tracer.
+    /// If the value is not present at all, it returns the provided default value.
+    ///
+    /// # Arguments
+    ///
+    /// * `scope` - Mutable reference to the scope
+    /// * `name` - The name of the value to extract
+    /// * `default` - The default value to return if the named value is not found
+    ///
+    /// # Returns
+    ///
+    /// * `Some(val)` if the value was found with the correct type or the default value was used
+    /// * `None` if the value was found but had the wrong type (and reports the error)
+    pub fn remove_from_scope_or<T>(
+        &mut self,
+        scope: &mut Scope,
+        name: impl AsRef<str>,
+        default: T,
+    ) -> Option<T>
+    where
+        T: Typed,
+    {
+        match scope.try_remove::<T>(name) {
+            Some(result) => self.extract(result),
+            None => Some(default),
+        }
+    }
+
     /// Pops and extracts a typed value from a stack at the given position.
     ///
     /// Reports appropriate errors if the value is missing or of the wrong type.
@@ -314,6 +345,16 @@ impl<'a> TypeChecker<'a> {
                 );
                 None
             }
+        }
+    }
+
+    pub fn pop_from_stack_or<T>(&mut self, stack: &mut Stack, default: T) -> Option<T>
+    where
+        T: Typed,
+    {
+        match stack.try_pop::<T>() {
+            Some(value) => self.extract(value),
+            None => Some(default),
         }
     }
 

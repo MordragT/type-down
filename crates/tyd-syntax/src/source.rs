@@ -1,6 +1,7 @@
 use std::{fmt, fs, io, path::Path, sync::Arc};
 
 use miette::SourceCode;
+use ropey::Rope;
 
 use crate::Span;
 
@@ -17,6 +18,9 @@ pub struct Source {
     name: Arc<str>,
     /// The source code content, wrapped in an Arc for efficient cloning
     source: Arc<str>,
+    /// The source code content represented as a rope data structure
+    /// for efficient text manipulation operations
+    rope: Rope,
 }
 
 impl Source {
@@ -30,10 +34,13 @@ impl Source {
     /// # Returns
     /// A new `Source` instance
     pub fn new(path: impl AsRef<Path>, name: impl AsRef<str>, source: impl AsRef<str>) -> Self {
+        let source = source.as_ref();
+
         Self {
             path: Arc::from(path.as_ref()),
             name: Arc::from(name.as_ref()),
-            source: Arc::from(source.as_ref()),
+            source: Arc::from(source),
+            rope: Rope::from_str(source),
         }
     }
 
@@ -68,6 +75,14 @@ impl Source {
         &self.source
     }
 
+    /// Returns the source content as a Rope.
+    ///
+    /// # Returns
+    /// The source content as a Rope
+    pub fn as_rope(&self) -> Rope {
+        self.rope.clone()
+    }
+
     /// Returns the path of the source.
     ///
     /// # Returns
@@ -100,7 +115,11 @@ impl Source {
     /// # Returns
     /// A `Span` positioned at the end of the source
     pub fn end_of_input(&self) -> Span {
-        Span::new(self.len(), self.len())
+        Span {
+            start: self.len(),
+            end: self.len(),
+            context: (),
+        }
     }
 }
 

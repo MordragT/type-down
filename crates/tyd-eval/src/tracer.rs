@@ -2,7 +2,7 @@ use std::fmt;
 
 use miette::{Diagnostic, MietteDiagnostic, Severity};
 use tyd_core::{id::NodeId, meta::MetaContainer};
-use tyd_syntax::{error::SourceDiagnostic, source::Source, Span, SpanMetadata};
+use tyd_syntax::{error::SourceDiagnostic, source::Source, Span, Spans};
 
 /// `Tracer` is a diagnostic tool that collects and manages error messages,
 /// warnings, and informational messages during parsing and compilation.
@@ -15,7 +15,7 @@ pub struct Tracer {
     #[source_code]
     pub(crate) source: Source,
     /// Source spans for nodes
-    pub(crate) spans: SpanMetadata,
+    pub(crate) spans: Spans,
     /// Collection of source-specific diagnostics
     #[related]
     source_diags: Vec<SourceDiagnostic>,
@@ -30,7 +30,7 @@ impl Tracer {
     /// # Arguments
     /// * `source` - The source code being analyzed
     /// * `spans` - Metadata about the spans in the source
-    pub fn new(source: Source, spans: SpanMetadata) -> Self {
+    pub fn new(source: Source, spans: Spans) -> Self {
         Self {
             source,
             spans,
@@ -48,7 +48,7 @@ impl Tracer {
     pub fn with_diagnostics(
         diagnostics: Vec<SourceDiagnostic>,
         source: Source,
-        spans: SpanMetadata,
+        spans: Spans,
     ) -> Self {
         Self {
             source,
@@ -185,6 +185,26 @@ impl Tracer {
     pub fn node_info<T>(&mut self, id: NodeId<T>, message: impl ToString) {
         let span = self.spans.get(id).inner_copied();
         self.source_info(span, message);
+    }
+
+    /// Consumes the tracer and returns its contained diagnostics.
+    ///
+    /// This method is useful when you need to extract the collected diagnostics
+    /// from the tracer, for example when passing them to another system or
+    /// when you're done with the tracing context.
+    ///
+    /// # Returns
+    /// A tuple containing:
+    /// * The source-specific diagnostics
+    /// * The general diagnostics
+    #[inline]
+    pub fn into_inner(
+        self,
+    ) -> (
+        Vec<SourceDiagnostic>,
+        Vec<Box<dyn Diagnostic + Send + Sync>>,
+    ) {
+        (self.source_diags, self.diags)
     }
 }
 

@@ -10,5 +10,6 @@ tyd-core.workspace = true
 miette.workspace = true
 thiserror.workspace = true
 ecow.workspace = true
-chumsky = { version = "=1.0.0-alpha.8", features = ["nightly", "unstable"] }
-constcat = "0.4.1"
+ropey.workspace = true
+chumsky = { version = "0.10", features = ["nightly", "unstable"] }
+constcat = "0.6"

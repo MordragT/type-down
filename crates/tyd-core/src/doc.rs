@@ -184,6 +184,20 @@ impl Doc {
         self.nodes.iter()
     }
 
+    /// Iterate over all nodes with their corresponding IDs.
+    ///
+    /// # Returns
+    /// An iterator that yields each node along with its NodeId.
+    /// The returned items are of type `Full<'_, Node>`, which is a tuple
+    /// containing a reference to the node and its ID.
+    #[inline]
+    pub fn iter_full(&self) -> impl Iterator<Item = Full<'_, Node>> {
+        self.nodes
+            .iter()
+            .enumerate()
+            .map(|(id, node)| (node, NodeId::new(id as u32)))
+    }
+
     /// Visit the document using a visitor.
     ///
     /// This method traverses the document structure starting from the top-level blocks

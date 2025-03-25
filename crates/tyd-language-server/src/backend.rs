@@ -1,48 +1,40 @@
 use dashmap::DashMap;
 use ropey::Rope;
-use std::sync::Arc;
 use tower_lsp::{jsonrpc::Result, lsp_types::*, Client, LanguageServer};
-use tyd_eval::{
-    eval::{Engine, Scope},
-    world::World,
-};
-use tyd_syntax::{
-    ast::{Document, TypedNode},
-    node::Node,
-    parser::try_parse,
-    visitor::Visitor,
-};
+use tyd_core::prelude::*;
+use tyd_eval::prelude::*;
+use tyd_syntax::prelude::*;
 
-use crate::semantic::{semantic_tokens_full_from_node, semantic_tokens_range_from_node, LEGEND};
+use crate::semantic::{SemanticAnalyzer, LEGEND};
 
 #[derive(Debug)]
-pub struct Backend<E: Engine> {
+pub struct Backend {
     client: Client,
-    documents: DashMap<Url, Rope>,
-    trees: DashMap<Url, Node>,
-    global_scope: Arc<Scope<E>>,
-    visitor: Arc<dyn Visitor<State = E> + Send + Sync>,
+    sources: DashMap<Url, Source>,
+    documents: DashMap<Url, Doc>,
+    spans: DashMap<Url, Spans>,
+    global_scope: Scope,
 }
 
-impl<E: Engine> Backend<E> {
-    pub fn new(
-        client: Client,
-        global_scope: impl Into<Arc<Scope<E>>>,
-        visitor: impl Visitor<State = E> + Send + Sync + 'static,
-    ) -> Self {
+impl Backend {
+    pub fn new(client: Client, global_scope: Scope) -> Self {
         Self {
             client,
+            sources: DashMap::new(),
             documents: DashMap::new(),
-            trees: DashMap::new(),
+            spans: DashMap::new(),
             global_scope: global_scope.into(),
-            visitor: Arc::new(visitor),
         }
     }
 
     pub async fn on_semantic_tokens_full(&self, uri: Url) -> Option<SemanticTokensResult> {
-        let rope = self.documents.get(&uri)?;
-        let node = self.trees.get(&uri)?;
-        let semantic_tokens = semantic_tokens_full_from_node(&node, &rope);
+        let source = self.sources.get(&uri)?;
+        let spans = self.spans.get(&uri)?;
+        let doc = self.documents.get(&uri)?;
+
+        let analyzer = SemanticAnalyzer::new(source.as_rope(), doc.clone(), spans.clone());
+
+        let semantic_tokens = analyzer.tokens();
 
         self.client
             .log_message(
@@ -58,10 +50,13 @@ impl<E: Engine> Backend<E> {
     }
 
     pub async fn on_semantic_tokens_range(&self, uri: Url) -> Option<SemanticTokensRangeResult> {
-        let rope = self.documents.get(&uri)?;
-        let node = self.trees.get(&uri)?;
-        // let semantic_tokens = semantic_tokens_range_from_node(node, &rope);
-        let semantic_tokens = semantic_tokens_full_from_node(&node, &rope);
+        let source = self.sources.get(&uri)?;
+        let spans = self.spans.get(&uri)?;
+        let doc = self.documents.get(&uri)?;
+
+        let analyzer = SemanticAnalyzer::new(source.as_rope(), doc.clone(), spans.clone());
+
+        let semantic_tokens = analyzer.tokens();
 
         Some(SemanticTokensRangeResult::Tokens(SemanticTokens {
             result_id: None,
@@ -70,53 +65,37 @@ impl<E: Engine> Backend<E> {
     }
 
     pub async fn on_change(&self, uri: Url, source: String, version: i32) {
-        let rope = Rope::from_str(&source);
-        let result = try_parse(&source);
+        let path = uri.to_file_path().unwrap();
+        let name = path.file_name().unwrap().to_str().unwrap();
 
-        let mut diags = result
-            .errors()
-            .filter_map(|e| {
-                Some(Diagnostic {
-                    range: range_conversion(e.span().into_range(), &rope)?,
-                    message: e.to_string(),
-                    ..Default::default()
-                })
-            })
-            .collect::<Vec<_>>();
+        let source = Source::new(&path, name, source);
 
-        if let Some(node) = result.into_output() {
-            let path = uri.to_file_path().unwrap();
-            let world = World::new(path, self.global_scope.clone()).unwrap();
-            let mut engine = E::from_world(world);
-            let doc = Document::from_node(&node).unwrap();
+        self.sources.insert(uri.clone(), source.clone());
 
-            self.visitor.visit_doc(&mut engine, doc);
+        let ParseResult { doc, spans, errors } = parse(&source);
 
-            let mut engine_diags = engine
-                .tracer_mut()
-                .drain_errors()
-                .filter_map(|e| {
-                    Some(Diagnostic {
-                        range: range_conversion(e.span.into_range(), &rope)?,
-                        message: e.msg.to_string(),
-                        ..Default::default()
-                    })
-                })
-                .collect();
-            diags.append(&mut engine_diags);
-            self.trees.insert(uri.clone(), node);
+        self.spans.insert(uri.clone(), spans.clone());
+
+        let mut tracer = Tracer::with_diagnostics(errors, source.clone(), spans.clone());
+
+        if let Some(doc) = doc {
+            self.documents.insert(uri.clone(), doc.clone());
+
+            tracer = Engine::new(self.global_scope.clone(), tracer)
+                .run(doc)
+                .tracer;
         }
 
-        self.client
-            .publish_diagnostics(uri.clone(), diags, Some(version))
-            .await;
+        let diags = tracer_into_diagnostic(tracer, &source.as_rope());
 
-        self.documents.insert(uri, rope);
+        self.client
+            .publish_diagnostics(uri, diags, Some(version))
+            .await;
     }
 }
 
 #[tower_lsp::async_trait]
-impl<E: Engine + 'static> LanguageServer for Backend<E> {
+impl LanguageServer for Backend {
     async fn initialize(&self, _: InitializeParams) -> Result<InitializeResult> {
         Ok(InitializeResult {
             server_info: None,
@@ -214,6 +193,26 @@ impl<E: Engine + 'static> LanguageServer for Backend<E> {
         let uri = params.text_document.uri;
         Ok(self.on_semantic_tokens_range(uri).await)
     }
+}
+
+fn tracer_into_diagnostic(tracer: Tracer, rope: &Rope) -> Vec<Diagnostic> {
+    tracer
+        .into_inner()
+        .0
+        .into_iter()
+        .filter_map(|message| {
+            Some(Diagnostic {
+                range: range_conversion(message.span.into_range(), &rope)?,
+                severity: match message.severity {
+                    miette::Severity::Error => Some(DiagnosticSeverity::ERROR),
+                    miette::Severity::Warning => Some(DiagnosticSeverity::WARNING),
+                    miette::Severity::Advice => Some(DiagnosticSeverity::INFORMATION),
+                },
+                message: message.to_string(),
+                ..Default::default()
+            })
+        })
+        .collect()
 }
 
 fn range_conversion(span: std::ops::Range<usize>, rope: &Rope) -> Option<Range> {

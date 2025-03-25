@@ -1,29 +1,23 @@
-use async_std::task;
 use backend::Backend;
 use tower_lsp::{LspService, Server};
-use tyd_eval::{builtin, value::Value};
-use tyd_pandoc::{plugin, visitor::PandocVisitor};
+use tyd_eval::prelude::*;
 
 pub mod backend;
+// pub mod kind;
 pub mod semantic;
 
-fn main() {
-    task::block_on(run())
-}
+#[tokio::main]
+async fn main() {
+    let stdin = tokio::io::stdin();
+    let stdout = tokio::io::stdout();
 
-async fn run() {
-    let stdin = async_std::io::stdin();
-    let stdout = async_std::io::stdout();
+    let mut scope = Scope::empty();
 
-    let scope = plugin::plugin()
-        .into_scope()
-        .register_symbol("title", "Default title")
-        .register_symbol("author", vec![Value::from("Max Mustermann")])
-        // Builtins
-        .register_func("let", builtin::Let)
-        .register_func("List", builtin::List)
-        .register_func("Map", builtin::Map);
+    scope
+        .register::<BuiltinPlugin>()
+        .with("title", "Default title")
+        .with("author", vec![Value::from("Max Mustermann")]);
 
-    let (service, socket) = LspService::new(|client| Backend::new(client, scope, PandocVisitor {}));
+    let (service, socket) = LspService::new(|client| Backend::new(client, scope));
     Server::new(stdin, stdout, socket).serve(service).await;
 }

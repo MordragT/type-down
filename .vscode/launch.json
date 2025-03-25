@@ -10,7 +10,7 @@
 			"type": "extensionHost",
 			"request": "launch",
 			"args": [
-				"--extensionDevelopmentPath=${workspaceRoot}/extension"
+				"--extensionDevelopmentPath=${workspaceRoot}/crates/tyd-vscode-extension"
 			],
 			"outFiles": [
 				"${workspaceRoot}/extension/out/**/*.js"

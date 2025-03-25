@@ -16,7 +16,7 @@
 				"isDefault": true
 			},
 			"options": {
-				"cwd": "${workspaceFolder}/extension"
+				"cwd": "${workspaceFolder}/crates/tyd-vscode-extension"
 			}
 		}
 	]

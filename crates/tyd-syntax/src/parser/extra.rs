@@ -1,7 +1,7 @@
 use chumsky::prelude::*;
 use tyd_core::prelude::*;
 
-use crate::{Span, SyntaxPhase};
+use crate::{LocationPhase, Span};
 
 /// Represents the parser state using a simple state wrapper around `StateRepr`.
 pub type State = extra::SimpleState<StateRepr>;
@@ -32,7 +32,7 @@ pub struct StateRepr {
     pub builder: DocBuilder,
 
     /// Collection of metadata associated with syntax elements.
-    pub meta: MetaVec<SyntaxPhase>,
+    pub meta: MetaVec<LocationPhase>,
 }
 
 impl StateRepr {
@@ -57,7 +57,7 @@ impl StateRepr {
     /// * `T` - Node type that can be cast to metadata and converted to a `Node`
     pub fn insert<T>(&mut self, node: T, meta: Span) -> NodeId<T>
     where
-        T: MetaCast<SyntaxPhase, Meta = Span>,
+        T: MetaCast<LocationPhase, Meta = Span>,
         Node: From<T>,
     {
         let id = self.builder.insert(node);

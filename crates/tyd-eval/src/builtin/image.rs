@@ -57,19 +57,24 @@ pub fn image(
     };
 
     // Optional 'alt' parameter (with empty default)
-    let alt = checker
-        .remove_from_scope::<EcoString>(&mut scope, "alt")
-        .unwrap_or(EcoString::new());
+    let alt = match checker.remove_from_scope_or::<EcoString>(&mut scope, "alt", EcoString::new()) {
+        Some(alt) => alt,
+        None => return Value::None,
+    };
 
     // Optional 'width' parameter (with "auto" default)
-    let width = checker
-        .remove_from_scope::<EcoString>(&mut scope, "width")
-        .unwrap_or("auto".into());
+    let width = match checker.remove_from_scope_or::<EcoString>(&mut scope, "width", "auto".into())
+    {
+        Some(width) => width,
+        None => return Value::None,
+    };
 
     // Optional 'height' parameter (with "auto" default)
-    let height = checker
-        .remove_from_scope::<EcoString>(&mut scope, "height")
-        .unwrap_or("auto".into());
+    let height =
+        match checker.remove_from_scope_or::<EcoString>(&mut scope, "height", "auto".into()) {
+            Some(height) => height,
+            None => return Value::None,
+        };
 
     // Warn about unknown positional arguments
     checker.warn_unknown_positional(stack, 0);
