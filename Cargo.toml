@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "crates/tyd-core",
+    "crates/tyd-syntax",
     "crates/tyd-eval",
     "crates/tyd-language-server",
     "crates/tyd-zed-extension",
@@ -18,9 +19,9 @@ ropey = "1.6"
 derive_more = { version = "2", features = ["from"] }
 
 [package]
-name = "type_down"
+name = "type-down"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 authors = ["Thomas Wehmoeller"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

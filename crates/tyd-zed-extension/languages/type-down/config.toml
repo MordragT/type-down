@@ -1,0 +1,10 @@
+name = "TypeDown"
+# grammar = "type-down"
+path_suffixes = ["tyd", "typedown"]
+line_comments = ["% "]
+tab_size = 4
+brackets = [
+    { start = "{", end = "}", close = true, newline = false },
+    { start = "[", end = "]", close = true, newline = false },
+    { start = "(", end = ")", close = true, newline = false },
+]
